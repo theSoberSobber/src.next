@@ -38,6 +38,7 @@ public class ThemeSettingsFragment extends PreferenceFragmentCompat {
                 sharedPreferencesManager.readBoolean(UI_THEME_DARKEN_WEBSITES_ENABLED, false));
 
         radioButtonGroupThemePreference.setOnPreferenceChangeListener((preference, newValue) -> {
+            if (false)
             if (ChromeFeatureList.isEnabled(
                         ChromeFeatureList.DARKEN_WEBSITES_CHECKBOX_IN_THEMES_SETTING)) {
                 sharedPreferencesManager.writeBoolean(UI_THEME_DARKEN_WEBSITES_ENABLED,

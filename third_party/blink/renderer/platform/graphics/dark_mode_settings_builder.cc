@@ -100,8 +100,6 @@ DarkModeInversionAlgorithm GetMode(const SwitchParams& switch_params) {
 }
 
 DarkModeImagePolicy GetImagePolicy(const SwitchParams& switch_params) {
-  if (true)
-    return DarkModeImagePolicy::kFilterSmart;
   switch (features::kForceDarkImageBehaviorParam.Get()) {
     case ForceDarkImageBehavior::kUseBlinkSettings:
       return GetIntegerSwitchParamValue<DarkModeImagePolicy>(

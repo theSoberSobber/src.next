@@ -38,9 +38,6 @@ import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
 
-import org.chromium.chrome.browser.browsing_data.ClearBrowsingDataTabsFragment;
-import org.chromium.chrome.browser.settings.SettingsLauncherImpl;
-import org.chromium.components.browser_ui.settings.SettingsLauncher;
 import org.chromium.base.ActivityState;
 import org.chromium.base.ApplicationStatus;
 import org.chromium.base.BuildInfo;
@@ -63,7 +60,6 @@ import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.base.supplier.OneshotSupplierImpl;
 import org.chromium.base.supplier.Supplier;
 import org.chromium.base.supplier.UnownedUserDataSupplier;
-import org.chromium.chrome.browser.preferences.SharedPreferencesManager;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ActivityTabProvider;
 import org.chromium.chrome.browser.ActivityUtils;
@@ -72,7 +68,6 @@ import org.chromium.chrome.browser.ChromeActivitySessionTracker;
 import org.chromium.chrome.browser.ChromeApplicationImpl;
 import org.chromium.chrome.browser.ChromeKeyboardVisibilityDelegate;
 import org.chromium.chrome.browser.ChromeWindow;
-import org.chromium.components.content_settings.ContentSettingValues;
 import org.chromium.chrome.browser.DeferredStartupHandler;
 import org.chromium.chrome.browser.IntentHandler;
 import org.chromium.chrome.browser.IntentHandler.IntentHandlerDelegate;
@@ -114,7 +109,6 @@ import org.chromium.chrome.browser.download.items.OfflineContentAggregatorNotifi
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
 import org.chromium.chrome.browser.feedback.HelpAndFeedbackLauncherImpl;
 import org.chromium.chrome.browser.firstrun.ForcedSigninProcessor;
-import org.chromium.chrome.browser.ApplicationLifetime;
 import org.chromium.chrome.browser.flags.ActivityType;
 import org.chromium.chrome.browser.flags.CachedFeatureFlags;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
@@ -247,23 +241,26 @@ import org.chromium.ui.widget.Toast;
 import org.chromium.url.GURL;
 import org.chromium.webapk.lib.client.WebApkNavigationClient;
 
-import org.chromium.chrome.browser.night_mode.ThemeType;
-import org.chromium.components.content_settings.ContentSettingsType;
-import org.chromium.components.browser_ui.site_settings.SiteSettingsCategory;
-import org.chromium.components.browser_ui.site_settings.WebsitePreferenceBridge;
-import org.chromium.components.browser_ui.site_settings.WebsitePreferenceBridgeJni;
-import org.chromium.base.IntentUtils;
-
-import org.chromium.ui.widget.Toast;
-import org.chromium.chrome.browser.AppMenuBridge;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 
-import org.chromium.chrome.browser.night_mode.WebContentsDarkModeController;
 import org.chromium.base.ContextUtils;
+import org.chromium.chrome.browser.ApplicationLifetime;
+import org.chromium.chrome.browser.AppMenuBridge;
+import org.chromium.chrome.browser.browsing_data.ClearBrowsingDataTabsFragment;
+import org.chromium.chrome.browser.night_mode.WebContentsDarkModeController;
+import org.chromium.chrome.browser.preferences.SharedPreferencesManager;
 import org.chromium.chrome.browser.night_mode.ThemeType;
+import org.chromium.chrome.browser.settings.SettingsLauncherImpl;
+import org.chromium.components.browser_ui.settings.SettingsLauncher;
+import org.chromium.components.content_settings.ContentSettingValues;
+import org.chromium.components.content_settings.ContentSettingsType;
+import org.chromium.components.browser_ui.site_settings.WebsitePreferenceBridge;
+import org.chromium.components.browser_ui.site_settings.WebsitePreferenceBridgeJni;
+import org.chromium.ui.widget.Toast;
+
+import org.chromium.chrome.browser.AppMenuBridge;
 
 /**
  * A {@link AsyncInitializationActivity} that builds and manages a {@link CompositorViewHolder}
@@ -368,6 +365,8 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
     /** The data associated with the most recently selected menu item. */
     @Nullable
     private Bundle mMenuItemData;
+
+    private String mMenuTitleCondensed;
 
     /**
      * The current configuration, used to for diffing when the configuration is changed.
@@ -481,6 +480,8 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
         // if Chrome is killed and you refocus a previous activity from Android recents, which does
         // not go through ChromeLauncherActivity that would have normally triggered this.
         mPartnerBrowserRefreshNeeded = !PartnerBrowserCustomizations.getInstance().isInitialized();
+
+        WebContentsDarkModeController.updateDarkModeStringSettings();
 
         CommandLine commandLine = CommandLine.getInstance();
         if (!commandLine.hasSwitch(ChromeSwitches.DISABLE_FULLSCREEN)) {
@@ -1703,8 +1704,6 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
 
         super.finishNativeInitialization();
 
-        AppMenuBridge.getRunningExtensions(Profile.getLastUsedRegularProfile(), null);
-
         mManualFillingComponentSupplier.get().initialize(getWindowAndroid(),
                 mRootUiCoordinator.getBottomSheetController(),
                 (ChromeKeyboardVisibilityDelegate) getWindowAndroid().getKeyboardDelegate(),
@@ -1780,6 +1779,11 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
      */
     public boolean didFinishNativeInitialization() {
         return mNativeInitialized;
+    }
+
+    @Override
+    public void setLastItemTitle(String itemTitle) {
+        mMenuTitleCondensed = itemTitle;
     }
 
     @Override
@@ -2474,6 +2478,27 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
 
         @BrowserProfileType
         int type = Profile.getBrowserProfileTypeFromProfile(getCurrentTabModel().getProfile());
+
+        if (mMenuTitleCondensed != null && !mMenuTitleCondensed.equals("") && mMenuTitleCondensed.contains("Extension: ")) {
+            String[] extensionInfo = mMenuTitleCondensed.split(": ");
+            String extensionId = extensionInfo[1];
+            String extensionUrl = "";
+            if (extensionInfo.length > 2)
+                extensionUrl = extensionInfo[2];
+            Log.d("Kiwi", "Pressed extension menu: " + extensionId + " - url: " + extensionUrl);
+            Tab tab = getActivityTab();
+            if (tab != null) {
+                WebContents webContents = tab.getWebContents();
+                LaunchMetrics.commitLaunchMetrics(webContents);
+                AppMenuBridge.grantExtensionActiveTab(Profile.fromWebContents(webContents).getOriginalProfile(), webContents, extensionId);
+                if (!extensionUrl.equals(""))
+                  getCurrentTabCreator().launchUrl(extensionUrl, TabLaunchType.FROM_CHROME_UI);
+                else
+                  AppMenuBridge.callExtension(Profile.fromWebContents(webContents).getOriginalProfile(), webContents, extensionId);
+                return true;
+            }
+            return false;
+        }
 
         if (id == R.id.preferences_id) {
             SettingsLauncher settingsLauncher = new SettingsLauncherImpl();

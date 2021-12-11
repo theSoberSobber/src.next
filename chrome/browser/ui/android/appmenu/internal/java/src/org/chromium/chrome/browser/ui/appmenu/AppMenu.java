@@ -65,13 +65,9 @@ import android.graphics.Color;
 import android.app.Activity;
 import java.util.Hashtable;
 
-import androidx.appcompat.view.menu.MenuBuilder;
-
 import org.chromium.chrome.browser.app.ChromeActivity;
 
 import org.chromium.base.annotations.NativeMethods;
-import org.chromium.chrome.browser.tabmodel.TabCreator;
-import org.chromium.content_public.browser.LoadUrlParams;
 
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.ui.mojom.WindowOpenDisposition;
@@ -81,12 +77,6 @@ import org.chromium.base.ThreadUtils;
 import org.chromium.base.annotations.CalledByNative;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.content_public.browser.WebContents;
-
-import org.chromium.chrome.browser.AppMenuBridge;
-import org.chromium.chrome.browser.tab.TabLaunchType;
-import org.chromium.ui.base.PageTransition;
-
-import android.content.ContextWrapper;
 
 /**
  * Shows a popup of menuitems anchored to a host view. When a item is selected we call
@@ -105,10 +95,6 @@ class AppMenu implements OnItemClickListener, OnKeyListener, AppMenuClickHandler
     private final int mChipHighlightExtension;
     private final int[] mTempLocation;
     private final boolean mIconBeforeItem;
-
-    private Hashtable<Integer, String> extensionsIds;
-    private Hashtable<Integer, String> extensionsPopups;
-    private Activity mActivity;
 
     private PopupWindow mPopup;
     private ListView mListView;
@@ -569,7 +555,7 @@ class AppMenu implements OnItemClickListener, OnKeyListener, AppMenuClickHandler
         int menuHeight = calculateHeightForItems(
                 menuItems, heightList, groupDividerResourceId, availableScreenSpace);
         menuHeight += footerHeight + headerHeight + padding.top + padding.bottom;
-        if (ContextUtils.getAppSharedPreferences().getBoolean("enable_bottom_toolbar", false) && menuItems.size() >= 7)
+        if (ContextUtils.getAppSharedPreferences().getBoolean("enable_bottom_toolbar", false) && menuItemIds.size() >= 7)
             menuHeight /= 1.45;
         mPopup.setHeight(menuHeight);
         return menuHeight;

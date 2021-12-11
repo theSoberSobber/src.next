@@ -17,8 +17,11 @@ import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.components.user_prefs.UserPrefs;
 
 import android.content.SharedPreferences.Editor;
-import org.chromium.base.Log;
 
+import org.chromium.base.ContextUtils;
+import org.chromium.chrome.browser.preferences.SharedPreferencesManager;
+import org.chromium.chrome.browser.preferences.Pref;
+import org.chromium.base.Log;
 import org.chromium.base.SysUtils;
 import java.text.DecimalFormat;
 
@@ -67,34 +70,6 @@ public class WebContentsDarkModeController implements ApplicationStateListener {
         return GlobalNightModeStateProviderHolder.getInstance().isInNightMode()
                 && SharedPreferencesManager.getInstance().readBoolean(
                         UI_THEME_DARKEN_WEBSITES_ENABLED, false);
-    }
-
-    // copy-paste of the setting in AccessibilityPreferences
-    private static float getUserNightModeFactor() {
-        float nightFactor = ContextUtils.getAppSharedPreferences().getFloat("user_night_mode_factor", 0.99f);
-        return nightFactor;
-    }
-
-
-    public static void updateDarkModeStringSettings() {
-        String nightModeSettings = "";
-        Log.i("Kiwi", "SetContentCommandLineFlags - Setting new dark mode settings to [" + nightModeSettings + "]");
-
-        if (ContextUtils.getAppSharedPreferences().getString("active_nightmode", "default").equals("default") || ContextUtils.getAppSharedPreferences().getString("active_nightmode", "default").equals("amoled")) {
-          nightModeSettings = "ContrastPercent=0,"; // -1 to 1
-        } else if (ContextUtils.getAppSharedPreferences().getString("active_nightmode", "default").equals("amoled_grayscale")) {
-          nightModeSettings = "ContrastPercent=0,"; // -1 to 1
-          nightModeSettings += "IsGrayScale=1,ImageGrayScalePercent=1.0,ImagePolicy=0,";
-        } else if (ContextUtils.getAppSharedPreferences().getString("active_nightmode", "default").equals("gray")) {
-          nightModeSettings = "ContrastPercent=0.15,"; // -1 to 1
-        } else if (ContextUtils.getAppSharedPreferences().getString("active_nightmode", "default").equals("gray_grayscale")) {
-          nightModeSettings = "ContrastPercent=0.15,"; // -1 to 1
-          nightModeSettings += "IsGrayScale=1,ImageGrayScalePercent=1.0,ImagePolicy=0,";
-        } else if (ContextUtils.getAppSharedPreferences().getString("active_nightmode", "default").equals("high_contrast")) {
-          nightModeSettings = "ContrastPercent=-0.15,"; // -1 to 1
-        }
-
-        SharedPreferencesManager.getInstance().writeStringUnchecked("night_mode_settings", nightModeSettings);
     }
 
     /**

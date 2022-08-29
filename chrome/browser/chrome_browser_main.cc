@@ -321,6 +321,8 @@
 #include "components/spellcheck/common/spellcheck_features.h"
 #endif  // defined(OS_WIN) && BUILDFLAG(USE_BROWSER_SPELLCHECKER)
 
+#include "chrome/browser/profiles/chrome_browser_main_extra_parts_profiles.h"
+
 namespace {
 
 #if !defined(OS_ANDROID)

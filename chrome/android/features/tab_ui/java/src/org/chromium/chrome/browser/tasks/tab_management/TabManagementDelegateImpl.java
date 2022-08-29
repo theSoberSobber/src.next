@@ -54,6 +54,8 @@ import org.chromium.ui.modaldialog.ModalDialogManager;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.resources.dynamics.DynamicResourceLoader;
 
+import org.chromium.base.ContextUtils;
+
 /**
  * Impl class that will resolve components for tab management.
  */
@@ -100,6 +102,13 @@ public class TabManagementDelegateImpl implements TabManagementDelegate {
                     ChromeFeatureList.TAB_GRID_LAYOUT_ANDROID + SYNTHETIC_TRIAL_POSTFIX,
                     "Downloaded_Enabled");
         }
+
+        int mode = TabListCoordinator.TabListMode.GRID;
+        if (TabUiFeatureUtilities.isTabGroupsAndroidContinuationEnabled(activity)
+                                && SysUtils.isLowEndDevice())
+            mode = TabListCoordinator.TabListMode.LIST;
+        if (ContextUtils.getAppSharedPreferences().getString("active_tabswitcher", "default").equals("classic") || ContextUtils.getAppSharedPreferences().getString("active_tabswitcher", "default").equals("grid"))
+            mode = TabListCoordinator.TabListMode.GRID;
 
         return new TabSwitcherCoordinator(activity, activityLifecycleDispatcher, tabModelSelector,
                 tabContentManager, browserControlsStateProvider, tabCreatorManager,

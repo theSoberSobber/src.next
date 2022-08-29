@@ -75,6 +75,8 @@ import org.chromium.content_public.common.ResourceRequestBody;
 import org.chromium.ui.base.PageTransition;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.interpolators.BakedBezierInterpolator;
+import org.chromium.ui.util.ColorUtils;
+import org.chromium.chrome.browser.omnibox.UrlBarData;
 
 import java.util.ArrayList;
 import java.util.List;

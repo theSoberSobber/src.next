@@ -248,6 +248,9 @@
 #include "chrome/renderer/supervised_user/supervised_user_error_page_controller_delegate_impl.h"
 #endif
 
+#include "chrome/renderer/searchbox/searchbox.h"
+#include "chrome/renderer/searchbox/searchbox_extension.h"
+
 using autofill::AutofillAgent;
 using autofill::AutofillAssistantAgent;
 using autofill::PasswordAutofillAgent;

@@ -45,6 +45,9 @@ SwitchParams ParseDarkModeSettings() {
           "dark-mode-settings"),
       ",", base::TRIM_WHITESPACE, base::SPLIT_WANT_NONEMPTY);
 
+    LOG(INFO) << "[Kiwi] ParseDarkModeSettings - Read: " << base::CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
+          "dark-mode-settings");
+
   for (auto param_value : param_values) {
     std::vector<std::string> pair = base::SplitString(
         param_value, "=", base::TRIM_WHITESPACE, base::SPLIT_WANT_NONEMPTY);
@@ -179,6 +182,8 @@ DarkModeSettings BuildDarkModeSettings() {
     settings.increase_text_contrast = true;
   else
     settings.increase_text_contrast = false;
+  settings.is_dark_ui = GetIntegerSwitchParamValue<bool>(
+      switch_params, "IsDarkUi", false);
 
   return settings;
 }

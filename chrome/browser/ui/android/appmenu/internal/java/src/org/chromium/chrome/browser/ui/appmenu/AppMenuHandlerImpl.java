@@ -31,6 +31,8 @@ import org.chromium.ui.display.DisplayAndroidManager;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.chromium.base.Log;
+
 /**
  * Object responsible for handling the creation, showing, hiding of the AppMenu and notifying the
  * AppMenuObservers about these actions.
@@ -52,6 +54,8 @@ class AppMenuHandlerImpl
     private final ActivityLifecycleDispatcher mActivityLifecycleDispatcher;
 
     private Callback<MenuItem> mTestOptionsItemSelectedListener;
+
+    private ModelList mModelList;
 
     /**
      * The resource id of the menu item to highlight when the menu next opens. A value of

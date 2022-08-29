@@ -139,6 +139,8 @@
 #include "url/gurl.h"
 #include "url/url_constants.h"
 
+#include "components/signin/public/base/signin_metrics.h"
+
 #if BUILDFLAG(ENABLE_EXTENSIONS)
 #include "chrome/browser/ui/extensions/app_launch_params.h"
 #include "chrome/browser/ui/extensions/application_launch.h"
@@ -1287,6 +1289,7 @@ void GenerateQRCodeFromPageAction(Browser* browser) {
 }
 
 void SharingHubFromPageAction(Browser* browser) {
+#if 0
   WebContents* web_contents =
       browser->tab_strip_model()->GetActiveWebContents();
   sharing_hub::SharingHubBubbleController* controller =

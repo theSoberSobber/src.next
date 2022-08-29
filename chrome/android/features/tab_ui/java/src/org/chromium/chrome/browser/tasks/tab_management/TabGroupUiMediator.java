@@ -55,6 +55,8 @@ import org.chromium.url.GURL;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.chromium.base.ContextUtils;
+
 /**
  * A mediator for the TabGroupUi. Responsible for managing the internal state of the component.
  */
@@ -431,7 +433,7 @@ public class TabGroupUiMediator implements SnackbarManager.SnackbarController {
                 parentTabToAttach = relatedTabs.get(relatedTabs.size() - 1);
             }
             mTabCreatorManager.getTabCreator(currentTab.isIncognito())
-                    .createNewTab(new LoadUrlParams(UrlConstants.NTP_URL),
+                    .createNewTab(new LoadUrlParams("chrome-search://local-ntp/local-ntp.html"),
                             TabLaunchType.FROM_TAB_GROUP_UI, parentTabToAttach);
             RecordUserAction.record("MobileNewTabOpened." + TabGroupUiCoordinator.COMPONENT_NAME);
         };
@@ -461,6 +463,9 @@ public class TabGroupUiMediator implements SnackbarManager.SnackbarController {
      *            not, associated tabs from #getTabsToShowForID will be showing in the tab strip.
      */
     private void resetTabStripWithRelatedTabsForId(int id) {
+        if (ContextUtils.getAppSharedPreferences().getBoolean("enable_bottom_toolbar", false))
+            id = Tab.INVALID_TAB_ID;
+
         // TODO(crbug.com/1090655): We should be able to guard this call behind some checks so that
         // we can assert here that 1) mIsShowingOverViewMode is false 2) mIsTabGroupUiVisible with
         // valid id is false.

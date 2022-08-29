@@ -158,7 +158,10 @@ bool AccountConsistencyModeManager::IsDiceMigrationCompleted(Profile* profile) {
 
 // static
 bool AccountConsistencyModeManager::IsDiceSignInAllowed() {
+#if 0
   return CanEnableDiceForBuild() && IsBrowserSigninAllowedByCommandLine();
+#endif
+  return false;
 }
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 

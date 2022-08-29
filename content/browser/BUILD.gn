@@ -2763,7 +2763,8 @@ source_set("browser") {
     }
     defines += [ "APPCACHE_USE_SIMPLE_CACHE" ]
     libs += [ "jnigraphics" ]
-  } else {
+  }
+  if (true) {
     # Not Android.
     sources += [
       # The WebAuthn devtools protocol API is not supported in Android yet.

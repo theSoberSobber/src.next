@@ -578,7 +578,7 @@ const base::Feature kPrioritizeBootstrapTasks = {
 // HTTP(S) navigations when the BrowsingInstance doesn't contain any other
 // windows.
 const base::Feature kProactivelySwapBrowsingInstance{
-    "ProactivelySwapBrowsingInstance", base::FEATURE_DISABLED_BY_DEFAULT};
+    "ProactivelySwapBrowsingInstance", base::FEATURE_ENABLED_BY_DEFAULT};
 
 // Fires the `pushsubscriptionchange` event defined here:
 // https://w3c.github.io/push-api/#the-pushsubscriptionchange-event

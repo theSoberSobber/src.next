@@ -22,6 +22,7 @@
 #include "chrome/browser/ui/page_action/page_action_icon_type.h"
 #include "chrome/browser/ui/user_education/in_product_help.h"
 #include "chrome/common/buildflags.h"
+#include "components/strings/grit/components_strings.h"
 #include "components/content_settings/core/common/content_settings_types.h"
 #include "components/translate/core/common/translate_errors.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
@@ -32,6 +33,7 @@
 
 #if defined(OS_ANDROID)
 #error This file should only be included on desktop.
+#endif
 #endif
 
 class Browser;

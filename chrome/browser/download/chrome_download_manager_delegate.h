@@ -309,6 +309,8 @@ class ChromeDownloadManagerDelegate
   IdCallbackVector id_callbacks_;
   std::unique_ptr<DownloadPrefs> download_prefs_;
 
+  download::DownloadItem* last_download_item_;
+
 #if BUILDFLAG(ENABLE_EXTENSIONS)
   // Maps from pending extension installations to DownloadItem IDs.
   typedef base::flat_map<extensions::CrxInstaller*,

@@ -153,7 +153,7 @@ StartupData::TakeProtoDatabaseProvider() {
 void StartupData::PreProfilePrefServiceInit() {
   pref_registry_ = base::MakeRefCounted<user_prefs::PrefRegistrySyncable>();
   ChromeBrowserMainExtraPartsProfiles::
-      EnsureBrowserContextKeyedServiceFactoriesBuilt();
+      EnsureBrowserContextKeyedServiceFactoriesBuilt(false);
 }
 
 void StartupData::CreateServicesInternal() {

@@ -464,6 +464,9 @@ void MostVisitedSites::OnMostVisitedURLsAvailable(
 
   NTPTilesVector tiles;
   size_t num_tiles = std::min(visited_list.size(), GetMaxNumSites());
+  LOG(INFO) << "[Kiwi] MostVisitedSites::OnMostVisitedURLsAvailable - Step 2: " << num_tiles;
+  LOG(INFO) << "[Kiwi] MostVisitedSites::OnMostVisitedURLsAvailable - Step 2a: " << visited_list.size();
+  LOG(INFO) << "[Kiwi] MostVisitedSites::OnMostVisitedURLsAvailable - Step 2b: " << GetMaxNumSites();
   for (size_t i = 0; i < num_tiles; ++i) {
     const history::MostVisitedURL& visited = visited_list[i];
     if (visited.url.is_empty())
@@ -779,9 +782,12 @@ void MostVisitedSites::SaveTilesAndNotify(
     prefs_->SetInteger(prefs::kNumPersonalTiles, num_personal_tiles);
   }
 
+  LOG(INFO) << "[Kiwi] MostVisitedSites::SaveTilesAndNotify - Step 2";
+
   if (observers_.empty())
     return;
   sections[SectionType::PERSONALIZED] = *current_tiles_;
+  LOG(INFO) << "[Kiwi] MostVisitedSites::SaveTilesAndNotify - Step 3";
   for (auto& observer : observers_)
     observer.OnURLsAvailable(sections);
 }

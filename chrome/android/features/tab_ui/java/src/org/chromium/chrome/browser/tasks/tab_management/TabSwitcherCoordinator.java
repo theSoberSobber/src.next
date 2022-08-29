@@ -51,6 +51,8 @@ import org.chromium.ui.resources.dynamics.DynamicResourceLoader;
 
 import java.util.List;
 
+import org.chromium.base.ContextUtils;
+
 /**
  * Parent coordinator that is responsible for showing a grid or carousel of tabs for the main
  * TabSwitcher UI.

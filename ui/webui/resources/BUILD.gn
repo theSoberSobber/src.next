@@ -32,7 +32,7 @@ generate_grd("build_grd") {
     "$root_gen_dir/third_party/jstemplate/resources.grdp",
   ]
 
-  if (!is_chromeos_ash && !is_android) {
+  if (!is_chromeos_ash) {
     # Roboto Font. Roboto-Regular and Roboto-Light is already available on
     # Android, and Roboto-Medium is not used on Android. All 6 weights of
     # Roboto are available on Chrome OS.
@@ -125,6 +125,14 @@ group("modulize") {
       "cr_elements:polymer3_elements",
     ]
   }
+}
+
+group("modulize") {
+  public_deps = [
+    "js:modulize",
+    "js/cr:modulize",
+    "js/cr/ui:modulize",
+  ]
 }
 
 # TypeScript targets

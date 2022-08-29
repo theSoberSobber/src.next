@@ -156,10 +156,12 @@ void ShowHelpImpl(Browser* browser, Profile* profile, HelpSource source) {
       NOTREACHED() << "Unhandled help source " << source;
   }
   std::unique_ptr<ScopedTabbedBrowserDisplayer> displayer;
+#if 0
   if (!browser) {
     displayer = std::make_unique<ScopedTabbedBrowserDisplayer>(profile);
     browser = displayer->browser();
   }
+#endif
   ShowSingletonTab(browser, url);
 #endif
 }
@@ -235,6 +237,7 @@ void ShowHistory(Browser* browser) {
           features::kUpdateHistoryEntryPointsInIncognito)) {
     return;
   }
+#endif
 
   base::RecordAction(UserMetricsAction("ShowHistory"));
   ShowSingletonTabIgnorePathOverwriteNTP(browser, GURL(kChromeUIHistoryURL));
@@ -265,7 +268,7 @@ void ShowExtensions(Browser* browser,
 }
 
 void ShowHelp(Browser* browser, HelpSource source) {
-  ShowHelpImpl(browser, browser->profile(), source);
+  ShowHelpImpl(browser, NULL, source);
 }
 
 void ShowHelpForProfile(Profile* profile, HelpSource source) {
@@ -371,7 +374,7 @@ void ShowContentSettingsExceptionsForProfile(
 }
 
 void ShowSiteSettings(Browser* browser, const GURL& url) {
-  ShowSiteSettingsImpl(browser, browser->profile(), url);
+  ShowSiteSettingsImpl(browser, NULL, url);
 }
 
 void ShowSiteSettings(Profile* profile, const GURL& url) {

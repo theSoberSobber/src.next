@@ -51,6 +51,9 @@ struct DarkModeSettings {
 
   // True if text contrast should be increased by painting an outline.
   bool increase_text_contrast = false;
+
+  // True if the user interface is dark / black
+  bool is_dark_ui = false;
 };
 
 }  // namespace blink

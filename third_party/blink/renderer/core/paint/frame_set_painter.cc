@@ -34,6 +34,9 @@ void FrameSetPainter::PaintColumnBorder(const PaintInfo& paint_info,
   // FIXME: We should do something clever when borders from distinct framesets
   // meet at a join.
 
+  AutoDarkMode auto_dark_mode(PaintAutoDarkMode(
+      layout_frame_set_.StyleRef(), DarkModeFilter::ElementRole::kBackground));
+
   // Fill first.
   GraphicsContext& context = paint_info.context;
   context.FillRect(border_rect, layout_frame_set_.FrameSet()->HasBorderColor()
@@ -57,6 +60,9 @@ void FrameSetPainter::PaintRowBorder(const PaintInfo& paint_info,
                                      const IntRect& border_rect) {
   // FIXME: We should do something clever when borders from distinct framesets
   // meet at a join.
+
+  AutoDarkMode auto_dark_mode(PaintAutoDarkMode(
+      layout_frame_set_.StyleRef(), DarkModeFilter::ElementRole::kBackground));
 
   // Fill first.
   GraphicsContext& context = paint_info.context;

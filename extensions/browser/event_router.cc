@@ -816,7 +816,6 @@ void EventRouter::DispatchEventImpl(const std::string& restrict_to_extension_id,
             LazyContextIdForListener(listener))) {
       continue;
     }
-
     DispatchEventToProcess(
         listener->extension_id(), listener->listener_url(), listener->process(),
         listener->service_worker_version_id(), listener->worker_thread_id(),

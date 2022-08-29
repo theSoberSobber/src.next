@@ -31,6 +31,7 @@ class PrefRegistrySimple;
       defined(OS_CHROMEOS))
 #error "IntranetRedirectDetector should only be built on Desktop platforms."
 #endif
+#endif
 
 // This object is responsible for determining whether the user is on a network
 // that redirects requests for intranet hostnames to another site, and if so,

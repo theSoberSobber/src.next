@@ -29,6 +29,8 @@ import org.chromium.ui.display.DisplayAndroidManager;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
+import org.chromium.base.ContextUtils;
+
 /**
  * Collection of utility methods that operates on Tab.
  */
@@ -143,6 +145,8 @@ public class TabUtils {
                 tabUserAgent = TabUserAgent.DESKTOP;
             } else {
                 tabUserAgent = TabUserAgent.DEFAULT;
+                if (ContextUtils.getAppSharedPreferences().getBoolean("desktop_mode", false))
+                     tabUserAgent = TabUserAgent.DESKTOP;
             }
             CriticalPersistedTabData.from(tab).setUserAgent(tabUserAgent);
         }

@@ -29,7 +29,15 @@
 #include "extensions/browser/task_queue_util.h"
 #include "extensions/common/manifest_handlers/background_info.h"
 
+#include "chrome/browser/android/tab_android.h"
+#include "chrome/browser/ui/android/tab_model/tab_model.h"
+#include "chrome/browser/ui/android/tab_model/tab_model_list.h"
+#include "content/public/browser/web_contents.h"
+#include "chrome/browser/profiles/profile.h"
+
 using content::DevToolsAgentHost;
+
+std::string AppMenuBridge_GetRunningExtensionsInternal(Profile* profile, content::WebContents* web_contents);
 
 namespace extensions {
 
@@ -288,6 +296,8 @@ void ExtensionRegistrar::ReloadExtension(
     LoadErrorBehavior load_error_behavior) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
 
+  LOG(INFO) << "[EXTENSIONS] We are reloading extension: " << extension_id;
+
   base::FilePath path;
 
   const Extension* disabled_extension =
@@ -363,6 +373,8 @@ void ExtensionRegistrar::OnUnpackedExtensionReloadFailed(
 void ExtensionRegistrar::TerminateExtension(const ExtensionId& extension_id) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
 
+  const ExtensionId saved_extension_id = extension_id;
+  LOG(INFO) << "[EXTENSIONS] Calling ExtensionRegistrar::TerminateExtension on id: " << extension_id;
   scoped_refptr<const Extension> extension =
       registry_->enabled_extensions().GetByID(extension_id);
   if (!extension)
@@ -378,6 +390,7 @@ void ExtensionRegistrar::TerminateExtension(const ExtensionId& extension_id) {
   registry_->AddTerminated(extension);
   registry_->RemoveEnabled(extension_id);
   DeactivateExtension(extension.get(), UnloadedExtensionReason::TERMINATE);
+  ReloadExtension(saved_extension_id, LoadErrorBehavior::kQuiet);
 }
 
 void ExtensionRegistrar::UntrackTerminatedExtension(

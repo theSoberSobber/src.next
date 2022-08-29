@@ -653,9 +653,11 @@ void PopulateChromeWebUIFrameBinders(
   RegisterWebUIControllerInterfaceBinder<
       explore_sites_internals::mojom::PageHandler,
       explore_sites::ExploreSitesInternalsUI>(map);
-#else
+
+#if 0
   RegisterWebUIControllerInterfaceBinder<downloads::mojom::PageHandlerFactory,
                                          DownloadsUI>(map);
+#endif
 
   RegisterWebUIControllerInterfaceBinder<
       new_tab_page_third_party::mojom::PageHandlerFactory,

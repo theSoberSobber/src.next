@@ -22,6 +22,7 @@
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
 #include "chrome/browser/themes/theme_service_observer.h"
+#include "components/strings/grit/components_strings.h"
 #include "chrome/browser/ui/bookmarks/bookmark_bar.h"
 #include "chrome/browser/ui/bookmarks/bookmark_tab_helper_observer.h"
 #include "chrome/browser/ui/browser_navigator_params.h"
@@ -47,6 +48,7 @@
 
 #if defined(OS_ANDROID)
 #error This file should only be included on desktop.
+#endif
 #endif
 
 class BackgroundContents;

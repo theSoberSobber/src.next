@@ -224,7 +224,7 @@ InstantService::InstantService(Profile* profile)
   content::URLDataSource::Add(profile_,
                               std::make_unique<MostVisitedIframeSource>());
   content::URLDataSource::Add(profile_,
-                              std::make_unique<NewTabPageSource>());
+                              std::make_unique<NewTabPageSource>(profile_));
 
   // Update theme info when the pref is changed via Sync.
   pref_change_registrar_.Init(pref_service_);

@@ -1013,6 +1013,11 @@ void ChromeDownloadManagerDelegate::RequestConfirmation(
         return;
       }
 
+      // This should be passed as a callback parameter
+      // but we avoid doing so to limit the amount of code we modify
+      // and simplify further rebasing
+      // (Arnaud)
+      last_download_item_ = download;
       gfx::NativeWindow native_window = web_contents->GetTopLevelNativeWindow();
       DownloadPathReservationTracker::GetReservedPath(
           download, suggested_path, download_dir,

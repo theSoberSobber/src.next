@@ -128,11 +128,11 @@ const GpuFeatureData GetGpuFeatureData(
     {"video_decode",
      SafeGetFeatureStatus(gpu_feature_info,
                           gpu::GPU_FEATURE_TYPE_ACCELERATED_VIDEO_DECODE),
-#if defined(OS_LINUX)
+#if BUILDFLAG(IS_LINUX)
      !base::FeatureList::IsEnabled(media::kVaapiVideoDecodeLinux),
 #else
      command_line.HasSwitch(switches::kDisableAcceleratedVideoDecode),
-#endif  // defined(OS_LINUX)
+#endif  // BUILDFLAG(IS_LINUX)
      DisableInfo::Problem(
          "Accelerated video decode has been disabled, either via blocklist, "
          "about:flags or the command line."),
@@ -145,17 +145,12 @@ const GpuFeatureData GetGpuFeatureData(
          "Accelerated rasterization has been disabled, either via blocklist, "
          "about:flags or the command line."),
      true},
-    {"oop_rasterization",
-     SafeGetFeatureStatus(gpu_feature_info,
-                          gpu::GPU_FEATURE_TYPE_OOP_RASTERIZATION),
-     command_line.HasSwitch(switches::kDisableOopRasterization),
-     DisableInfo::NotProblem(), false},
     {"opengl",
      SafeGetFeatureStatus(gpu_feature_info,
                           gpu::GPU_FEATURE_TYPE_ACCELERATED_GL),
      false /* disabled */, DisableInfo::NotProblem(),
      false /* fallback_to_software */},
-#if defined(OS_MAC)
+#if BUILDFLAG(IS_MAC)
     {"metal",
      SafeGetFeatureStatus(gpu_feature_info, gpu::GPU_FEATURE_TYPE_METAL),
      !base::FeatureList::IsEnabled(features::kMetal) /* disabled */,
@@ -171,7 +166,7 @@ const GpuFeatureData GetGpuFeatureData(
     {"multiple_raster_threads", gpu::kGpuFeatureStatusEnabled,
      NumberOfRendererRasterThreads() == 1,
      DisableInfo::Problem("Raster is using a single thread."), false},
-#if defined(OS_ANDROID)
+#if BUILDFLAG(IS_ANDROID)
     {"surface_control",
      SafeGetFeatureStatus(gpu_feature_info,
                           gpu::GPU_FEATURE_TYPE_ANDROID_SURFACE_CONTROL),
@@ -191,8 +186,8 @@ const GpuFeatureData GetGpuFeatureData(
     {"skia_renderer", gpu::kGpuFeatureStatusEnabled,
      !features::IsUsingSkiaRenderer(), DisableInfo::NotProblem(), false},
   };
-  DCHECK(index < base::size(kGpuFeatureData));
-  *eof = (index == base::size(kGpuFeatureData) - 1);
+  DCHECK(index < std::size(kGpuFeatureData));
+  *eof = (index == std::size(kGpuFeatureData) - 1);
   return kGpuFeatureData[index];
 }
 
@@ -239,7 +234,8 @@ base::Value GetFeatureStatusImpl(GpuFeatureInfoType type) {
     } else {
       status = "enabled";
       if ((gpu_feature_data.name == "webgl" ||
-           gpu_feature_data.name == "webgl2") &&
+           gpu_feature_data.name == "webgl2" ||
+           gpu_feature_data.name == "webgpu") &&
           is_gpu_compositing_disabled)
         status += "_readback";
       if (gpu_feature_data.name == "rasterization") {
@@ -251,7 +247,7 @@ base::Value GetFeatureStatusImpl(GpuFeatureInfoType type) {
       if (gpu_feature_data.name == "multiple_raster_threads") {
         const base::CommandLine& command_line =
             *base::CommandLine::ForCurrentProcess();
-        if (command_line.HasSwitch(switches::kNumRasterThreads))
+        if (command_line.HasSwitch(blink::switches::kNumRasterThreads))
           status += "_force";
         status += "_on";
       }
@@ -307,7 +303,8 @@ base::Value GetProblemsImpl(GpuFeatureInfoType type) {
     disabled_features.Append("all");
     problem.SetKey("affectedGpuSettings", std::move(disabled_features));
     problem.SetStringKey("tag", "disabledFeatures");
-    problem_list.Insert(problem_list.GetList().begin(), std::move(problem));
+    problem_list.Insert(problem_list.GetListDeprecated().begin(),
+                        std::move(problem));
   }
 
   bool eof = false;
@@ -324,7 +321,8 @@ base::Value GetProblemsImpl(GpuFeatureInfoType type) {
       disabled_features.Append(gpu_feature_data.name);
       problem.SetKey("affectedGpuSettings", std::move(disabled_features));
       problem.SetStringKey("tag", "disabledFeatures");
-      problem_list.Insert(problem_list.GetList().begin(), std::move(problem));
+      problem_list.Insert(problem_list.GetListDeprecated().begin(),
+                          std::move(problem));
     }
   }
   return problem_list;
@@ -379,7 +377,7 @@ int NumberOfRendererRasterThreads() {
 
   int num_raster_threads = num_processors / 2;
 
-#if defined(OS_ANDROID)
+#if BUILDFLAG(IS_ANDROID)
   // Limit the number of raster threads to 1 on Android.
   // TODO(reveman): Remove this when we have a better mechanims to prevent
   // pre-paint raster work from slowing down non-raster work. crbug.com/504515
@@ -389,12 +387,13 @@ int NumberOfRendererRasterThreads() {
   const base::CommandLine& command_line =
       *base::CommandLine::ForCurrentProcess();
 
-  if (command_line.HasSwitch(switches::kNumRasterThreads)) {
-    std::string string_value = command_line.GetSwitchValueASCII(
-        switches::kNumRasterThreads);
+  if (command_line.HasSwitch(blink::switches::kNumRasterThreads)) {
+    std::string string_value =
+        command_line.GetSwitchValueASCII(blink::switches::kNumRasterThreads);
     if (!base::StringToInt(string_value, &num_raster_threads)) {
-      DLOG(WARNING) << "Failed to parse switch " <<
-          switches::kNumRasterThreads  << ": " << string_value;
+      DLOG(WARNING) << "Failed to parse switch "
+                    << blink::switches::kNumRasterThreads << ": "
+                    << string_value;
     }
   }
 
@@ -405,7 +404,7 @@ int NumberOfRendererRasterThreads() {
 bool IsZeroCopyUploadEnabled() {
   const base::CommandLine& command_line =
       *base::CommandLine::ForCurrentProcess();
-#if defined(OS_MAC)
+#if BUILDFLAG(IS_MAC)
   return !command_line.HasSwitch(blink::switches::kDisableZeroCopy);
 #else
   return command_line.HasSwitch(blink::switches::kEnableZeroCopy);
@@ -429,8 +428,10 @@ bool IsGpuMemoryBufferCompositorResourcesEnabled() {
     return false;
   }
 
-#if defined(OS_MAC)
+#if BUILDFLAG(IS_MAC)
   return true;
+#elif BUILDFLAG(IS_CHROMEOS_LACROS)
+  return features::IsDelegatedCompositingEnabled();
 #else
   return false;
 #endif
@@ -442,7 +443,7 @@ int GpuRasterizationMSAASampleCount() {
 
   if (!command_line.HasSwitch(
           blink::switches::kGpuRasterizationMSAASampleCount))
-#if defined(OS_ANDROID)
+#if BUILDFLAG(IS_ANDROID)
     return 4;
 #else
     // Desktop platforms will compute this automatically based on DPI.

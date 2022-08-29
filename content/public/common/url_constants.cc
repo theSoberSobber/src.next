@@ -20,7 +20,7 @@ const char kViewSourceScheme[] = "view-source";
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 const char kExternalFileScheme[] = "externalfile";
 #endif
-#if defined(OS_ANDROID)
+#if BUILDFLAG(IS_ANDROID)
 const char kAndroidAppScheme[] = "android-app";
 #endif
 const char kGoogleChromeScheme[] = "googlechrome";
@@ -38,6 +38,7 @@ const char kChromeUIMemoryExhaustHost[] = "memory-exhaust";
 const char kChromeUINetworkErrorHost[] = "network-error";
 const char kChromeUINetworkErrorsListingHost[] = "network-errors";
 const char kChromeUIProcessInternalsHost[] = "process-internals";
+const char kChromeUIQuotaInternalsHost[] = "quota-internals";
 const char kChromeUIResourcesHost[] = "resources";
 const char kChromeUIServiceWorkerInternalsHost[] = "serviceworker-internals";
 const char kChromeUITracingHost[] = "tracing";

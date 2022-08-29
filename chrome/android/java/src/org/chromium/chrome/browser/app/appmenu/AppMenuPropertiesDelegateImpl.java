@@ -38,11 +38,13 @@ import org.chromium.chrome.browser.compositor.layouts.OverviewModeBehavior;
 import org.chromium.chrome.browser.device.DeviceClassManager;
 import org.chromium.chrome.browser.device.DeviceConditions;
 import org.chromium.chrome.browser.download.DownloadUtils;
-import org.chromium.chrome.browser.flags.CachedFeatureFlags;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.image_descriptions.ImageDescriptionsController;
 import org.chromium.chrome.browser.incognito.IncognitoUtils;
+import org.chromium.chrome.browser.incognito.reauth.IncognitoReauthController;
+import org.chromium.chrome.browser.layouts.LayoutStateProvider;
+import org.chromium.chrome.browser.layouts.LayoutType;
 import org.chromium.chrome.browser.multiwindow.MultiWindowModeStateDispatcher;
 import org.chromium.chrome.browser.omaha.UpdateMenuItemHelper;
 import org.chromium.chrome.browser.partnercustomizations.PartnerBrowserCustomizations;
@@ -51,8 +53,7 @@ import org.chromium.chrome.browser.share.ShareHelper;
 import org.chromium.chrome.browser.share.ShareUtils;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
-import org.chromium.chrome.browser.tasks.ReturnToChromeExperimentsUtil;
-import org.chromium.chrome.browser.tasks.tab_management.PriceTrackingUtilities;
+import org.chromium.chrome.browser.tasks.ReturnToChromeUtil;
 import org.chromium.chrome.browser.tasks.tab_management.TabUiFeatureUtilities;
 import org.chromium.chrome.browser.toolbar.ToolbarManager;
 import org.chromium.chrome.browser.translate.TranslateUtils;
@@ -89,6 +90,8 @@ public class AppMenuPropertiesDelegateImpl implements AppMenuPropertiesDelegate 
     protected final TabModelSelector mTabModelSelector;
     protected final ToolbarManager mToolbarManager;
     protected final View mDecorView;
+
+    private CallbackController mIncognitoReauthCallbackController = new CallbackController();
     private CallbackController mCallbackController = new CallbackController();
     private final ObservableSupplier<BookmarkBridge> mBookmarkBridgeSupplier;
     private Callback<BookmarkBridge> mBookmarkBridgeSupplierCallback;
@@ -144,7 +147,8 @@ public class AppMenuPropertiesDelegateImpl implements AppMenuPropertiesDelegate 
      * @param overviewModeBehaviorSupplier An {@link ObservableSupplier} for the
      *         {@link OverviewModeBehavior} associated with the containing activity.
      * @param bookmarkBridgeSupplier An {@link ObservableSupplier} for the {@link BookmarkBridge}
-     *         associated with the containing activity.
+     * @param incognitoReauthControllerOneshotSupplier An {@link OneshotSupplier} for the {@link
+     *         IncognitoReauthController} which is not null for tabbed Activity.
      */
     public AppMenuPropertiesDelegateImpl(Context context, ActivityTabProvider activityTabProvider,
             MultiWindowModeStateDispatcher multiWindowModeStateDispatcher,
@@ -159,9 +163,16 @@ public class AppMenuPropertiesDelegateImpl implements AppMenuPropertiesDelegate 
         mToolbarManager = toolbarManager;
         mDecorView = decorView;
 
-        if (overviewModeBehaviorSupplier != null) {
-            overviewModeBehaviorSupplier.onAvailable(mCallbackController.makeCancelable(
-                    overviewModeBehavior -> { mOverviewModeBehavior = overviewModeBehavior; }));
+        if (incognitoReauthControllerOneshotSupplier != null) {
+            incognitoReauthControllerOneshotSupplier.onAvailable(
+                    mIncognitoReauthCallbackController.makeCancelable(incognitoReauthController -> {
+                        mIncognitoReauthController = incognitoReauthController;
+                    }));
+        }
+
+        if (layoutStateProvidersSupplier != null) {
+            layoutStateProvidersSupplier.onAvailable(mCallbackController.makeCancelable(
+                    layoutStateProvider -> { mLayoutStateProvider = layoutStateProvider; }));
         }
 
         mBookmarkBridgeSupplier = bookmarkBridgeSupplier;
@@ -188,7 +199,6 @@ public class AppMenuPropertiesDelegateImpl implements AppMenuPropertiesDelegate 
     public @Nullable List<CustomViewBinder> getCustomViewBinders() {
         List<CustomViewBinder> customViewBinders = new ArrayList<>();
         customViewBinders.add(new UpdateMenuItemViewBinder());
-        customViewBinders.add(new ManagedByMenuItemViewBinder());
         customViewBinders.add(new IncognitoMenuItemViewBinder());
         customViewBinders.add(new DividerLineMenuItemViewBinder());
         return customViewBinders;
@@ -389,11 +399,15 @@ public class AppMenuPropertiesDelegateImpl implements AppMenuPropertiesDelegate 
             }
 
             if (item.getItemId() == R.id.new_incognito_tab_menu_id && item.isVisible()) {
+                // Disable new incognito tab when a re-authentication might be pending.
+                boolean isIncognitoReauthPending = (mIncognitoReauthController != null)
+                        && mIncognitoReauthController.isIncognitoReauthPending();
+
                 // Disable new incognito tab when it is blocked (e.g. by a policy).
                 // findItem(...).setEnabled(...)" is not enough here, because of the inflated
                 // main_menu.xml contains multiple items with the same id in different groups
                 // e.g.: menu_new_incognito_tab.
-                item.setEnabled(isIncognitoEnabled());
+                item.setEnabled(isIncognitoEnabled() && !isIncognitoReauthPending);
             }
 
             if (item.getItemId() == R.id.divider_line_id) {
@@ -413,8 +427,14 @@ public class AppMenuPropertiesDelegateImpl implements AppMenuPropertiesDelegate 
                 item.setVisible(!isIncognito);
             }
             if (item.getItemId() == R.id.menu_group_tabs) {
+                // Disable incognito group tabs when a re-authentication screen is shown.
+                // We show the re-auth screen only in Incognito mode.
+                boolean isIncognitoReauthShowing = isIncognito
+                        && (mIncognitoReauthController != null)
+                        && mIncognitoReauthController.isReauthPageShowing();
+
                 item.setVisible(isMenuGroupTabsVisible);
-                item.setEnabled(isMenuGroupTabsEnabled);
+                item.setEnabled(!isIncognitoReauthShowing && isMenuGroupTabsEnabled);
             }
             if (item.getItemId() == R.id.track_prices_row_menu_id) {
                 item.setVisible(isPriceTrackingVisible);
@@ -493,7 +513,7 @@ public class AppMenuPropertiesDelegateImpl implements AppMenuPropertiesDelegate 
 
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
     public boolean isNewWindowMenuFeatureEnabled() {
-        return CachedFeatureFlags.isEnabled(ChromeFeatureList.NEW_WINDOW_APP_MENU);
+        return ChromeFeatureList.sNewWindowAppMenu.isEnabled();
     }
 
     /**
@@ -516,8 +536,7 @@ public class AppMenuPropertiesDelegateImpl implements AppMenuPropertiesDelegate 
     @VisibleForTesting(otherwise = VisibleForTesting.PROTECTED)
     public boolean shouldShowPaintPreview(
             boolean isChromeScheme, @NonNull Tab currentTab, boolean isIncognito) {
-        return CachedFeatureFlags.isEnabled(ChromeFeatureList.PAINT_PREVIEW_DEMO) && !isChromeScheme
-                && !isIncognito;
+        return ChromeFeatureList.sPaintPreviewDemo.isEnabled() && !isChromeScheme && !isIncognito;
     }
 
     /**
@@ -671,9 +690,9 @@ public class AppMenuPropertiesDelegateImpl implements AppMenuPropertiesDelegate 
 
     @VisibleForTesting
     boolean shouldShowIconRow() {
-        boolean shouldShowIconRow = !mIsTablet
-                || mDecorView.getWidth()
-                        < DeviceFormFactor.getNonMultiDisplayMinimumTabletWidthPx(mContext);
+        boolean shouldShowIconRow = mIsTablet ? mDecorView.getWidth()
+                        < DeviceFormFactor.getNonMultiDisplayMinimumTabletWidthPx(mContext)
+                                              : !isInStartSurfaceHomepage();
 
         final boolean isMenuButtonOnTop = mToolbarManager != null;
         shouldShowIconRow &= isMenuButtonOnTop;
@@ -726,6 +745,11 @@ public class AppMenuPropertiesDelegateImpl implements AppMenuPropertiesDelegate 
     public void recordHighlightedMenuItemClicked(@Nullable @IdRes Integer menuItemId) {
         RecordHistogram.recordEnumeratedHistogram("Mobile.AppMenu.HighlightMenuItem.Clicked",
                 getUmaEnumForMenuItem(menuItemId), AppMenuHighlightItem.NUM_ENTRIES);
+    }
+
+    @Override
+    public boolean isMenuIconAtStart() {
+        return false;
     }
 
     private int getUmaEnumForMenuItem(@Nullable @IdRes Integer menuItemId) {
@@ -806,7 +830,7 @@ public class AppMenuPropertiesDelegateImpl implements AppMenuPropertiesDelegate 
 
         boolean isRequestDesktopSite =
                 currentTab.getWebContents().getNavigationController().getUseDesktopUserAgent();
-        if (CachedFeatureFlags.isEnabled(ChromeFeatureList.APP_MENU_MOBILE_SITE_OPTION)) {
+        if (ChromeFeatureList.sAppMenuMobileSiteOption.isEnabled()) {
             requestMenuLabel.setTitle(isRequestDesktopSite
                             ? R.string.menu_item_request_mobile_site
                             : R.string.menu_item_request_desktop_site);

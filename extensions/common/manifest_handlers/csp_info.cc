@@ -39,6 +39,13 @@ const char kDefaultSandboxedPageContentSecurityPolicy[] =
     "sandbox allow-scripts allow-forms allow-popups allow-modals; "
     "script-src 'self' 'unsafe-inline' 'unsafe-eval'; child-src 'self';";
 
+// The default CSP to be used if no CSP provided.
+static const char kDefaultMV3CSP[] = "script-src 'self'; object-src 'self';";
+
+// The minimum CSP to be used in order to prevent remote scripts.
+static const char kMinimumMV3CSP[] =
+    "script-src 'self' 'wasm-unsafe-eval'; object-src 'self';";
+
 #define PLATFORM_APP_LOCAL_CSP_SOURCES "'self' blob: filesystem: data:"
 
 // clang-format off
@@ -59,7 +66,7 @@ const char kDefaultPlatformAppContentSecurityPolicy[] =
     //    streaming or partial buffering.
     " media-src * data: blob: filesystem:;"
     // Scripts are allowed to use WebAssembly
-    " script-src 'self' blob: filesystem: 'wasm-eval';";
+    " script-src 'self' blob: filesystem: 'wasm-unsafe-eval';";
 // clang-format on
 
 int GetValidatorOptions(Extension* extension) {
@@ -88,8 +95,7 @@ std::u16string GetInvalidManifestKeyError(base::StringPiece key) {
 // corresponding Value.
 const base::Value* GetManifestPath(const Extension* extension,
                                    const char* path) {
-  const base::Value* value = nullptr;
-  return extension->manifest()->Get(path, &value) ? value : nullptr;
+  return extension->manifest()->FindPath(path);
 }
 
 const char* GetDefaultExtensionPagesCSP(Extension* extension,
@@ -119,7 +125,7 @@ const std::string& CSPInfo::GetExtensionPagesCSP(const Extension* extension) {
 }
 
 // static
-const std::string* CSPInfo::GetDefaultCSPToAppend(
+const std::string* CSPInfo::GetMinimumCSPToAppend(
     const Extension& extension,
     const std::string& relative_path) {
   if (!extension.is_extension() || extension.manifest_version() < 3)

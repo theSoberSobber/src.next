@@ -24,12 +24,12 @@
 </extensions-drop-overlay>
 <extensions-toolbar in-dev-mode="[[inDevMode]]"
     can-load-unpacked="[[canLoadUnpacked]]"
-    is-supervised="[[isSupervised_]]"
+    is-child-account="[[isChildAccount_]]"
     dev-mode-controlled-by-policy="[[devModeControlledByPolicy]]"
     delegate="[[delegate]]" on-cr-toolbar-menu-tap="onMenuButtonTap_"
     on-search-changed="onFilterChanged_"
     extensions="[[extensions_]]"
-<if expr="chromeos">
+<if expr="chromeos_ash">
     on-kiosk-tap="onKioskTap_"
     kiosk-enabled="[[kioskEnabled_]]"
 </if>
@@ -40,6 +40,7 @@
       align="$i18n{textdirection}" on-close="onDrawerClose_">
     <div class="drawer-content">
       <extensions-sidebar id="sidebar"
+          enable-enhanced-site-controls="[[enableEnhancedSiteControls]]"
           on-close-drawer="onCloseDrawer_">
       </extensions-sidebar>
     </div>
@@ -95,7 +96,7 @@
       on-close="onLoadErrorDialogClose_">
   </extensions-load-error>
 </template>
-<if expr="chromeos">
+<if expr="chromeos_ash">
 <template is="dom-if" if="[[showKioskDialog_]]" restamp>
   <extensions-kiosk-dialog id="kiosk-dialog" on-close="onKioskDialogClose_">
   </extensions-kiosk-dialog>

@@ -20,7 +20,6 @@
 #include "third_party/blink/renderer/core/inspector/identifiers_factory.h"
 #include "third_party/blink/renderer/core/loader/frame_client_hints_preferences_context.h"
 #include "third_party/blink/renderer/core/loader/subresource_filter.h"
-#include "third_party/blink/renderer/core/loader/subresource_redirect_util.h"
 #include "third_party/blink/renderer/platform/exported/wrapped_resource_request.h"
 #include "third_party/blink/renderer/platform/heap/heap.h"
 #include "third_party/blink/renderer/platform/loader/cors/cors.h"
@@ -106,14 +105,6 @@ bool BaseFetchContext::CalculateIfAdSubresource(
          (filter && filter->IsAdResource(url, request.GetRequestContext()));
 }
 
-bool BaseFetchContext::SendConversionRequestInsteadOfRedirecting(
-    const KURL& url,
-    const absl::optional<ResourceRequest::RedirectInfo>& redirect_info,
-    ReportingDisposition reporting_disposition,
-    const String& devtools_request_id) const {
-  return false;
-}
-
 void BaseFetchContext::AddClientHintsIfNecessary(
     const ClientHintsPreferences& hints_preferences,
     const url::Origin& resource_origin,
@@ -140,8 +131,7 @@ void BaseFetchContext::AddClientHintsIfNecessary(
   if (ClientHintsPreferences::UserAgentClientHintEnabled() && ua) {
     // ShouldSendClientHint is called to make sure UA is controlled by
     // Permissions Policy.
-    if (ShouldSendClientHint(ClientHintsMode::kStandard, policy,
-                             resource_origin, is_1p_origin,
+    if (ShouldSendClientHint(policy, resource_origin, is_1p_origin,
                              network::mojom::blink::WebClientHintsType::kUA,
                              hints_preferences)) {
       request.SetHttpHeaderField(
@@ -157,7 +147,7 @@ void BaseFetchContext::AddClientHintsIfNecessary(
     // ShouldSendClientHint is called to make sure it's controlled by
     // PermissionsPolicy.
     if (ShouldSendClientHint(
-            ClientHintsMode::kStandard, policy, resource_origin, is_1p_origin,
+            policy, resource_origin, is_1p_origin,
             network::mojom::blink::WebClientHintsType::kUAMobile,
             hints_preferences)) {
       request.SetHttpHeaderField(
@@ -297,7 +287,7 @@ void BaseFetchContext::AddClientHintsIfNecessary(
     }
 
     if (ShouldSendClientHint(
-            ClientHintsMode::kStandard, policy, resource_origin, is_1p_origin,
+            policy, resource_origin, is_1p_origin,
             network::mojom::blink::WebClientHintsType::kUAPlatform,
             hints_preferences)) {
       request.SetHttpHeaderField(
@@ -307,7 +297,7 @@ void BaseFetchContext::AddClientHintsIfNecessary(
     }
 
     if (ShouldSendClientHint(
-            ClientHintsMode::kStandard, policy, resource_origin, is_1p_origin,
+            policy, resource_origin, is_1p_origin,
             network::mojom::blink::WebClientHintsType::kUAPlatformVersion,
             hints_preferences)) {
       request.SetHttpHeaderField(
@@ -317,7 +307,7 @@ void BaseFetchContext::AddClientHintsIfNecessary(
     }
 
     if (ShouldSendClientHint(
-            ClientHintsMode::kStandard, policy, resource_origin, is_1p_origin,
+            policy, resource_origin, is_1p_origin,
             network::mojom::blink::WebClientHintsType::kUAModel,
             hints_preferences)) {
       request.SetHttpHeaderField(
@@ -327,7 +317,7 @@ void BaseFetchContext::AddClientHintsIfNecessary(
     }
 
     if (ShouldSendClientHint(
-            ClientHintsMode::kStandard, policy, resource_origin, is_1p_origin,
+            policy, resource_origin, is_1p_origin,
             network::mojom::blink::WebClientHintsType::kUAFullVersion,
             hints_preferences)) {
       request.SetHttpHeaderField(
@@ -337,7 +327,7 @@ void BaseFetchContext::AddClientHintsIfNecessary(
     }
 
     if (ShouldSendClientHint(
-            ClientHintsMode::kStandard, policy, resource_origin, is_1p_origin,
+            policy, resource_origin, is_1p_origin,
             network::mojom::blink::WebClientHintsType::kUABitness,
             hints_preferences)) {
       request.SetHttpHeaderField(
@@ -345,10 +335,21 @@ void BaseFetchContext::AddClientHintsIfNecessary(
               network::mojom::blink::WebClientHintsType::kUABitness)],
           SerializeHeaderString(ua->bitness));
     }
+
+    if (ShouldSendClientHint(
+            policy, resource_origin, is_1p_origin,
+            network::mojom::blink::WebClientHintsType::kFullUserAgent,
+            hints_preferences)) {
+      request.SetHttpHeaderField(
+          network::GetClientHintToNameMap()
+              .at(network::mojom::blink::WebClientHintsType::kFullUserAgent)
+              .c_str(),
+          SerializeBoolHeader(true));
+    }
   }
 
   if (ShouldSendClientHint(
-          ClientHintsMode::kStandard, policy, resource_origin, is_1p_origin,
+          policy, resource_origin, is_1p_origin,
           network::mojom::blink::WebClientHintsType::kPrefersColorScheme,
           hints_preferences) &&
       prefers_color_scheme) {
@@ -356,6 +357,18 @@ void BaseFetchContext::AddClientHintsIfNecessary(
         blink::kClientHintsHeaderMapping[static_cast<size_t>(
             network::mojom::blink::WebClientHintsType::kPrefersColorScheme)],
         prefers_color_scheme.value());
+  }
+
+  if (ShouldSendClientHint(policy, resource_origin, is_1p_origin,
+                           network::mojom::blink::WebClientHintsType::kSaveData,
+                           hints_preferences)) {
+    if (GetNetworkStateNotifier().SaveDataEnabled()) {
+      request.SetHttpHeaderField(
+          network::GetClientHintToNameMap()
+              .at(network::mojom::blink::WebClientHintsType::kSaveData)
+              .c_str(),
+          "on");
+    }
   }
 }
 
@@ -408,12 +421,6 @@ BaseFetchContext::CheckCSPForRequestInternal(
     ContentSecurityPolicy::CheckHeaderType check_header_type) const {
   if (options.content_security_policy_option ==
       network::mojom::CSPDisposition::DO_NOT_CHECK) {
-    return absl::nullopt;
-  }
-
-  if (ShouldDisableCSPCheckForLitePageSubresourceRedirectOrigin(
-          GetResourceFetcherProperties().GetLitePageSubresourceRedirectOrigin(),
-          request_context, redirect_status, url)) {
     return absl::nullopt;
   }
 
@@ -552,16 +559,6 @@ BaseFetchContext::CanRequestInternal(
     return ResourceRequestBlockedReason::kOther;
   }
 
-  // Redirect `ResourceRequest`s don't have a DevToolsId set, but are
-  // associated with the requestId of the initial request. The right
-  // DevToolsId needs to be resolved via the InspectorId.
-  const String devtools_request_id =
-      IdentifiersFactory::RequestId(nullptr, resource_request.InspectorId());
-  if (SendConversionRequestInsteadOfRedirecting(
-          url, redirect_info, reporting_disposition, devtools_request_id)) {
-    return ResourceRequestBlockedReason::kConversionRequest;
-  }
-
   // Let the client have the final say into whether or not the load should
   // proceed.
   if (GetSubresourceFilter()) {
@@ -575,7 +572,6 @@ BaseFetchContext::CanRequestInternal(
 }
 
 bool BaseFetchContext::ShouldSendClientHint(
-    ClientHintsMode mode,
     const PermissionsPolicy* policy,
     const url::Origin& resource_origin,
     bool is_1p_origin,
@@ -598,6 +594,7 @@ bool BaseFetchContext::ShouldSendClientHint(
 
   if (!origin_ok)
     return false;
+  }
 
   return IsClientHintSentByDefault(type) || hints_preferences.ShouldSend(type);
 }

@@ -37,8 +37,10 @@ TextPainterBase::TextPainterBase(GraphicsContext& context,
                                  const Font& font,
                                  const PhysicalOffset& text_origin,
                                  const PhysicalRect& text_frame_rect,
+                                 NGInlinePaintContext* inline_context,
                                  bool horizontal)
-    : graphics_context_(context),
+    : inline_context_(inline_context),
+      graphics_context_(context),
       font_(font),
       text_origin_(text_origin),
       text_frame_rect_(text_frame_rect),
@@ -54,17 +56,12 @@ void TextPainterBase::SetEmphasisMark(const AtomicString& emphasis_mark,
 
   if (!font_data || emphasis_mark.IsNull()) {
     emphasis_mark_offset_ = 0;
-  } else if ((horizontal_ && (position == TextEmphasisPosition::kOverRight ||
-                              position == TextEmphasisPosition::kOverLeft)) ||
-             (!horizontal_ &&
-              (position == TextEmphasisPosition::kOverRight ||
-               position == TextEmphasisPosition::kUnderRight))) {
+  } else if ((horizontal_ && IsOver(position)) ||
+             (!horizontal_ && IsRight(position))) {
     emphasis_mark_offset_ = -font_data->GetFontMetrics().Ascent() -
                             font_.EmphasisMarkDescent(emphasis_mark);
   } else {
-    DCHECK(position == TextEmphasisPosition::kUnderRight ||
-           position == TextEmphasisPosition::kUnderLeft ||
-           position == TextEmphasisPosition::kOverLeft);
+    DCHECK(!IsOver(position) || position == TextEmphasisPosition::kOverLeft);
     emphasis_mark_offset_ = font_data->GetFontMetrics().Descent() +
                             font_.EmphasisMarkAscent(emphasis_mark);
   }
@@ -172,7 +169,7 @@ TextPaintStyle TextPainterBase::TextPaintingStyle(const Document& document,
     text_style.stroke_color =
         style.VisitedDependentColor(GetCSSPropertyWebkitTextStrokeColor());
     text_style.emphasis_mark_color =
-        style.VisitedDependentColor(GetCSSPropertyWebkitTextEmphasisColor());
+        style.VisitedDependentColor(GetCSSPropertyTextEmphasisColor());
     text_style.shadow = style.TextShadow();
 
     // Adjust text color when printing with a white background.
@@ -231,6 +228,7 @@ void TextPainterBase::DecorationsStripeIntercepts(
 void TextPainterBase::PaintDecorationsExceptLineThrough(
     const TextDecorationOffsetBase& decoration_offset,
     TextDecorationInfo& decoration_info,
+    TextDecorationLine lines_to_paint,
     const PaintInfo& paint_info,
     const Vector<AppliedTextDecoration>& decorations,
     const TextPaintStyle& text_style,
@@ -260,6 +258,7 @@ void TextPainterBase::PaintDecorationsExceptLineThrough(
       std::swap(has_underline, has_overline);
 
     decoration_info.SetDecorationIndex(applied_decoration_index);
+    context.SetStrokeThickness(decoration_info.ResolvedThickness());
 
     float resolved_thickness = decoration_info.ResolvedThickness();
     context.SetStrokeThickness(resolved_thickness);
@@ -326,7 +325,7 @@ void TextPainterBase::PaintDecorationsOnlyLineThrough(
     if (EnumHasFlags(lines, TextDecoration::kLineThrough)) {
       decoration_info.SetDecorationIndex(applied_decoration_index);
 
-      float resolved_thickness = decoration_info.ResolvedThickness();
+      const float resolved_thickness = decoration_info.ResolvedThickness();
       context.SetStrokeThickness(resolved_thickness);
 
       // For increased line thickness, the line-through decoration needs to grow

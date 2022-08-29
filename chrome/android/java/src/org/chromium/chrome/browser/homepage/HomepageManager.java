@@ -22,6 +22,7 @@ import org.chromium.chrome.browser.settings.SettingsLauncherImpl;
 import org.chromium.components.browser_ui.settings.SettingsLauncher;
 import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.components.embedder_support.util.UrlUtilities;
+import org.chromium.url.GURL;
 
 /**
  * Provides information regarding homepage enabled states and URI.
@@ -147,7 +148,7 @@ public class HomepageManager implements HomepagePolicyManager.HomepagePolicyStat
      */
     public static String getDefaultHomepageUri() {
         if (PartnerBrowserCustomizations.getInstance().isHomepageProviderAvailableAndEnabled()) {
-            return PartnerBrowserCustomizations.getInstance().getHomePageUrl();
+            return PartnerBrowserCustomizations.getInstance().getHomePageUrl().getSpec();
         }
         return UrlConstants.NTP_NON_NATIVE_URL;
     }

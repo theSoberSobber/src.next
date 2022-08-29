@@ -11,11 +11,11 @@
 #include "base/callback.h"
 #include "base/files/file_util.h"
 #include "base/memory/ptr_util.h"
+#include "base/observer_list.h"
 #include "base/path_service.h"
 #include "base/scoped_observation.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
-#include "base/task/post_task.h"
 #include "base/task/thread_pool.h"
 #include "base/time/clock.h"
 #include "build/build_config.h"
@@ -565,6 +565,8 @@ void InstantService::BuildNtpTheme() {
       theme_->theme_id = theme_service->GetThemeID();
       theme_->theme_name = extension->name();
 
+      const ui::ThemeProvider& theme_provider =
+          ThemeService::GetThemeProviderForProfile(profile_);
       if (theme_provider.HasCustomImage(IDR_THEME_NTP_BACKGROUND)) {
         theme_->has_theme_image = true;
 

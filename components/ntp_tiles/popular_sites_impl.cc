@@ -39,13 +39,13 @@
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "services/network/public/cpp/simple_url_loader.h"
 
-#if defined(OS_ANDROID) || defined(OS_IOS)
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
 #include "base/json/json_reader.h"
 #include "components/grit/components_resources.h"
 #include "ui/base/resource/resource_bundle.h"
 #endif
 
-#if defined(OS_IOS)
+#if BUILDFLAG(IS_IOS)
 #include "components/ntp_tiles/country_code_ios.h"
 #endif
 
@@ -115,13 +115,17 @@ std::string GetVariationDirectory() {
                                             "directory");
 }
 
-PopularSites::SitesVector ParseSiteList(const base::ListValue& list) {
+PopularSites::SitesVector ParseSiteList(const base::Value::List& list) {
   PopularSites::SitesVector sites;
   for (size_t i = 0; i < list.GetSize(); i++) {
     const base::DictionaryValue* item;
     if (!list.GetDictionary(i, &item))
       continue;
     std::u16string title;
+    if (const std::string* ptr = item.FindString("title"))
+      title = base::UTF8ToUTF16(*ptr);
+    else
+      continue;
     std::string url;
     if (!item->GetString("title", &title) || !item->GetString("url", &url))
       continue;
@@ -150,12 +154,12 @@ PopularSites::SitesVector ParseSiteList(const base::ListValue& list) {
 }
 
 std::map<SectionType, PopularSites::SitesVector> ParseVersion5(
-    const base::ListValue& list) {
+    const base::Value::List& list) {
   return {{SectionType::PERSONALIZED, ParseSiteList(list)}};
 }
 
 std::map<SectionType, PopularSites::SitesVector> ParseVersion6OrAbove(
-    const base::ListValue& list) {
+    const base::Value::List& list) {
   // Valid lists would have contained at least the PERSONALIZED section.
   std::map<SectionType, PopularSites::SitesVector> sections = {
       std::make_pair(SectionType::PERSONALIZED, PopularSites::SitesVector{})};
@@ -187,7 +191,7 @@ std::map<SectionType, PopularSites::SitesVector> ParseVersion6OrAbove(
 }
 
 std::map<SectionType, PopularSites::SitesVector> ParseSites(
-    const base::ListValue& list,
+    const base::Value::List& list,
     int version) {
   if (version >= kSitesExplorationStartVersion)
     return ParseVersion6OrAbove(list);
@@ -195,21 +199,20 @@ std::map<SectionType, PopularSites::SitesVector> ParseSites(
 }
 
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING) && \
-    (defined(OS_ANDROID) || defined(OS_IOS))
+    (BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS))
 void SetDefaultResourceForSite(size_t index,
                                int resource_id,
-                               base::Value* sites) {
-  base::Value::ListView list = sites->GetList();
-  if (index >= list.size() || !list[index].is_dict())
+                               base::Value::List& sites) {
+  if (index >= sites.size() || !sites[index].is_dict())
     return;
 
-  list[index].SetIntKey("default_icon_resource", resource_id);
+  sites[index].GetDict().Set("default_icon_resource", resource_id);
 }
 #endif
 
 // Creates the list of popular sites based on a snapshot available for mobile.
 base::Value DefaultPopularSites() {
-#if !defined(OS_ANDROID) && !defined(OS_IOS)
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
   return base::Value(base::Value::Type::LIST);
 #else
   if (!base::FeatureList::IsEnabled(kPopularSitesBakedInContentFeature))
@@ -218,8 +221,8 @@ base::Value DefaultPopularSites() {
   absl::optional<base::Value> sites = base::JSONReader::Read(
       ui::ResourceBundle::GetSharedInstance().LoadDataResourceString(
           IDR_DEFAULT_POPULAR_SITES_JSON));
-  for (base::Value& site : sites.value().GetList())
-    site.SetBoolKey("baked_in", true);
+  for (base::Value& site : sites->GetList())
+    site.GetDict().Set("baked_in", true);
 
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
   size_t index = 0;
@@ -228,11 +231,11 @@ base::Value DefaultPopularSites() {
         IDR_DEFAULT_POPULAR_SITES_ICON2, IDR_DEFAULT_POPULAR_SITES_ICON3,
         IDR_DEFAULT_POPULAR_SITES_ICON4, IDR_DEFAULT_POPULAR_SITES_ICON5,
         IDR_DEFAULT_POPULAR_SITES_ICON6, IDR_DEFAULT_POPULAR_SITES_ICON7}) {
-    SetDefaultResourceForSite(index++, icon_resource, &sites.value());
+    SetDefaultResourceForSite(index++, icon_resource, sites->GetList());
   }
 #endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
   return std::move(sites.value());
-#endif  // OS_ANDROID || OS_IOS
+#endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 }
 
 }  // namespace
@@ -265,7 +268,7 @@ PopularSitesImpl::PopularSitesImpl(
       url_loader_factory_(std::move(url_loader_factory)),
       is_fallback_(false),
       sections_(
-          ParseSites(*prefs->GetList(prefs::kPopularSitesJsonPref),
+          ParseSites(prefs->GetValueList(prefs::kPopularSitesJsonPref),
                      prefs_->GetInteger(prefs::kPopularSitesVersionPref))) {}
 
 PopularSitesImpl::~PopularSitesImpl() {}
@@ -362,7 +365,7 @@ std::string PopularSitesImpl::GetCountryToFetch() {
   if (country_code.empty() && variations_)
     country_code = variations_->GetStoredPermanentCountry();
 
-#if defined(OS_IOS)
+#if BUILDFLAG(IS_IOS)
   if (country_code.empty())
     country_code = GetDeviceCountryCode();
 #endif
@@ -390,7 +393,8 @@ std::string PopularSitesImpl::GetVersionToFetch() {
 }
 
 const base::ListValue* PopularSitesImpl::GetCachedJson() {
-  return prefs_->GetList(prefs::kPopularSitesJsonPref);
+  return &base::Value::AsListValue(
+      *prefs_->GetList(prefs::kPopularSitesJsonPref));
 }
 
 // static
@@ -464,26 +468,25 @@ void PopularSitesImpl::OnSimpleLoaderComplete(
 
 void PopularSitesImpl::OnJsonParsed(
     data_decoder::DataDecoder::ValueOrError result) {
-  if (!result.value) {
-    DLOG(WARNING) << "JSON parsing failed: " << *result.error;
+  if (!result.has_value()) {
+    DLOG(WARNING) << "JSON parsing failed: " << result.error();
     OnDownloadFailed();
     return;
   }
 
-  std::unique_ptr<base::ListValue> list = base::ListValue::From(
-      base::Value::ToUniquePtrValue(std::move(*result.value)));
-  if (!list) {
+  base::Value list = std::move(*result);
+  if (!list.is_list()) {
     DLOG(WARNING) << "JSON is not a list";
     OnDownloadFailed();
     return;
   }
-  prefs_->Set(prefs::kPopularSitesJsonPref, *list);
+  sections_ = ParseSites(list.GetList(), version_in_pending_url_);
+  prefs_->SetList(prefs::kPopularSitesJsonPref, std::move(list.GetList()));
   prefs_->SetInt64(prefs::kPopularSitesLastDownloadPref,
                    base::Time::Now().ToInternalValue());
   prefs_->SetInteger(prefs::kPopularSitesVersionPref, version_in_pending_url_);
   prefs_->SetString(prefs::kPopularSitesURLPref, pending_url_.spec());
 
-  sections_ = ParseSites(*list, version_in_pending_url_);
   std::move(callback_).Run(true);
 }
 

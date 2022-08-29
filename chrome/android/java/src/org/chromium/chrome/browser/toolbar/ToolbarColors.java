@@ -7,7 +7,7 @@ package org.chromium.chrome.browser.toolbar;
 import android.content.Context;
 
 import org.chromium.chrome.browser.device.DeviceClassManager;
-import org.chromium.chrome.browser.tasks.ReturnToChromeExperimentsUtil;
+import org.chromium.chrome.browser.tasks.ReturnToChromeUtil;
 import org.chromium.chrome.browser.tasks.tab_management.TabUiFeatureUtilities;
 
 /**

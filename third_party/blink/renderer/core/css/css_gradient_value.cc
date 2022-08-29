@@ -30,7 +30,7 @@
 #include <tuple>
 #include <utility>
 
-#include "base/cxx17_backports.h"
+#include "base/memory/values_equivalent.h"
 #include "third_party/blink/renderer/core/css/css_color.h"
 #include "third_party/blink/renderer/core/css/css_identifier_value.h"
 #include "third_party/blink/renderer/core/css/css_math_expression_node.h"
@@ -42,7 +42,6 @@
 #include "third_party/blink/renderer/core/css_value_keywords.h"
 #include "third_party/blink/renderer/core/dom/node_computed_style.h"
 #include "third_party/blink/renderer/core/dom/text_link_colors.h"
-#include "third_party/blink/renderer/platform/geometry/int_size.h"
 #include "third_party/blink/renderer/platform/graphics/color_blend.h"
 #include "third_party/blink/renderer/platform/graphics/gradient.h"
 #include "third_party/blink/renderer/platform/graphics/gradient_generated_image.h"
@@ -51,6 +50,7 @@
 #include "third_party/blink/renderer/platform/heap/heap.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_builder.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
+#include "ui/gfx/geometry/size.h"
 
 namespace blink {
 namespace cssvalue {
@@ -93,7 +93,7 @@ bool AppendPosition(StringBuilder& result,
   return true;
 }
 
-}  // anonymous ns
+}  // namespace
 
 bool CSSGradientColorStop::IsCacheable() const {
   if (!IsHint()) {
@@ -132,10 +132,9 @@ scoped_refptr<Image> CSSGradientValue::GetImage(
   // We need to create an image.
   const ComputedStyle* root_style =
       document.documentElement()->GetComputedStyle();
-  // TOOD(crbug.com/1223030): Handle container relative units.
   CSSToLengthConversionData conversion_data(
-      &style, root_style, document.GetLayoutView(),
-      /* nearest_container */ nullptr, style.EffectiveZoom());
+      &style, root_style, document.GetLayoutView(), container_sizes,
+      style.EffectiveZoom());
 
   scoped_refptr<Gradient> gradient;
   switch (GetClassType()) {
@@ -476,8 +475,8 @@ void AdjustGradientRadiiForOffsetRange(CSSGradientValue::GradientDesc& desc,
   DCHECK_LE(first_offset, last_offset);
 
   // Radial offsets are relative to the [0 , endRadius] segment.
-  float adjusted_r0 = desc.r1 * first_offset;
-  float adjusted_r1 = desc.r1 * last_offset;
+  float adjusted_r0 = ClampTo<float>(desc.r1 * first_offset);
+  float adjusted_r1 = ClampTo<float>(desc.r1 * last_offset);
   DCHECK_LE(adjusted_r0, adjusted_r1);
   // Unlike linear gradients (where we can adjust the points arbitrarily),
   // we cannot let our radii turn negative here.
@@ -504,7 +503,7 @@ void AdjustGradientRadiiForOffsetRange(CSSGradientValue::GradientDesc& desc,
   desc.r1 = adjusted_r1;
 }
 
-}  // anonymous ns
+}  // namespace
 
 void CSSGradientValue::AddStops(
     CSSGradientValue::GradientDesc& desc,
@@ -1032,29 +1031,34 @@ bool CSSLinearGradientValue::Equals(const CSSLinearGradientValue& other) const {
     return false;
 
   if (gradient_type_ == kCSSDeprecatedLinearGradient) {
-    return DataEquivalent(first_x_, other.first_x_) &&
-           DataEquivalent(first_y_, other.first_y_) &&
-           DataEquivalent(second_x_, other.second_x_) &&
-           DataEquivalent(second_y_, other.second_y_) && stops_ == other.stops_;
+    return base::ValuesEquivalent(first_x_, other.first_x_) &&
+           base::ValuesEquivalent(first_y_, other.first_y_) &&
+           base::ValuesEquivalent(second_x_, other.second_x_) &&
+           base::ValuesEquivalent(second_y_, other.second_y_) &&
+           stops_ == other.stops_;
   }
 
   if (repeating_ != other.repeating_)
     return false;
 
-  if (angle_)
-    return DataEquivalent(angle_, other.angle_) && stops_ == other.stops_;
+  if (angle_) {
+    return base::ValuesEquivalent(angle_, other.angle_) &&
+           stops_ == other.stops_;
+  }
 
   if (other.angle_)
     return false;
 
   bool equal_xand_y = false;
   if (first_x_ && first_y_) {
-    equal_xand_y = DataEquivalent(first_x_, other.first_x_) &&
-                   DataEquivalent(first_y_, other.first_y_);
+    equal_xand_y = base::ValuesEquivalent(first_x_, other.first_x_) &&
+                   base::ValuesEquivalent(first_y_, other.first_y_);
   } else if (first_x_) {
-    equal_xand_y = DataEquivalent(first_x_, other.first_x_) && !other.first_y_;
+    equal_xand_y =
+        base::ValuesEquivalent(first_x_, other.first_x_) && !other.first_y_;
   } else if (first_y_) {
-    equal_xand_y = DataEquivalent(first_y_, other.first_y_) && !other.first_x_;
+    equal_xand_y =
+        base::ValuesEquivalent(first_y_, other.first_y_) && !other.first_x_;
   } else {
     equal_xand_y = !other.first_x_ && !other.first_y_;
   }
@@ -1070,6 +1074,40 @@ CSSLinearGradientValue* CSSLinearGradientValue::ComputedCSSValue(
       repeating_ ? kRepeating : kNonRepeating, GradientType());
   result->AddComputedStops(style, allow_visited_style, stops_);
   return result;
+}
+
+static bool IsUsingCurrentColor(
+    const HeapVector<CSSGradientColorStop, 2>& stops) {
+  for (const CSSGradientColorStop& stop : stops) {
+    auto* identifier_value = DynamicTo<CSSIdentifierValue>(stop.color_.Get());
+    if (identifier_value &&
+        identifier_value->GetValueID() == CSSValueID::kCurrentcolor) {
+      return true;
+    }
+  }
+  return false;
+}
+
+static bool IsUsingContainerRelativeUnits(const CSSValue* value) {
+  const auto* primitive_value = DynamicTo<CSSPrimitiveValue>(value);
+  return primitive_value && primitive_value->HasContainerRelativeUnits();
+}
+
+static bool IsUsingContainerRelativeUnits(
+    const HeapVector<CSSGradientColorStop, 2>& stops) {
+  for (const CSSGradientColorStop& stop : stops) {
+    if (IsUsingContainerRelativeUnits(stop.offset_.Get()))
+      return true;
+  }
+  return false;
+}
+
+bool CSSLinearGradientValue::IsUsingCurrentColor() const {
+  return blink::cssvalue::IsUsingCurrentColor(stops_);
+}
+
+bool CSSLinearGradientValue::IsUsingContainerRelativeUnits() const {
+  return blink::cssvalue::IsUsingContainerRelativeUnits(stops_);
 }
 
 void CSSLinearGradientValue::TraceAfterDispatch(blink::Visitor* visitor) const {
@@ -1421,27 +1459,28 @@ bool EqualIdentifiersWithDefault(const CSSIdentifierValue* id_a,
 bool CSSRadialGradientValue::Equals(const CSSRadialGradientValue& other) const {
   if (gradient_type_ == kCSSDeprecatedRadialGradient)
     return other.gradient_type_ == gradient_type_ &&
-           DataEquivalent(first_x_, other.first_x_) &&
-           DataEquivalent(first_y_, other.first_y_) &&
-           DataEquivalent(second_x_, other.second_x_) &&
-           DataEquivalent(second_y_, other.second_y_) &&
-           DataEquivalent(first_radius_, other.first_radius_) &&
-           DataEquivalent(second_radius_, other.second_radius_) &&
+           base::ValuesEquivalent(first_x_, other.first_x_) &&
+           base::ValuesEquivalent(first_y_, other.first_y_) &&
+           base::ValuesEquivalent(second_x_, other.second_x_) &&
+           base::ValuesEquivalent(second_y_, other.second_y_) &&
+           base::ValuesEquivalent(first_radius_, other.first_radius_) &&
+           base::ValuesEquivalent(second_radius_, other.second_radius_) &&
            stops_ == other.stops_;
 
   if (repeating_ != other.repeating_)
     return false;
 
-  if (!DataEquivalent(first_x_, other.first_x_) ||
-      !DataEquivalent(first_y_, other.first_y_))
+  if (!base::ValuesEquivalent(first_x_, other.first_x_) ||
+      !base::ValuesEquivalent(first_y_, other.first_y_))
     return false;
 
   // There's either a size keyword or an explicit size specification.
   if (end_horizontal_size_) {
     // Explicit size specification. One <length> or two <length-percentage>.
-    if (!DataEquivalent(end_horizontal_size_, other.end_horizontal_size_))
+    if (!base::ValuesEquivalent(end_horizontal_size_,
+                                other.end_horizontal_size_))
       return false;
-    if (!DataEquivalent(end_vertical_size_, other.end_vertical_size_))
+    if (!base::ValuesEquivalent(end_vertical_size_, other.end_vertical_size_))
       return false;
   } else {
     if (other.end_horizontal_size_)
@@ -1467,6 +1506,14 @@ CSSRadialGradientValue* CSSRadialGradientValue::ComputedCSSValue(
       repeating_ ? kRepeating : kNonRepeating, GradientType());
   result->AddComputedStops(style, allow_visited_style, stops_);
   return result;
+}
+
+bool CSSRadialGradientValue::IsUsingCurrentColor() const {
+  return blink::cssvalue::IsUsingCurrentColor(stops_);
+}
+
+bool CSSRadialGradientValue::IsUsingContainerRelativeUnits() const {
+  return blink::cssvalue::IsUsingContainerRelativeUnits(stops_);
 }
 
 void CSSRadialGradientValue::TraceAfterDispatch(blink::Visitor* visitor) const {
@@ -1534,9 +1581,10 @@ scoped_refptr<Gradient> CSSConicGradientValue::CreateGradient(
 }
 
 bool CSSConicGradientValue::Equals(const CSSConicGradientValue& other) const {
-  return repeating_ == other.repeating_ && DataEquivalent(x_, other.x_) &&
-         DataEquivalent(y_, other.y_) &&
-         DataEquivalent(from_angle_, other.from_angle_) &&
+  return repeating_ == other.repeating_ &&
+         base::ValuesEquivalent(x_, other.x_) &&
+         base::ValuesEquivalent(y_, other.y_) &&
+         base::ValuesEquivalent(from_angle_, other.from_angle_) &&
          stops_ == other.stops_;
 }
 
@@ -1547,6 +1595,16 @@ CSSConicGradientValue* CSSConicGradientValue::ComputedCSSValue(
       x_, y_, from_angle_, repeating_ ? kRepeating : kNonRepeating);
   result->AddComputedStops(style, allow_visited_style, stops_);
   return result;
+}
+
+bool CSSConicGradientValue::IsUsingCurrentColor() const {
+  return blink::cssvalue::IsUsingCurrentColor(stops_);
+}
+
+bool CSSConicGradientValue::IsUsingContainerRelativeUnits() const {
+  return blink::cssvalue::IsUsingContainerRelativeUnits(stops_) ||
+         blink::cssvalue::IsUsingContainerRelativeUnits(x_.Get()) ||
+         blink::cssvalue::IsUsingContainerRelativeUnits(y_.Get());
 }
 
 void CSSConicGradientValue::TraceAfterDispatch(blink::Visitor* visitor) const {

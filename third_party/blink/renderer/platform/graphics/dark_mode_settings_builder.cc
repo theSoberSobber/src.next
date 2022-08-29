@@ -107,14 +107,14 @@ DarkModeImagePolicy GetImagePolicy(const SwitchParams& switch_params) {
   }
 }
 
-int GetTextBrightnessThreshold(const SwitchParams& switch_params) {
+int GetForegroundBrightnessThreshold(const SwitchParams& switch_params) {
   const int flag_value = base::GetFieldTrialParamByFeatureAsInt(
       features::kForceWebContentsDarkMode,
-      features::kForceDarkTextLightnessThresholdParam.name, -1);
+      features::kForceDarkForegroundLightnessThresholdParam.name, -1);
   return flag_value >= 0 ? flag_value
                          : GetIntegerSwitchParamValue<int>(
-                               switch_params, "TextBrightnessThreshold",
-                               kDefaultTextBrightnessThreshold);
+                               switch_params, "ForegroundBrightnessThreshold",
+                               kDefaultForegroundBrightnessThreshold);
 }
 
 int GetBackgroundBrightnessThreshold(const SwitchParams& switch_params) {

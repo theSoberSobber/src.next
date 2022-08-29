@@ -10,12 +10,10 @@
 #include "third_party/blink/renderer/core/layout/layout_box.h"
 #include "third_party/blink/renderer/core/layout/layout_object.h"
 #include "third_party/blink/renderer/core/layout/layout_theme.h"
-#include "third_party/blink/renderer/core/layout/svg/layout_svg_foreign_object.h"
 #include "third_party/blink/renderer/core/paint/background_image_geometry.h"
 #include "third_party/blink/renderer/core/paint/box_decoration_data.h"
 #include "third_party/blink/renderer/core/paint/box_model_object_painter.h"
 #include "third_party/blink/renderer/core/paint/box_painter_base.h"
-#include "third_party/blink/renderer/core/paint/compositing/composited_layer_mapping.h"
 #include "third_party/blink/renderer/core/paint/nine_piece_image_painter.h"
 #include "third_party/blink/renderer/core/paint/object_painter.h"
 #include "third_party/blink/renderer/core/paint/paint_info.h"
@@ -47,8 +45,9 @@ void BoxPainter::PaintChildren(const PaintInfo& paint_info) {
   PaintInfo child_info(paint_info);
   for (LayoutObject* child = layout_box_.SlowFirstChild(); child;
        child = child->NextSibling()) {
-    if (auto* foreign_object = DynamicTo<LayoutSVGForeignObject>(*child)) {
-      SVGForeignObjectPainter(*foreign_object).PaintLayer(paint_info);
+    if (child->IsSVGForeignObjectIncludingNG()) {
+      SVGForeignObjectPainter(To<LayoutBlockFlow>(*child))
+          .PaintLayer(paint_info);
     } else {
       child->Paint(child_info);
     }
@@ -105,23 +104,6 @@ void BoxPainter::PaintBoxDecorationBackground(
 
   RecordHitTestData(paint_info, paint_rect, *background_client);
 
-  bool needs_scroll_hit_test = true;
-  if (!RuntimeEnabledFeatures::CompositeAfterPaintEnabled()) {
-    // Pre-CompositeAfterPaint, there is no need to emit scroll hit test
-    // display items for composited scrollers because these display items are
-    // only used to create non-fast scrollable regions for non-composited
-    // scrollers. With CompositeAfterPaint, we always paint the scroll hit
-    // test display items but ignore the non-fast region if the scroll was
-    // composited in PaintArtifactCompositor::UpdateNonFastScrollableRegions.
-    if (layout_box_.HasLayer() &&
-        layout_box_.Layer()->GetCompositedLayerMapping() &&
-        layout_box_.Layer()
-            ->GetCompositedLayerMapping()
-            ->ScrollingContentsLayer()) {
-      needs_scroll_hit_test = false;
-    }
-  }
-
   // Record the scroll hit test after the non-scrolling background so
   // background squashing is not affected. Hit test order would be equivalent
   // if this were immediately before the non-scrolling background.
@@ -131,7 +113,7 @@ void BoxPainter::PaintBoxDecorationBackground(
 
 void BoxPainter::PaintBoxDecorationBackgroundWithRect(
     const PaintInfo& paint_info,
-    const IntRect& visual_rect,
+    const gfx::Rect& visual_rect,
     const PhysicalRect& paint_rect,
     const DisplayItemClient& background_client) {
   const ComputedStyle& style = layout_box_.StyleRef();
@@ -274,7 +256,7 @@ void BoxPainter::RecordHitTestData(const PaintInfo& paint_info,
                                    const DisplayItemClient& background_client) {
   // Hit test data are only needed for compositing. This flag is used for for
   // printing and drag images which do not need hit testing.
-  if (paint_info.GetGlobalPaintFlags() & kGlobalPaintFlattenCompositingLayers)
+  if (paint_info.ShouldOmitCompositingInfo())
     return;
 
   // If an object is not visible, it does not participate in hit testing.
@@ -295,7 +277,7 @@ void BoxPainter::RecordScrollHitTestData(
     const DisplayItemClient& background_client) {
   // Scroll hit test data are only needed for compositing. This flag is used for
   // printing and drag images which do not need hit testing.
-  if (paint_info.GetGlobalPaintFlags() & kGlobalPaintFlattenCompositingLayers)
+  if (paint_info.ShouldOmitCompositingInfo())
     return;
 
   // If an object is not visible, it does not scroll.
@@ -317,8 +299,22 @@ void BoxPainter::RecordScrollHitTestData(
     // instead of the contents properties so that the scroll hit test is not
     // clipped or scrolled.
     auto& paint_controller = paint_info.context.GetPaintController();
-    DCHECK_EQ(fragment->LocalBorderBoxProperties(),
-              paint_controller.CurrentPaintChunkProperties());
+#if DCHECK_IS_ON()
+    // TODO(crbug.com/1256990): This should be
+    // DCHECK_EQ(fragment->LocalBorderBoxProperties(),
+    //           paint_controller.CurrentPaintChunkProperties());
+    // but we have problems about the effect node with CompositingReason::
+    // kTransform3DSceneLeaf on non-stacking-context elements.
+    auto border_box_properties = fragment->LocalBorderBoxProperties();
+    auto current_properties = paint_controller.CurrentPaintChunkProperties();
+    DCHECK_EQ(&border_box_properties.Transform(),
+              &current_properties.Transform())
+        << border_box_properties.Transform().ToTreeString().Utf8()
+        << current_properties.Transform().ToTreeString().Utf8();
+    DCHECK_EQ(&border_box_properties.Clip(), &current_properties.Clip())
+        << border_box_properties.Clip().ToTreeString().Utf8()
+        << current_properties.Clip().ToTreeString().Utf8();
+#endif
     paint_controller.RecordScrollHitTestData(
         background_client, DisplayItem::kScrollHitTest,
         properties->ScrollTranslation(), VisualRect(fragment->PaintOffset()));

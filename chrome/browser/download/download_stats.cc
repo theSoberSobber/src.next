@@ -1,15 +1,13 @@
-// Copyright 2013 The Chromium Authors
+// Copyright 2013 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include "chrome/browser/download/download_stats.h"
+#include "components/profile_metrics/browser_profile_type.h"
+#include "components/safe_browsing/content/browser/download/download_stats.h"
 
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/user_metrics.h"
-#include "base/notreached.h"
-#include "build/build_config.h"
-#include "components/profile_metrics/browser_profile_type.h"
-#include "components/safe_browsing/content/browser/download/download_stats.h"
 
 void RecordDownloadCount(ChromeDownloadCountTypes type) {
   base::UmaHistogramEnumeration("Download.CountsChrome", type,
@@ -39,16 +37,10 @@ void RecordOpenedDangerousConfirmDialog(
       download::DOWNLOAD_DANGER_TYPE_MAX);
 }
 
-void RecordDownloadOpen(ChromeDownloadOpenMethod open_method,
-                        const std::string& mime_type_string) {
+void RecordDownloadOpenMethod(ChromeDownloadOpenMethod open_method) {
   base::RecordAction(base::UserMetricsAction("Download.Open"));
   base::UmaHistogramEnumeration("Download.OpenMethod", open_method,
                                 DOWNLOAD_OPEN_METHOD_LAST_ENTRY);
-  download::DownloadContent download_content =
-      download::DownloadContentFromMimeType(
-          mime_type_string, /*record_content_subcategory=*/false);
-  base::UmaHistogramEnumeration("Download.Open.ContentType", download_content,
-                                download::DownloadContent::MAX);
 }
 
 void RecordDatabaseAvailability(bool is_available) {
@@ -83,14 +75,9 @@ void RecordDownloadCancelReason(DownloadCancelReason reason) {
   base::UmaHistogramEnumeration("Download.CancelReason", reason);
 }
 
-void RecordDownloadShelfDragInfo(DownloadDragInfo drag_info) {
-  base::UmaHistogramEnumeration("Download.Shelf.DragInfo", drag_info,
-                                DownloadDragInfo::COUNT);
-}
-
-void RecordDownloadBubbleDragInfo(DownloadDragInfo drag_info) {
-  base::UmaHistogramEnumeration("Download.Bubble.DragInfo", drag_info,
-                                DownloadDragInfo::COUNT);
+void RecordDownloadShelfDragEvent(DownloadShelfDragEvent drag_event) {
+  base::UmaHistogramEnumeration("Download.Shelf.DragEvent", drag_event,
+                                DownloadShelfDragEvent::COUNT);
 }
 
 void RecordDownloadStartPerProfileType(Profile* profile) {
@@ -99,83 +86,16 @@ void RecordDownloadStartPerProfileType(Profile* profile) {
       profile_metrics::GetBrowserProfileType(profile));
 }
 
-#if BUILDFLAG(IS_ANDROID)
+#ifdef OS_ANDROID
 // Records whether the download dialog is shown to the user.
 void RecordDownloadPromptStatus(DownloadPromptStatus status) {
   base::UmaHistogramEnumeration("MobileDownload.DownloadPromptStatus", status,
                                 DownloadPromptStatus::MAX_VALUE);
 }
-#endif  // BUILDFLAG(IS_ANDROID)
 
-#if BUILDFLAG(IS_CHROMEOS)
-void RecordDownloadNotificationSuppressed() {
-  base::UmaHistogramBoolean("Download.Notification.Suppressed", true);
+void RecordDownloadLaterPromptStatus(DownloadLaterPromptStatus status) {
+  base::UmaHistogramEnumeration("MobileDownload.DownloadLaterPromptStatus",
+                                status);
 }
-#endif  // BUILDFLAG(IS_CHROMEOS)
 
-DownloadShelfContextMenuAction DownloadCommandToShelfAction(
-    DownloadCommands::Command download_command,
-    bool clicked) {
-  switch (download_command) {
-    case DownloadCommands::Command::MAX:
-      NOTREACHED();
-      return DownloadShelfContextMenuAction::kMaxValue;
-    case DownloadCommands::Command::SHOW_IN_FOLDER:
-      return clicked ? DownloadShelfContextMenuAction::kShowInFolderClicked
-                     : DownloadShelfContextMenuAction::kShowInFolderEnabled;
-    case DownloadCommands::Command::OPEN_WHEN_COMPLETE:
-      return clicked ? DownloadShelfContextMenuAction::kOpenWhenCompleteClicked
-                     : DownloadShelfContextMenuAction::kOpenWhenCompleteEnabled;
-    case DownloadCommands::Command::ALWAYS_OPEN_TYPE:
-      return clicked ? DownloadShelfContextMenuAction::kAlwaysOpenTypeClicked
-                     : DownloadShelfContextMenuAction::kAlwaysOpenTypeEnabled;
-    case DownloadCommands::Command::PLATFORM_OPEN:
-      return clicked ? DownloadShelfContextMenuAction::kPlatformOpenClicked
-                     : DownloadShelfContextMenuAction::kPlatformOpenEnabled;
-    case DownloadCommands::Command::CANCEL:
-      return clicked ? DownloadShelfContextMenuAction::kCancelClicked
-                     : DownloadShelfContextMenuAction::kCancelEnabled;
-    case DownloadCommands::Command::PAUSE:
-      return clicked ? DownloadShelfContextMenuAction::kPauseClicked
-                     : DownloadShelfContextMenuAction::kPauseEnabled;
-    case DownloadCommands::Command::RESUME:
-      return clicked ? DownloadShelfContextMenuAction::kResumeClicked
-                     : DownloadShelfContextMenuAction::kResumeEnabled;
-    case DownloadCommands::Command::DISCARD:
-      return clicked ? DownloadShelfContextMenuAction::kDiscardClicked
-                     : DownloadShelfContextMenuAction::kDiscardEnabled;
-    case DownloadCommands::Command::KEEP:
-      return clicked ? DownloadShelfContextMenuAction::kKeepClicked
-                     : DownloadShelfContextMenuAction::kKeepEnabled;
-    case DownloadCommands::Command::LEARN_MORE_SCANNING:
-      return clicked
-                 ? DownloadShelfContextMenuAction::kLearnMoreScanningClicked
-                 : DownloadShelfContextMenuAction::kLearnMoreScanningEnabled;
-    case DownloadCommands::Command::LEARN_MORE_INTERRUPTED:
-      return clicked
-                 ? DownloadShelfContextMenuAction::kLearnMoreInterruptedClicked
-                 : DownloadShelfContextMenuAction::kLearnMoreInterruptedEnabled;
-    case DownloadCommands::Command::LEARN_MORE_MIXED_CONTENT:
-      return clicked
-                 ? DownloadShelfContextMenuAction::kLearnMoreMixedContentClicked
-                 : DownloadShelfContextMenuAction::
-                       kLearnMoreMixedContentEnabled;
-    case DownloadCommands::Command::COPY_TO_CLIPBOARD:
-      return clicked ? DownloadShelfContextMenuAction::kCopyToClipboardClicked
-                     : DownloadShelfContextMenuAction::kCopyToClipboardEnabled;
-    case DownloadCommands::Command::DEEP_SCAN:
-      return clicked ? DownloadShelfContextMenuAction::kDeepScanClicked
-                     : DownloadShelfContextMenuAction::kDeepScanEnabled;
-    case DownloadCommands::Command::BYPASS_DEEP_SCANNING:
-      return clicked
-                 ? DownloadShelfContextMenuAction::kBypassDeepScanningClicked
-                 : DownloadShelfContextMenuAction::kBypassDeepScanningEnabled;
-
-    // The following are not actually visible in the context menu so should
-    // never be logged.
-    case DownloadCommands::Command::REVIEW:
-    case DownloadCommands::Command::RETRY:
-      NOTREACHED();
-      return DownloadShelfContextMenuAction::kNotReached;
-  }
-}
+#endif  // OS_ANDROID

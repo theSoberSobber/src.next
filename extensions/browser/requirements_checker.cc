@@ -1,4 +1,4 @@
-// Copyright 2017 The Chromium Authors
+// Copyright 2017 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -33,7 +33,7 @@ void RequirementsChecker::Start(ResultCallback callback) {
 
 #if !defined(USE_AURA)
   if (requirements.window_shape)
-    errors_.insert(Error::kWindowShapeNotSupported);
+    errors_.insert(WINDOW_SHAPE_NOT_SUPPORTED);
 #endif
 
   callback_ = std::move(callback);
@@ -52,12 +52,12 @@ void RequirementsChecker::Start(ResultCallback callback) {
 std::u16string RequirementsChecker::GetErrorMessage() const {
   // Join the error messages into one string.
   std::vector<std::string> messages;
-  if (errors_.count(Error::kWebglNotSupported)) {
+  if (errors_.count(WEBGL_NOT_SUPPORTED)) {
     messages.push_back(
         l10n_util::GetStringUTF8(IDS_EXTENSION_WEBGL_NOT_SUPPORTED));
   }
 #if !defined(USE_AURA)
-  if (errors_.count(Error::kWindowShapeNotSupported)) {
+  if (errors_.count(WINDOW_SHAPE_NOT_SUPPORTED)) {
     messages.push_back(
         l10n_util::GetStringUTF8(IDS_EXTENSION_WINDOW_SHAPE_NOT_SUPPORTED));
   }
@@ -68,7 +68,7 @@ std::u16string RequirementsChecker::GetErrorMessage() const {
 
 void RequirementsChecker::VerifyWebGLAvailability(bool available) {
   if (!available)
-    errors_.insert(Error::kWebglNotSupported);
+    errors_.insert(WEBGL_NOT_SUPPORTED);
   PostRunCallback();
 }
 

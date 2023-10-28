@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -57,15 +57,6 @@ void ProfileErrorCallback(WebDataServiceWrapper::ErrorType error_type,
                           const std::string& diagnostics) {
   ShowProfileErrorDialog(ProfileErrorFromWebDataServiceWrapperError(error_type),
                          SqlInitStatusToMessageId(status), diagnostics);
-}
-
-std::unique_ptr<KeyedService> BuildWebDataService(
-    content::BrowserContext* context) {
-  const base::FilePath& profile_path = context->GetPath();
-  return std::make_unique<WebDataServiceWrapper>(
-      profile_path, g_browser_process->GetApplicationLocale(),
-      content::GetUIThreadTaskRunner({}),
-      base::BindRepeating(&ProfileErrorCallback));
 }
 
 }  // namespace
@@ -140,12 +131,6 @@ WebDataServiceFactory* WebDataServiceFactory::GetInstance() {
   return base::Singleton<WebDataServiceFactory>::get();
 }
 
-// static
-BrowserContextKeyedServiceFactory::TestingFactory
-WebDataServiceFactory::GetDefaultFactory() {
-  return base::BindRepeating(&BuildWebDataService);
-}
-
 content::BrowserContext* WebDataServiceFactory::GetBrowserContextToUse(
     content::BrowserContext* context) const {
   return chrome::GetBrowserContextRedirectedInIncognito(context);
@@ -153,7 +138,11 @@ content::BrowserContext* WebDataServiceFactory::GetBrowserContextToUse(
 
 KeyedService* WebDataServiceFactory::BuildServiceInstanceFor(
     content::BrowserContext* context) const {
-  return BuildWebDataService(context).release();
+  const base::FilePath& profile_path = context->GetPath();
+  return new WebDataServiceWrapper(profile_path,
+                                   g_browser_process->GetApplicationLocale(),
+                                   content::GetUIThreadTaskRunner({}),
+                                   base::BindRepeating(&ProfileErrorCallback));
 }
 
 bool WebDataServiceFactory::ServiceIsNULLWhileTesting() const {

@@ -1,4 +1,4 @@
-// Copyright 2016 The Chromium Authors
+// Copyright 2016 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -178,7 +178,7 @@ BrowsingHistoryService::BrowsingHistoryService(
 
   // Get notifications when history is cleared.
   if (local_history_)
-    history_service_observation_.Observe(local_history_.get());
+    history_service_observation_.Observe(local_history_);
 
   // Get notifications when web history is deleted.
   WebHistoryService* web_history = driver_->GetWebHistoryService();
@@ -192,11 +192,9 @@ BrowsingHistoryService::BrowsingHistoryService(
     // observing. This is okay because sync will never start for us, for example
     // it may be disabled by flag or we're part of an incognito/guest mode
     // window.
-    sync_service_observation_.Observe(sync_service_.get());
+    sync_service_observation_.Observe(sync_service_);
   }
 }
-
-BrowsingHistoryService::BrowsingHistoryService() = default;
 
 BrowsingHistoryService::~BrowsingHistoryService() {
   query_task_tracker_.TryCancelAll();
@@ -273,7 +271,7 @@ void BrowsingHistoryService::QueryHistoryInternal(
       // Start a timer with timeout before we make the actual query, otherwise
       // tests get confused when completion callback is run synchronously.
       web_history_timer_->Start(
-          FROM_HERE, base::Seconds(kWebHistoryTimeoutSeconds),
+          FROM_HERE, base::TimeDelta::FromSeconds(kWebHistoryTimeoutSeconds),
           base::BindOnce(&BrowsingHistoryService::WebHistoryTimeout,
                          weak_factory_.GetWeakPtr(), state));
 
@@ -334,46 +332,6 @@ void BrowsingHistoryService::QueryHistoryInternal(
   if (should_return_results_immediately) {
     ReturnResultsToDriver(std::move(state));
   }
-}
-
-void BrowsingHistoryService::GetLastVisitToHostBeforeRecentNavigations(
-    const std::string& host_name,
-    base::OnceCallback<void(base::Time)> callback) {
-  base::Time now = base::Time::Now();
-  local_history_->GetLastVisitToHost(
-      host_name, base::Time() /* before_time */, now /* end_time */,
-      base::BindOnce(
-          &BrowsingHistoryService::OnLastVisitBeforeRecentNavigationsComplete,
-          weak_factory_.GetWeakPtr(), host_name, now, std::move(callback)),
-      &query_task_tracker_);
-}
-
-void BrowsingHistoryService::OnLastVisitBeforeRecentNavigationsComplete(
-    const std::string& host_name,
-    base::Time query_start_time,
-    base::OnceCallback<void(base::Time)> callback,
-    HistoryLastVisitResult result) {
-  if (!result.success || result.last_visit.is_null()) {
-    std::move(callback).Run(base::Time());
-    return;
-  }
-
-  base::Time end_time =
-      result.last_visit < (query_start_time - base::Minutes(1))
-          ? result.last_visit
-          : query_start_time - base::Minutes(1);
-  local_history_->GetLastVisitToHost(
-      host_name, base::Time() /* before_time */, end_time /* end_time */,
-      base::BindOnce(
-          &BrowsingHistoryService::OnLastVisitBeforeRecentNavigationsComplete2,
-          weak_factory_.GetWeakPtr(), std::move(callback)),
-      &query_task_tracker_);
-}
-
-void BrowsingHistoryService::OnLastVisitBeforeRecentNavigationsComplete2(
-    base::OnceCallback<void(base::Time)> callback,
-    HistoryLastVisitResult result) {
-  std::move(callback).Run(result.last_visit);
 }
 
 void BrowsingHistoryService::RemoveVisits(
@@ -689,33 +647,25 @@ void BrowsingHistoryService::WebHistoryQueryComplete(
     has_synced_results_ = true;
     if (const base::Value* events = results_value->FindListKey("event")) {
       state->remote_results.reserve(state->remote_results.size() +
-                                    events->GetListDeprecated().size());
-      std::string host_name_utf8 = base::UTF16ToUTF8(state->search_text);
-      for (const base::Value& event : events->GetListDeprecated()) {
+                                    events->GetList().size());
+      for (const base::Value& event : events->GetList()) {
         if (!event.is_dict())
           continue;
         const base::Value* results = event.FindListKey("result");
-        if (!results || results->GetListDeprecated().empty())
+        if (!results || results->GetList().empty())
           continue;
-        const base::Value& result = results->GetListDeprecated()[0];
+        const base::Value& result = results->GetList()[0];
         if (!result.is_dict())
           continue;
         const std::string* url = result.FindStringKey("url");
         if (!url)
           continue;
         const base::Value* ids = result.FindListKey("id");
-        if (!ids || ids->GetListDeprecated().empty())
+        if (!ids || ids->GetList().empty())
           continue;
 
-        GURL gurl(*url);
-        if (state->original_options.host_only) {
-          // Do post filter to skip entries that do not have the correct
-          // hostname.
-          if (gurl.host() != host_name_utf8)
-            continue;
-        }
-
         // Ignore any URLs that should not be shown in the history page.
+        GURL gurl(*url);
         if (driver_->ShouldHideWebHistoryUrl(gurl))
           continue;
 
@@ -731,7 +681,7 @@ void BrowsingHistoryService::WebHistoryQueryComplete(
 
         // Extract the timestamps of all the visits to this URL.
         // They are referred to as "IDs" by the server.
-        for (const base::Value& id : ids->GetListDeprecated()) {
+        for (const base::Value& id : ids->GetList()) {
           const std::string* timestamp_string;
           int64_t timestamp_usec = 0;
 
@@ -742,8 +692,8 @@ void BrowsingHistoryService::WebHistoryQueryComplete(
             continue;
           }
           // The timestamp on the server is a Unix time.
-          base::Time time =
-              base::Time::UnixEpoch() + base::Microseconds(timestamp_usec);
+          base::Time time = base::Time::UnixEpoch() +
+                            base::TimeDelta::FromMicroseconds(timestamp_usec);
 
           // Get the ID of the client that this visit came from.
           std::string client_id;

@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,6 +7,7 @@
 
 #include <string>
 
+#include "base/macros.h"
 #include "base/memory/ref_counted.h"
 #include "base/values.h"
 #include "chrome/browser/profiles/profile.h"
@@ -30,16 +31,13 @@ class EventRouterForwarder
  public:
   EventRouterForwarder();
 
-  EventRouterForwarder(const EventRouterForwarder&) = delete;
-  EventRouterForwarder& operator=(const EventRouterForwarder&) = delete;
-
   // Calls
   //   DispatchEventToRenderers(event_name, event_args, profile, event_url)
   // on all (original) profiles' EventRouters.
   // May be called on any thread.
   void BroadcastEventToRenderers(events::HistogramValue histogram_value,
                                  const std::string& event_name,
-                                 base::Value::List event_args,
+                                 std::unique_ptr<base::ListValue> event_args,
                                  const GURL& event_url,
                                  bool dispatch_to_off_the_record_profiles);
 
@@ -49,7 +47,7 @@ class EventRouterForwarder
   // on |profile|'s EventRouter. May be called on any thread.
   void DispatchEventToRenderers(events::HistogramValue histogram_value,
                                 const std::string& event_name,
-                                base::Value::List event_args,
+                                std::unique_ptr<base::ListValue> event_args,
                                 void* profile,
                                 bool use_profile_to_restrict_events,
                                 const GURL& event_url,
@@ -64,7 +62,7 @@ class EventRouterForwarder
   virtual void HandleEvent(const std::string& extension_id,
                            events::HistogramValue histogram_value,
                            const std::string& event_name,
-                           base::Value::List event_args,
+                           std::unique_ptr<base::ListValue> event_args,
                            void* profile,
                            bool use_profile_to_restrict_events,
                            const GURL& event_url,
@@ -78,12 +76,14 @@ class EventRouterForwarder
                                const std::string& extension_id,
                                events::HistogramValue histogram_value,
                                const std::string& event_name,
-                               base::Value::List event_args,
+                               std::unique_ptr<base::ListValue> event_args,
                                Profile* restrict_to_profile,
                                const GURL& event_url);
 
  private:
   friend class base::RefCountedThreadSafe<EventRouterForwarder>;
+
+  DISALLOW_COPY_AND_ASSIGN(EventRouterForwarder);
 };
 
 }  // namespace extensions

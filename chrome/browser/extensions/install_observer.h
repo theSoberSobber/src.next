@@ -1,4 +1,4 @@
-// Copyright 2013 The Chromium Authors
+// Copyright 2013 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,8 +7,6 @@
 
 #include <string>
 
-#include "extensions/common/extension_id.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 #include "ui/gfx/image/image_skia.h"
 
 namespace extensions {
@@ -60,10 +58,12 @@ class InstallObserver {
   // Called if the extension fails to install.
   virtual void OnInstallFailure(const std::string& extension_id) {}
 
-  // Called when the app list is reordered. If |extension_id| is set, it
-  // indicates the extension ID that was re-ordered.
-  virtual void OnAppsReordered(
-      const absl::optional<ExtensionId>& extension_id) {}
+  // Called when an extension or an app is installed to the app list. These are
+  // simply forwarded from the chrome::NOTIFICATIONs.
+  virtual void OnDisabledExtensionUpdated(const Extension* extension) {}
+
+  // Called when the app list is reordered.
+  virtual void OnAppsReordered() {}
 
   // Notifies observers that the observed object is going away.
   virtual void OnShutdown() {}

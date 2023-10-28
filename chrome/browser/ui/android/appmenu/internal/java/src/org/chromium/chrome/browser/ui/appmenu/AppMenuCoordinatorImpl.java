@@ -1,18 +1,15 @@
-// Copyright 2019 The Chromium Authors
+// Copyright 2019 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 package org.chromium.chrome.browser.ui.appmenu;
 
 import android.content.Context;
-import android.graphics.Rect;
 import android.view.View;
 import android.view.ViewConfiguration;
 
 import androidx.annotation.VisibleForTesting;
 
-import org.chromium.base.Callback;
-import org.chromium.base.supplier.Supplier;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 
 /** A UI coordinator the app menu. */
@@ -58,20 +55,19 @@ class AppMenuCoordinatorImpl implements AppMenuCoordinator {
      *         activity.
      * @param hardwareButtonAnchorView The {@link View} used as an anchor for the menu when it is
      *            displayed using a hardware button.
-     * @param appRect Supplier of the app area in Window that the menu should fit in.
      */
     public AppMenuCoordinatorImpl(Context context,
             ActivityLifecycleDispatcher activityLifecycleDispatcher,
             MenuButtonDelegate buttonDelegate, AppMenuDelegate appMenuDelegate, View decorView,
-            View hardwareButtonAnchorView, Supplier<Rect> appRect) {
+            View hardwareButtonAnchorView) {
         mContext = context;
         mButtonDelegate = buttonDelegate;
         mAppMenuDelegate = appMenuDelegate;
         mAppMenuPropertiesDelegate = mAppMenuDelegate.createAppMenuPropertiesDelegate();
 
-        mAppMenuHandler =
-                new AppMenuHandlerImpl(mContext, mAppMenuPropertiesDelegate, mAppMenuDelegate,
-                        decorView, activityLifecycleDispatcher, hardwareButtonAnchorView, appRect);
+        mAppMenuHandler = new AppMenuHandlerImpl(mContext, mAppMenuPropertiesDelegate,
+                mAppMenuDelegate, mAppMenuPropertiesDelegate.getAppMenuLayoutId(), decorView,
+                activityLifecycleDispatcher, hardwareButtonAnchorView);
     }
 
     @Override
@@ -127,10 +123,5 @@ class AppMenuCoordinatorImpl implements AppMenuCoordinator {
     @VisibleForTesting
     static void setHasPermanentMenuKeyForTesting(Boolean hasPermanentMenuKey) {
         sHasPermanentMenuKeyForTesting = hasPermanentMenuKey;
-    }
-
-    /** @param reporter A means of reporting an exception without crashing. */
-    static void setExceptionReporter(Callback<Throwable> reporter) {
-        AppMenuHandlerImpl.setExceptionReporter(reporter);
     }
 }

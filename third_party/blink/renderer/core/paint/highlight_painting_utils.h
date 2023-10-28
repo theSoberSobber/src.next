@@ -8,7 +8,7 @@
 #include "base/memory/scoped_refptr.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
 #include "third_party/blink/renderer/core/core_export.h"
-#include "third_party/blink/renderer/core/paint/paint_flags.h"
+#include "third_party/blink/renderer/core/paint/paint_phase.h"
 #include "third_party/blink/renderer/core/style/applied_text_decoration.h"
 #include "third_party/blink/renderer/platform/wtf/allocator/allocator.h"
 #include "third_party/blink/renderer/platform/wtf/text/atomic_string.h"
@@ -16,7 +16,6 @@
 namespace blink {
 
 class Color;
-class CSSProperty;
 class Document;
 class ComputedStyle;
 class Node;
@@ -27,43 +26,34 @@ class CORE_EXPORT HighlightPaintingUtils {
   STATIC_ONLY(HighlightPaintingUtils);
 
  public:
-  static Color ResolveColor(const Document&,
-                            const ComputedStyle& originating_style,
-                            const ComputedStyle* pseudo_style,
-                            PseudoId pseudo,
-                            const CSSProperty& property,
-                            absl::optional<Color> previous_layer_color);
-  static absl::optional<AppliedTextDecoration> SelectionTextDecoration(
-      const Document& document,
+  static absl::optional<AppliedTextDecoration> HighlightTextDecoration(
       const ComputedStyle& style,
-      const ComputedStyle& pseudo_style,
-      absl::optional<Color> previous_layer_color);
+      const ComputedStyle& pseudo_style);
   static Color HighlightBackgroundColor(
       const Document&,
       const ComputedStyle&,
       Node*,
-      absl::optional<Color> previous_layer_color,
       PseudoId,
       const AtomicString& pseudo_argument = g_null_atom);
+  static Color HighlightForegroundColor(
+      const Document&,
+      const ComputedStyle&,
+      Node*,
+      PseudoId,
+      const GlobalPaintFlags,
+      const AtomicString& pseudo_argument = g_null_atom);
+  static Color HighlightEmphasisMarkColor(const Document&,
+                                          const ComputedStyle&,
+                                          Node*,
+                                          PseudoId,
+                                          const GlobalPaintFlags);
   static TextPaintStyle HighlightPaintingStyle(
       const Document&,
       const ComputedStyle&,
       Node*,
       PseudoId,
-      const TextPaintStyle& previous_layer_text_style,
+      const TextPaintStyle& text_style,
       const PaintInfo&,
-      const AtomicString& pseudo_argument = g_null_atom);
-  static absl::optional<Color> HighlightTextDecorationColor(
-      const Document&,
-      const ComputedStyle&,
-      Node*,
-      absl::optional<Color> previous_layer_color,
-      PseudoId);
-
-  static scoped_refptr<const ComputedStyle> HighlightPseudoStyle(
-      Node* node,
-      const ComputedStyle& style,
-      PseudoId pseudo,
       const AtomicString& pseudo_argument = g_null_atom);
 };
 

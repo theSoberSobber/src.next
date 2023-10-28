@@ -13,7 +13,6 @@ namespace blink {
 int TextDecorationOffset::ComputeUnderlineOffsetForUnder(
     const Length& style_underline_offset,
     float computed_font_size,
-    const SimpleFontData*,
     float text_decoration_thickness,
     FontVerticalPositionType position_type) const {
   const RootInlineBox& root = inline_text_box_->Root();

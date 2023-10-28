@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -11,15 +11,14 @@
 #include <string>
 
 #include "base/callback.h"
-#include "base/gtest_prod_util.h"
 #include "base/threading/thread_checker.h"
 #include "net/base/auth.h"
 #include "net/base/completion_once_callback.h"
 #include "net/base/net_export.h"
 #include "net/cookies/canonical_cookie.h"
 #include "net/cookies/cookie_inclusion_status.h"
+#include "net/cookies/same_party_context.h"
 #include "net/cookies/site_for_cookies.h"
-#include "net/first_party_sets/same_party_context.h"
 #include "net/proxy_resolution/proxy_retry_info.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
 
@@ -58,11 +57,9 @@ class NET_EXPORT NetworkDelegate {
   int NotifyBeforeURLRequest(URLRequest* request,
                              CompletionOnceCallback callback,
                              GURL* new_url);
-  using OnBeforeStartTransactionCallback =
-      base::OnceCallback<void(int, const absl::optional<HttpRequestHeaders>&)>;
   int NotifyBeforeStartTransaction(URLRequest* request,
-                                   const HttpRequestHeaders& headers,
-                                   OnBeforeStartTransactionCallback callback);
+                                   CompletionOnceCallback callback,
+                                   HttpRequestHeaders* headers);
   int NotifyHeadersReceived(
       URLRequest* request,
       CompletionOnceCallback callback,
@@ -79,31 +76,16 @@ class NET_EXPORT NetworkDelegate {
   bool AnnotateAndMoveUserBlockedCookies(
       const URLRequest& request,
       CookieAccessResultList& maybe_included_cookies,
-      CookieAccessResultList& excluded_cookies);
+      CookieAccessResultList& excluded_cookies,
+      bool allowed_from_caller);
   bool CanSetCookie(const URLRequest& request,
                     const net::CanonicalCookie& cookie,
-                    CookieOptions* options);
-
-  // PrivacySetting is kStateDisallowed iff the given |url| has to be
-  // requested over connection that is not tracked by the server.
-  //
-  // Usually PrivacySetting is kStateAllowed, unless user privacy settings
-  // block cookies from being get or set.
-  //
-  // It may be set to kPartitionedStateAllowedOnly if the request allows
-  // partitioned state to be sent over the connection, but unpartitioned
-  // state should be blocked.
-  enum class PrivacySetting {
-    kStateAllowed,
-    kStateDisallowed,
-    // First-party requests will never have this setting.
-    kPartitionedStateAllowedOnly,
-  };
-  PrivacySetting ForcePrivacyMode(
-      const GURL& url,
-      const SiteForCookies& site_for_cookies,
-      const absl::optional<url::Origin>& top_frame_origin,
-      SamePartyContext::Type same_party_context_type) const;
+                    CookieOptions* options,
+                    bool allowed_from_caller);
+  bool ForcePrivacyMode(const GURL& url,
+                        const SiteForCookies& site_for_cookies,
+                        const absl::optional<url::Origin>& top_frame_origin,
+                        SamePartyContext::Type same_party_context_type) const;
 
   bool CancelURLRequestWithPolicyViolatingReferrerHeader(
       const URLRequest& request,
@@ -171,8 +153,7 @@ class NET_EXPORT NetworkDelegate {
                                  GURL* new_url) = 0;
 
   // Called right before the network transaction starts. Allows the delegate to
-  // read |headers| and modify them by passing a new copy to |callback| before
-  // they get sent out.
+  // read/write |headers| before they get sent out.
   //
   // Returns OK to continue with the request, ERR_IO_PENDING if the result is
   // not ready yet, and any other status code to cancel the request. If
@@ -181,11 +162,11 @@ class NET_EXPORT NetworkDelegate {
   // or OnCompleted. Once cancelled, |request| and |headers| become invalid and
   // |callback| may not be called.
   //
-  // The default implementation returns OK (continue with request).
-  virtual int OnBeforeStartTransaction(
-      URLRequest* request,
-      const HttpRequestHeaders& headers,
-      OnBeforeStartTransactionCallback callback) = 0;
+  // The default implementation returns OK (continue with request) without
+  // modifying |headers|.
+  virtual int OnBeforeStartTransaction(URLRequest* request,
+                                       CompletionOnceCallback callback,
+                                       HttpRequestHeaders* headers) = 0;
 
   // Called for HTTP requests when the headers have been received.
   // |original_response_headers| contains the headers as received over the
@@ -247,16 +228,24 @@ class NET_EXPORT NetworkDelegate {
   virtual bool OnAnnotateAndMoveUserBlockedCookies(
       const URLRequest& request,
       net::CookieAccessResultList& maybe_included_cookies,
-      net::CookieAccessResultList& excluded_cookies) = 0;
+      net::CookieAccessResultList& excluded_cookies,
+      bool allowed_from_caller) = 0;
 
   // Called when a cookie is set to allow the network delegate to block access
   // to the cookie. This method will never be invoked when
   // LOAD_DO_NOT_SAVE_COOKIES is specified.
+  // The |allowed_from_caller| param is used to pass whether this operation is
+  // allowed from any higher level delegates (for example, in a
+  // LayeredNetworkDelegate). Any custom logic should be ANDed with this bool.
   virtual bool OnCanSetCookie(const URLRequest& request,
                               const CanonicalCookie& cookie,
-                              CookieOptions* options) = 0;
+                              CookieOptions* options,
+                              bool allowed_from_caller) = 0;
 
-  virtual PrivacySetting OnForcePrivacyMode(
+  // Returns true if the given |url| has to be requested over connection that
+  // is not tracked by the server. Usually is false, unless user privacy
+  // settings block cookies from being get or set.
+  virtual bool OnForcePrivacyMode(
       const GURL& url,
       const SiteForCookies& site_for_cookies,
       const absl::optional<url::Origin>& top_frame_origin,

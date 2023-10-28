@@ -39,8 +39,8 @@
 namespace blink {
 
 DragData::DragData(DataObject* data,
-                   const gfx::PointF& client_position,
-                   const gfx::PointF& global_position,
+                   const FloatPoint& client_position,
+                   const FloatPoint& global_position,
                    DragOperationsMask source_operation_mask)
     : client_position_(client_position),
       global_position_(global_position),
@@ -131,8 +131,8 @@ DocumentFragment* DragData::AsFragment(LocalFrame* frame) const {
     platform_drag_data_->HtmlAndBaseURL(html, base_url);
     DCHECK(frame->GetDocument());
     if (DocumentFragment* fragment =
-            CreateSanitizedFragmentFromMarkupWithContext(
-                *frame->GetDocument(), html, 0, html.length(), base_url))
+            CreateFragmentFromMarkup(*frame->GetDocument(), html, base_url,
+                                     kDisallowScriptingAndPluginContent))
       return fragment;
   }
 

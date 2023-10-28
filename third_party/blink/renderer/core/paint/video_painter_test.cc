@@ -25,15 +25,15 @@ void ExtractLinks(const cc::PaintOpBuffer* buffer,
                   std::vector<std::pair<GURL, SkRect>>* links) {
   for (cc::PaintOpBuffer::Iterator it(buffer); it; ++it) {
     if (it->GetType() == cc::PaintOpType::Annotate) {
-      const auto& annotate_op = static_cast<const cc::AnnotateOp&>(*it);
+      auto* annotate_op = static_cast<cc::AnnotateOp*>(*it);
       links->push_back(std::make_pair(
           GURL(std::string(
-              reinterpret_cast<const char*>(annotate_op.data->data()),
-              annotate_op.data->size())),
-          annotate_op.rect));
+              reinterpret_cast<const char*>(annotate_op->data->data()),
+              annotate_op->data->size())),
+          annotate_op->rect));
     } else if (it->GetType() == cc::PaintOpType::DrawRecord) {
-      const auto& record_op = static_cast<const cc::DrawRecordOp&>(*it);
-      ExtractLinks(record_op.record.get(), links);
+      auto* record_op = static_cast<cc::DrawRecordOp*>(*it);
+      ExtractLinks(record_op->record.get(), links);
     }
   }
 }
@@ -43,18 +43,18 @@ size_t CountImagesOfType(const cc::PaintOpBuffer* buffer,
   size_t count = 0;
   for (cc::PaintOpBuffer::Iterator it(buffer); it; ++it) {
     if (it->GetType() == cc::PaintOpType::DrawImage) {
-      const auto& image_op = static_cast<const cc::DrawImageOp&>(*it);
-      if (image_op.image.GetImageHeaderMetadata()->image_type == image_type) {
+      auto* image_op = static_cast<cc::DrawImageOp*>(*it);
+      if (image_op->image.GetImageHeaderMetadata()->image_type == image_type) {
         ++count;
       }
     } else if (it->GetType() == cc::PaintOpType::DrawImageRect) {
-      const auto& image_op = static_cast<const cc::DrawImageRectOp&>(*it);
-      if (image_op.image.GetImageHeaderMetadata()->image_type == image_type) {
+      auto* image_op = static_cast<cc::DrawImageRectOp*>(*it);
+      if (image_op->image.GetImageHeaderMetadata()->image_type == image_type) {
         ++count;
       }
     } else if (it->GetType() == cc::PaintOpType::DrawRecord) {
-      const auto& record_op = static_cast<const cc::DrawRecordOp&>(*it);
-      count += CountImagesOfType(record_op.record.get(), image_type);
+      auto* record_op = static_cast<cc::DrawRecordOp*>(*it);
+      count += CountImagesOfType(record_op->record.get(), image_type);
     }
   }
   return count;
@@ -102,10 +102,12 @@ class VideoStubLocalFrameClient : public EmptyLocalFrameClient {
   }
 };
 
-class VideoPainterTest : public PaintControllerPaintTestBase {
+class VideoPainterTestForCAP : private ScopedCompositeAfterPaintForTest,
+                               public PaintControllerPaintTestBase {
  public:
-  VideoPainterTest()
-      : PaintControllerPaintTestBase(
+  VideoPainterTestForCAP()
+      : ScopedCompositeAfterPaintForTest(true),
+        PaintControllerPaintTestBase(
             MakeGarbageCollected<VideoStubLocalFrameClient>()) {}
 
   void SetUp() override {
@@ -119,7 +121,7 @@ class VideoPainterTest : public PaintControllerPaintTestBase {
   }
 };
 
-TEST_F(VideoPainterTest, VideoLayerAppearsInLayerTree) {
+TEST_F(VideoPainterTestForCAP, VideoLayerAppearsInLayerTree) {
   // Insert a <video> and allow it to begin loading.
   SetBodyInnerHTML("<video width=300 height=300 src=test.ogv>");
   test::RunPendingTasks();
@@ -156,8 +158,7 @@ class TestWebFrameClientImpl : public frame_test_helpers::TestWebFrameClient {
       WebMediaPlayerEncryptedMediaClient*,
       WebContentDecryptionModule*,
       const WebString& sink_id,
-      const cc::LayerTreeSettings& settings,
-      scoped_refptr<base::TaskRunner> compositor_worker_task_runner) override {
+      const cc::LayerTreeSettings& settings) override {
     return new MockWebMediaPlayer();
   }
 };

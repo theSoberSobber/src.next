@@ -11,7 +11,6 @@
 #include "third_party/blink/renderer/core/layout/layout_list_item.h"
 #include "third_party/blink/renderer/core/layout/layout_list_marker_image.h"
 #include "third_party/blink/renderer/core/layout/layout_outside_list_marker.h"
-#include "third_party/blink/renderer/core/layout/layout_text_fragment.h"
 #include "third_party/blink/renderer/core/layout/ng/inline/layout_ng_text_combine.h"
 #include "third_party/blink/renderer/core/layout/ng/list/layout_ng_inside_list_marker.h"
 #include "third_party/blink/renderer/core/layout/ng/list/layout_ng_list_item.h"
@@ -134,8 +133,8 @@ LayoutObject* ListMarker::GetContentChild(const LayoutObject& marker) const {
   return first_child;
 }
 
-LayoutTextFragment& ListMarker::GetTextChild(const LayoutObject& marker) const {
-  auto& text = *To<LayoutTextFragment>(GetContentChild(marker));
+LayoutText& ListMarker::GetTextChild(const LayoutObject& marker) const {
+  auto& text = *To<LayoutText>(GetContentChild(marker));
   // There should be a single text child
   DCHECK(!text.NextSibling());
   return text;
@@ -148,7 +147,7 @@ void ListMarker::UpdateMarkerText(LayoutObject& marker) {
   StringBuilder marker_text_builder;
   marker_text_type_ =
       MarkerText(marker, &marker_text_builder, kWithPrefixSuffix);
-  text.SetContentString(marker_text_builder.ToString().ReleaseImpl().get());
+  text.SetTextIfNeeded(marker_text_builder.ToString().ReleaseImpl());
   DCHECK_NE(marker_text_type_, kNotText);
   DCHECK_NE(marker_text_type_, kUnresolved);
 }
@@ -177,34 +176,22 @@ ListMarker::MarkerTextType ListMarker::MarkerText(
     case ListStyleCategory::kSymbol: {
       const CounterStyle& counter_style =
           GetCounterStyle(marker.GetDocument(), style);
-      switch (format) {
-        case kWithPrefixSuffix:
-          text->Append(
-              counter_style.GenerateRepresentationWithPrefixAndSuffix(0));
-          break;
-        case kWithoutPrefixSuffix:
-          text->Append(counter_style.GenerateRepresentation(0));
-          break;
-        case kAlternativeText:
-          text->Append(counter_style.GenerateTextAlternative(0));
-      }
+      if (format == kWithPrefixSuffix)
+        text->Append(counter_style.GetPrefix());
+      text->Append(counter_style.GenerateRepresentation(0));
+      if (format == kWithPrefixSuffix)
+        text->Append(counter_style.GetSuffix());
       return kSymbolValue;
     }
     case ListStyleCategory::kLanguage: {
       int value = ListItemValue(*list_item);
       const CounterStyle& counter_style =
           GetCounterStyle(marker.GetDocument(), style);
-      switch (format) {
-        case kWithPrefixSuffix:
-          text->Append(
-              counter_style.GenerateRepresentationWithPrefixAndSuffix(value));
-          break;
-        case kWithoutPrefixSuffix:
-          text->Append(counter_style.GenerateRepresentation(value));
-          break;
-        case kAlternativeText:
-          text->Append(counter_style.GenerateTextAlternative(value));
-      }
+      if (format == kWithPrefixSuffix)
+        text->Append(counter_style.GetPrefix());
+      text->Append(counter_style.GenerateRepresentation(value));
+      if (format == kWithPrefixSuffix)
+        text->Append(counter_style.GetSuffix());
       return kOrdinalValue;
     }
   }
@@ -229,19 +216,11 @@ String ListMarker::MarkerTextWithoutSuffix(const LayoutObject& marker) const {
 String ListMarker::TextAlternative(const LayoutObject& marker) const {
   DCHECK_EQ(Get(&marker), this);
   DCHECK_NE(marker_text_type_, kUnresolved);
-  // For accessibility, return the marker string in the logical order even in
-  // RTL, reflecting speech order.
-  if (marker_text_type_ == kNotText)
+  if (marker_text_type_ == kNotText || marker_text_type_ == kUnresolved) {
+    // For accessibility, return the marker string in the logical order even in
+    // RTL, reflecting speech order.
     return MarkerTextWithSuffix(marker);
-
-  if (RuntimeEnabledFeatures::CSSAtRuleCounterStyleSpeakAsDescriptorEnabled()) {
-    StringBuilder text;
-    MarkerText(marker, &text, kAlternativeText);
-    return text.ToString();
   }
-
-  if (marker_text_type_ == kUnresolved)
-    return MarkerTextWithSuffix(marker);
   return GetTextChild(marker).PlainText();
 }
 
@@ -303,14 +282,13 @@ void ListMarker::UpdateMarkerContentIfNeeded(LayoutObject& marker) {
   scoped_refptr<ComputedStyle> text_style =
       marker.GetDocument().GetStyleResolver().CreateAnonymousStyleWithDisplay(
           style_parent.StyleRef(), marker.StyleRef().Display());
-  if (IsA<LayoutTextFragment>(child))
+  if (IsA<LayoutText>(child))
     return child->SetStyle(text_style);
   if (child)
     child->Destroy();
 
-  auto* const new_text = LayoutTextFragment::CreateAnonymous(
-      marker.GetDocument(), StringImpl::empty_, 0, 0, LegacyLayout::kAuto);
-  new_text->SetStyle(std::move(text_style));
+  auto* const new_text = LayoutText::CreateEmptyAnonymous(
+      marker.GetDocument(), text_style, LegacyLayout::kAuto);
   marker.AddChild(new_text);
   marker_text_type_ = kUnresolved;
 }
@@ -406,7 +384,7 @@ std::pair<LayoutUnit, LayoutUnit> ListMarker::InlineMarginsForOutside(
         margin_start = -marker_inline_size;
     }
   }
-  DCHECK_EQ(-margin_start - margin_end, marker_inline_size);
+  DCHECK_EQ(margin_start + margin_end, -marker_inline_size);
   return {margin_start, margin_end};
 }
 

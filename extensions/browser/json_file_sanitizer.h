@@ -1,4 +1,4 @@
-// Copyright 2018 The Chromium Authors
+// Copyright 2018 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -11,6 +11,7 @@
 #include <tuple>
 
 #include "base/files/file_path.h"
+#include "base/macros.h"
 #include "base/memory/weak_ptr.h"
 #include "base/values.h"
 #include "mojo/public/cpp/bindings/remote.h"
@@ -61,9 +62,6 @@ class JsonFileSanitizer {
       Callback callback,
       const scoped_refptr<base::SequencedTaskRunner>& io_task_runner);
 
-  JsonFileSanitizer(const JsonFileSanitizer&) = delete;
-  JsonFileSanitizer& operator=(const JsonFileSanitizer&) = delete;
-
   ~JsonFileSanitizer();
 
  private:
@@ -94,6 +92,8 @@ class JsonFileSanitizer {
   scoped_refptr<base::SequencedTaskRunner> io_task_runner_;
   mojo::Remote<data_decoder::mojom::JsonParser> json_parser_;
   base::WeakPtrFactory<JsonFileSanitizer> weak_factory_{this};
+
+  DISALLOW_COPY_AND_ASSIGN(JsonFileSanitizer);
 };
 
 }  // namespace extensions

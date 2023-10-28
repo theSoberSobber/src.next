@@ -14,10 +14,9 @@ namespace blink {
 namespace {
 
 class LayoutTextControlTest : public testing::WithParamInterface<bool>,
-                              public RenderingTest,
-                              private ScopedLayoutNGForTest {
+                              public RenderingTest {
  public:
-  LayoutTextControlTest() : ScopedLayoutNGForTest(GetParam()) {}
+  LayoutTextControlTest() : scoped_text_control_flag_(GetParam()) {}
 
  protected:
   TextControlElement* GetTextControlElementById(const char* id) {
@@ -32,7 +31,7 @@ class LayoutTextControlTest : public testing::WithParamInterface<bool>,
   // Focus on |control|, select 1-3 characters, get the first LayoutText, and
   // check if selection invalidation state is clean.
   LayoutText* SetupLayoutTextWithCleanSelection(TextControlElement* control) {
-    control->Focus();
+    control->focus();
     control->SetSelectionRange(1, 3);
     UpdateAllLifecyclePhasesForTest();
     auto* selected_text = GetInnerLayoutText(control);
@@ -48,6 +47,9 @@ class LayoutTextControlTest : public testing::WithParamInterface<bool>,
     UpdateAllLifecyclePhasesForTest();
     EXPECT_FALSE(selected_text.ShouldInvalidateSelection());
   }
+
+ private:
+  ScopedLayoutNGTextControlForTest scoped_text_control_flag_;
 };
 
 INSTANTIATE_TEST_SUITE_P(All, LayoutTextControlTest, testing::Bool());

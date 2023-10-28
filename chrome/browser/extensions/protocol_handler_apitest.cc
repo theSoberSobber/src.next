@@ -1,15 +1,14 @@
-// Copyright 2020 The Chromium Authors
+// Copyright 2020 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include <string>
 
 #include "base/scoped_observation.h"
-#include "build/build_config.h"
+#include "chrome/browser/custom_handlers/protocol_handler_registry.h"
 #include "chrome/browser/custom_handlers/protocol_handler_registry_factory.h"
 #include "chrome/browser/extensions/extension_apitest.h"
 #include "chrome/test/base/ui_test_utils.h"
-#include "components/custom_handlers/protocol_handler_registry.h"
 #include "components/permissions/permission_request.h"
 #include "components/permissions/permission_request_manager.h"
 #include "content/public/browser/web_contents_delegate.h"
@@ -18,7 +17,7 @@
 #include "extensions/test/result_catcher.h"
 #include "third_party/blink/public/common/security/protocol_handler_security_level.h"
 
-#if BUILDFLAG(IS_MAC)
+#if defined(OS_MAC)
 #include "chrome/test/base/launchservices_utils_mac.h"
 #endif
 
@@ -29,17 +28,15 @@ class ProtocolHandlerApiTest : public ExtensionApiTest {
   void SetUpOnMainThread() override {
     ExtensionApiTest::SetUpOnMainThread();
 
-#if BUILDFLAG(IS_MAC)
+#if defined(OS_MAC)
     ASSERT_TRUE(test::RegisterAppWithLaunchServices());
 #endif
   }
 };
 
-class ProtocolHandlerChangeWaiter
-    : public custom_handlers::ProtocolHandlerRegistry::Observer {
+class ProtocolHandlerChangeWaiter : public ProtocolHandlerRegistry::Observer {
  public:
-  explicit ProtocolHandlerChangeWaiter(
-      custom_handlers::ProtocolHandlerRegistry* registry) {
+  explicit ProtocolHandlerChangeWaiter(ProtocolHandlerRegistry* registry) {
     registry_observation_.Observe(registry);
   }
   ProtocolHandlerChangeWaiter(const ProtocolHandlerChangeWaiter&) = delete;
@@ -52,8 +49,8 @@ class ProtocolHandlerChangeWaiter
   void OnProtocolHandlerRegistryChanged() override { run_loop_.Quit(); }
 
  private:
-  base::ScopedObservation<custom_handlers::ProtocolHandlerRegistry,
-                          custom_handlers::ProtocolHandlerRegistry::Observer>
+  base::ScopedObservation<ProtocolHandlerRegistry,
+                          ProtocolHandlerRegistry::Observer>
       registry_observation_{this};
   base::RunLoop run_loop_;
 };
@@ -66,7 +63,7 @@ IN_PROC_BROWSER_TEST_F(ProtocolHandlerApiTest, Registration) {
 
   // Initialize listener and result catcher before the test page is loaded to
   // be sure not to miss any message.
-  ExtensionTestMessageListener listener;
+  ExtensionTestMessageListener listener(/*will_reply=*/false);
   ResultCatcher result_catcher;
 
   // Load the extension test page.
@@ -75,7 +72,7 @@ IN_PROC_BROWSER_TEST_F(ProtocolHandlerApiTest, Registration) {
   const Extension* extension = LoadExtension(extension_path);
   ASSERT_TRUE(extension);
   GURL url = extension->GetResourceURL("test_registration.html");
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
+  ui_test_utils::NavigateToURL(browser(), url);
 
   // Bypass permission dialogs for registering new protocol handlers.
   content::WebContents* web_contents =
@@ -84,7 +81,7 @@ IN_PROC_BROWSER_TEST_F(ProtocolHandlerApiTest, Registration) {
       ->set_auto_response_for_test(
           permissions::PermissionRequestManager::ACCEPT_ALL);
 
-  custom_handlers::ProtocolHandlerRegistry* registry =
+  ProtocolHandlerRegistry* registry =
       ProtocolHandlerRegistryFactory::GetForBrowserContext(
           browser()->profile());
 
@@ -152,12 +149,10 @@ IN_PROC_BROWSER_TEST_F(ProtocolHandlerApiTest, BrowserProcessSecurityLevel) {
 
   content::WebContentsDelegate* web_contents_delegate =
       browser()->tab_strip_model()->GetActiveWebContents()->GetDelegate();
-  content::RenderFrameHost* main_frame = browser()
-                                             ->tab_strip_model()
-                                             ->GetActiveWebContents()
-                                             ->GetPrimaryMainFrame();
+  content::RenderFrameHost* main_frame =
+      browser()->tab_strip_model()->GetActiveWebContents()->GetMainFrame();
   std::vector<content::RenderFrameHost*> subframes =
-      CollectAllRenderFrameHosts(main_frame);
+      main_frame->GetFramesInSubtree();
   ASSERT_EQ(3u, subframes.size());
 
   // Main frame has extension privilege.

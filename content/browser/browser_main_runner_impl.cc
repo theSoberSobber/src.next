@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -31,11 +31,11 @@
 #include "ui/base/ime/init/input_method_initializer.h"
 #include "ui/gfx/font_util.h"
 
-#if BUILDFLAG(IS_ANDROID)
+#if defined(OS_ANDROID)
 #include "content/browser/android/tracing_controller_android.h"
 #endif
 
-#if BUILDFLAG(IS_WIN)
+#if defined(OS_WIN)
 #include "base/win/windows_version.h"
 #include "ui/base/win/scoped_ole_initializer.h"
 #endif
@@ -63,7 +63,7 @@ BrowserMainRunnerImpl::~BrowserMainRunnerImpl() {
     Shutdown();
 }
 
-int BrowserMainRunnerImpl::Initialize(MainFunctionParams parameters) {
+int BrowserMainRunnerImpl::Initialize(const MainFunctionParams& parameters) {
   SCOPED_UMA_HISTOGRAM_LONG_TIMER(
       "Startup.BrowserMainRunnerImplInitializeLongTime");
   TRACE_EVENT0("startup", "BrowserMainRunnerImpl::Initialize");
@@ -79,46 +79,41 @@ int BrowserMainRunnerImpl::Initialize(MainFunctionParams parameters) {
 
     SkGraphics::Init();
 
-    if (parameters.command_line->HasSwitch(switches::kWaitForDebugger))
+    if (parameters.command_line.HasSwitch(switches::kWaitForDebugger))
       base::debug::WaitForDebugger(60, true);
 
-    if (parameters.command_line->HasSwitch(switches::kBrowserStartupDialog))
+    if (parameters.command_line.HasSwitch(switches::kBrowserStartupDialog))
       WaitForDebugger("Browser");
 
     notification_service_ = std::make_unique<NotificationServiceImpl>();
 
-#if BUILDFLAG(IS_WIN)
+#if defined(OS_WIN)
     // Ole must be initialized before starting message pump, so that TSF
     // (Text Services Framework) module can interact with the message pump
     // on Windows 8 Metro mode.
     ole_initializer_ = std::make_unique<ui::ScopedOleInitializer>();
-#endif  // BUILDFLAG(IS_WIN)
+#endif  // OS_WIN
 
     gfx::InitializeFonts();
 
-    auto created_main_parts_closure =
-        std::move(parameters.created_main_parts_closure);
-
     main_loop_ = std::make_unique<BrowserMainLoop>(
-        std::move(parameters), std::move(scoped_execution_fence_));
+        parameters, std::move(scoped_execution_fence_));
 
     main_loop_->Init();
 
-    if (created_main_parts_closure) {
-      std::move(created_main_parts_closure).Run(main_loop_->parts());
+    if (parameters.created_main_parts_closure) {
+      std::move(*parameters.created_main_parts_closure)
+          .Run(main_loop_->parts());
+      delete parameters.created_main_parts_closure;
     }
 
     const int early_init_error_code = main_loop_->EarlyInitialization();
-    if (early_init_error_code > 0) {
-      main_loop_->CreateMessageLoopForEarlyShutdown();
+    if (early_init_error_code > 0)
       return early_init_error_code;
-    }
 
     // Must happen before we try to use a message loop or display any UI.
-    if (!main_loop_->InitializeToolkit()) {
-      main_loop_->CreateMessageLoopForEarlyShutdown();
+    if (!main_loop_->InitializeToolkit())
       return 1;
-    }
 
     main_loop_->PreCreateMainMessageLoop();
     main_loop_->CreateMainMessageLoop();
@@ -145,7 +140,7 @@ int BrowserMainRunnerImpl::Initialize(MainFunctionParams parameters) {
   return -1;
 }
 
-#if BUILDFLAG(IS_ANDROID)
+#if defined(OS_ANDROID)
 void BrowserMainRunnerImpl::SynchronouslyFlushStartupTasks() {
   main_loop_->SynchronouslyFlushStartupTasks();
 }
@@ -184,10 +179,10 @@ void BrowserMainRunnerImpl::Shutdown() {
     main_loop_->ShutdownThreadsAndCleanUp();
 
     ui::ShutdownInputMethod();
-#if BUILDFLAG(IS_WIN)
+#if defined(OS_WIN)
     ole_initializer_.reset(NULL);
 #endif
-#if BUILDFLAG(IS_ANDROID)
+#if defined(OS_ANDROID)
     // Forcefully terminates the RunLoop inside MessagePumpForUI, ensuring
     // proper shutdown for content_browsertests. Shutdown() is not used by
     // the actual browser.

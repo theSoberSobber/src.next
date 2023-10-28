@@ -6,18 +6,16 @@
 
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/renderer/core/css/parser/css_parser.h"
-#include "third_party/blink/renderer/core/css/parser/css_parser_selector.h"
-#include "third_party/blink/renderer/core/execution_context/security_context.h"
 #include "third_party/blink/renderer/core/html/html_element.h"
 #include "third_party/blink/renderer/core/testing/dummy_page_holder.h"
-#include "third_party/blink/renderer/platform/heap/garbage_collected.h"
+#include "third_party/blink/renderer/platform/heap/heap.h"
 
 namespace blink {
 
 class SelectorFilterParentScopeTest : public testing::Test {
  protected:
   void SetUp() override {
-    dummy_page_holder_ = std::make_unique<DummyPageHolder>(gfx::Size(800, 600));
+    dummy_page_holder_ = std::make_unique<DummyPageHolder>(IntSize(800, 600));
     GetDocument().SetCompatibilityMode(Document::kNoQuirksMode);
   }
 
@@ -30,7 +28,6 @@ class SelectorFilterParentScopeTest : public testing::Test {
 };
 
 TEST_F(SelectorFilterParentScopeTest, ParentScope) {
-  Arena arena;
   GetDocument().body()->setAttribute(html_names::kClassAttr, "match");
   GetDocument().documentElement()->SetIdAttribute("myId");
   auto* div = GetDocument().CreateRawElement(html_names::kDivTag);
@@ -47,14 +44,10 @@ TEST_F(SelectorFilterParentScopeTest, ParentScope) {
       SelectorFilterParentScope div_scope(*div);
       SelectorFilterParentScope::EnsureParentStackIsPushed();
 
-      CSSSelectorVector</*UseArena=*/true> selector_vector =
-          CSSParser::ParseSelector</*UseArena=*/true>(
-              MakeGarbageCollected<CSSParserContext>(
-                  kHTMLStandardMode, SecureContextMode::kInsecureContext),
-              nullptr, "html *, body *, .match *, #myId *", arena);
-      CSSSelectorList selectors =
-          CSSSelectorList::AdoptSelectorVector</*UseArena=*/true>(
-              selector_vector);
+      CSSSelectorList selectors = CSSParser::ParseSelector(
+          MakeGarbageCollected<CSSParserContext>(
+              kHTMLStandardMode, SecureContextMode::kInsecureContext),
+          nullptr, "html *, body *, .match *, #myId *");
 
       for (const CSSSelector* selector = selectors.First(); selector;
            selector = CSSSelectorList::Next(*selector)) {
@@ -81,14 +74,10 @@ TEST_F(SelectorFilterParentScopeTest, RootScope) {
   SelectorFilterRootScope span_scope(GetDocument().getElementById("y"));
   SelectorFilterParentScope::EnsureParentStackIsPushed();
 
-  Arena arena;
-  CSSSelectorVector</*UseArena=*/true> selector_vector =
-      CSSParser::ParseSelector</*UseArena=*/true>(
-          MakeGarbageCollected<CSSParserContext>(
-              kHTMLStandardMode, SecureContextMode::kInsecureContext),
-          nullptr, "html *, body *, div *, span *, .x *, #y *", arena);
-  CSSSelectorList selectors =
-      CSSSelectorList::AdoptSelectorVector</*UseArena=*/true>(selector_vector);
+  CSSSelectorList selectors = CSSParser::ParseSelector(
+      MakeGarbageCollected<CSSParserContext>(
+          kHTMLStandardMode, SecureContextMode::kInsecureContext),
+      nullptr, "html *, body *, div *, span *, .x *, #y *");
 
   for (const CSSSelector* selector = selectors.First(); selector;
        selector = CSSSelectorList::Next(*selector)) {
@@ -138,14 +127,10 @@ TEST_F(SelectorFilterParentScopeTest, AttributeFilter) {
   SelectorFilterRootScope span_scope(inner);
   SelectorFilterParentScope::EnsureParentStackIsPushed();
 
-  Arena arena;
-  CSSSelectorVector</*UseArena=*/true> selector_vector =
-      CSSParser::ParseSelector</*UseArena=*/true>(
-          MakeGarbageCollected<CSSParserContext>(
-              kHTMLStandardMode, SecureContextMode::kInsecureContext),
-          nullptr, "[Attr] *, [attr] *, [viewbox] *, [VIEWBOX] *", arena);
-  CSSSelectorList selectors =
-      CSSSelectorList::AdoptSelectorVector</*UseArena=*/true>(selector_vector);
+  CSSSelectorList selectors = CSSParser::ParseSelector(
+      MakeGarbageCollected<CSSParserContext>(
+          kHTMLStandardMode, SecureContextMode::kInsecureContext),
+      nullptr, "[Attr] *, [attr] *, [viewbox] *, [VIEWBOX] *");
 
   for (const CSSSelector* selector = selectors.First(); selector;
        selector = CSSSelectorList::Next(*selector)) {

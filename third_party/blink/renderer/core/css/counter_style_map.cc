@@ -4,7 +4,6 @@
 
 #include "third_party/blink/renderer/core/css/counter_style_map.h"
 
-#include "third_party/blink/renderer/core/css/cascade_layer_map.h"
 #include "third_party/blink/renderer/core/css/css_default_style_sheets.h"
 #include "third_party/blink/renderer/core/css/resolver/scoped_style_resolver.h"
 #include "third_party/blink/renderer/core/css/rule_set.h"
@@ -14,23 +13,6 @@
 #include "third_party/blink/renderer/platform/instrumentation/tracing/trace_event.h"
 
 namespace blink {
-
-namespace {
-
-bool CounterStyleShouldOverride(Document& document,
-                                const TreeScope* tree_scope,
-                                const StyleRuleCounterStyle& new_rule,
-                                const StyleRuleCounterStyle& existing_rule) {
-  const CascadeLayerMap* cascade_layer_map =
-      tree_scope ? tree_scope->GetScopedStyleResolver()->GetCascadeLayerMap()
-                 : document.GetStyleEngine().GetUserCascadeLayerMap();
-  if (!cascade_layer_map)
-    return true;
-  return cascade_layer_map->CompareLayerOrder(existing_rule.GetCascadeLayer(),
-                                              new_rule.GetCascadeLayer()) <= 0;
-}
-
-}  // namespace
 
 // static
 CounterStyleMap* CounterStyleMap::GetUserCounterStyleMap(Document& document) {
@@ -73,19 +55,12 @@ void CounterStyleMap::AddCounterStyles(const RuleSet& rule_set) {
     return;
 
   for (StyleRuleCounterStyle* rule : rule_set.CounterStyleRules()) {
-    AtomicString name = rule->GetName();
-    auto replaced_iter = counter_styles_.find(name);
-    if (replaced_iter != counter_styles_.end()) {
-      if (!CounterStyleShouldOverride(*owner_document_, tree_scope_, *rule,
-                                      replaced_iter->value->GetStyleRule())) {
-        continue;
-      }
-    }
     CounterStyle* counter_style = CounterStyle::Create(*rule);
     if (!counter_style)
       continue;
-    if (replaced_iter != counter_styles_.end())
-      replaced_iter->value->SetIsDirty();
+    AtomicString name = rule->GetName();
+    if (CounterStyle* replaced = counter_styles_.at(name))
+      replaced->SetIsDirty();
     counter_styles_.Set(rule->GetName(), counter_style);
   }
 
@@ -124,9 +99,9 @@ CounterStyle* CounterStyleMap::FindCounterStyleAcrossScopes(
       return iter->value;
     return &const_cast<CounterStyleMap*>(this)->CreateUACounterStyle(name);
   }
-  auto it = counter_styles_.find(name);
-  if (it != counter_styles_.end())
-    return it->value;
+
+  if (CounterStyle* style = counter_styles_.at(name))
+    return style;
   return GetAncestorMap()->FindCounterStyleAcrossScopes(name);
 }
 
@@ -197,43 +172,6 @@ void CounterStyleMap::ResolveFallbackFor(CounterStyle& counter_style) {
   }
 }
 
-void CounterStyleMap::ResolveSpeakAsReferenceFor(CounterStyle& counter_style) {
-  DCHECK(counter_style.HasUnresolvedSpeakAsReference());
-
-  HeapVector<Member<CounterStyle>, 2> speak_as_chain;
-  HeapHashSet<Member<CounterStyle>> unresolved_styles;
-  speak_as_chain.push_back(&counter_style);
-  do {
-    unresolved_styles.insert(speak_as_chain.back());
-    AtomicString speak_as_name = speak_as_chain.back()->GetSpeakAsName();
-    speak_as_chain.push_back(FindCounterStyleAcrossScopes(speak_as_name));
-  } while (speak_as_chain.back() &&
-           speak_as_chain.back()->HasUnresolvedSpeakAsReference() &&
-           !unresolved_styles.Contains(speak_as_chain.back()));
-
-  if (!speak_as_chain.back()) {
-    // If the specified style does not exist, this value is treated as 'auto'.
-    DCHECK_GE(speak_as_chain.size(), 2u);
-    speak_as_chain.pop_back();
-    speak_as_chain.back()->ResolveInvalidSpeakAsReference();
-    speak_as_chain.back()->SetHasInexistentReferences();
-  } else if (speak_as_chain.back()->HasUnresolvedSpeakAsReference()) {
-    // If a loop is detected when following 'speak-as' references, this value is
-    // treated as 'auto' for the counter styles participating in the loop.
-    CounterStyle* cycle_start = speak_as_chain.back();
-    do {
-      speak_as_chain.back()->ResolveInvalidSpeakAsReference();
-      speak_as_chain.pop_back();
-    } while (speak_as_chain.back() != cycle_start);
-  }
-
-  CounterStyle* back = speak_as_chain.back();
-  while (speak_as_chain.size() > 1u) {
-    speak_as_chain.pop_back();
-    speak_as_chain.back()->ResolveSpeakAsReference(*back);
-  }
-}
-
 void CounterStyleMap::ResolveReferences(
     HeapHashSet<Member<CounterStyleMap>>& visited_maps) {
   if (visited_maps.Contains(this))
@@ -249,11 +187,6 @@ void CounterStyleMap::ResolveReferences(
       ResolveExtendsFor(*counter_style);
     if (counter_style->HasUnresolvedFallback())
       ResolveFallbackFor(*counter_style);
-    if (RuntimeEnabledFeatures::
-            CSSAtRuleCounterStyleSpeakAsDescriptorEnabled()) {
-      if (counter_style->HasUnresolvedSpeakAsReference())
-        ResolveSpeakAsReferenceFor(*counter_style);
-    }
   }
 }
 
@@ -322,7 +255,6 @@ void CounterStyleMap::ResolveAllReferences(
         DCHECK(!counter_style->IsDirty());
         DCHECK(!counter_style->HasUnresolvedExtends());
         DCHECK(!counter_style->HasUnresolvedFallback());
-        DCHECK(!counter_style->HasUnresolvedSpeakAsReference());
       }
 #endif
     }

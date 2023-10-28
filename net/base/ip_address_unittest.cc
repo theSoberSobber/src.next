@@ -1,4 +1,4 @@
-// Copyright 2015 The Chromium Authors
+// Copyright (c) 2015 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -6,6 +6,7 @@
 
 #include <vector>
 
+#include "base/cxx17_backports.h"
 #include "base/format_macros.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/stringprintf.h"
@@ -33,29 +34,29 @@ TEST(IPAddressBytesTest, ConstructEmpty) {
 
 TEST(IPAddressBytesTest, ConstructIPv4) {
   uint8_t data[] = {192, 168, 1, 1};
-  IPAddressBytes bytes(data, std::size(data));
-  ASSERT_EQ(std::size(data), bytes.size());
+  IPAddressBytes bytes(data, base::size(data));
+  ASSERT_EQ(base::size(data), bytes.size());
   size_t i = 0;
   for (uint8_t byte : bytes)
     EXPECT_EQ(data[i++], byte);
-  ASSERT_EQ(std::size(data), i);
+  ASSERT_EQ(base::size(data), i);
 }
 
 TEST(IPAddressBytesTest, ConstructIPv6) {
   uint8_t data[] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
-  IPAddressBytes bytes(data, std::size(data));
-  ASSERT_EQ(std::size(data), bytes.size());
+  IPAddressBytes bytes(data, base::size(data));
+  ASSERT_EQ(base::size(data), bytes.size());
   size_t i = 0;
   for (uint8_t byte : bytes)
     EXPECT_EQ(data[i++], byte);
-  ASSERT_EQ(std::size(data), i);
+  ASSERT_EQ(base::size(data), i);
 }
 
 TEST(IPAddressBytesTest, Assign) {
   uint8_t data[] = {192, 168, 1, 1};
   IPAddressBytes copy;
-  copy.Assign(data, std::size(data));
-  EXPECT_EQ(IPAddressBytes(data, std::size(data)), copy);
+  copy.Assign(data, base::size(data));
+  EXPECT_EQ(IPAddressBytes(data, base::size(data)), copy);
 }
 
 TEST(IPAddressTest, ConstructIPv4) {
@@ -149,8 +150,8 @@ TEST(IPAddressTest, IsPubliclyRoutableIPv4) {
                {"172.32.0.0", NOT_RESERVED},
                {"191.255.255.255", NOT_RESERVED},
                // 192.0.0.0/24 (including sub ranges)
-               {"192.0.0.0", RESERVED},
-               {"192.0.0.255", RESERVED},
+               {"192.0.0.0", NOT_RESERVED},
+               {"192.0.0.255", NOT_RESERVED},
                // Unreserved block(s)
                {"192.0.1.0", NOT_RESERVED},
                {"192.0.1.255", NOT_RESERVED},
@@ -212,8 +213,9 @@ TEST(IPAddressTest, IsPubliclyRoutableIPv4) {
                {"224.0.0.0", RESERVED},
                {"255.255.255.255", RESERVED}};
 
+  IPAddress address;
+  IPAddress mapped_address;
   for (const auto& test : tests) {
-    IPAddress address;
     EXPECT_TRUE(address.AssignFromIPLiteral(test.address));
     ASSERT_TRUE(address.IsValid());
     EXPECT_EQ(!test.is_reserved, address.IsPubliclyRoutable());
@@ -298,6 +300,16 @@ TEST(IPAddressTest, IsPubliclyRoutableIPv6) {
     EXPECT_TRUE(address.AssignFromIPLiteral(test.address));
     EXPECT_EQ(!test.is_reserved, address.IsPubliclyRoutable());
   }
+}
+
+TEST(IPAddressTest, ConsiderLoopbackIPToBePubliclyRoutableForTestingMethod) {
+  IPAddress address;
+  EXPECT_TRUE(address.AssignFromIPLiteral("127.0.0.1"));
+  ASSERT_TRUE(address.IsValid());
+  EXPECT_FALSE(address.IsPubliclyRoutable());
+
+  IPAddress::ConsiderLoopbackIPToBePubliclyRoutableForTesting();
+  EXPECT_TRUE(address.IsPubliclyRoutable());
 }
 
 TEST(IPAddressTest, IsZero) {

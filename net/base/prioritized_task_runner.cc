@@ -1,4 +1,4 @@
-// Copyright 2018 The Chromium Authors
+// Copyright (c) 2018 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,8 +7,8 @@
 #include <algorithm>
 
 #include "base/bind.h"
-#include "base/task/task_runner.h"
-#include "base/task/thread_pool.h"
+#include "base/task_runner.h"
+#include "base/task_runner_util.h"
 
 namespace net {
 
@@ -23,7 +23,7 @@ PrioritizedTaskRunner::Job::Job(const base::Location& from_here,
       priority(priority),
       task_count(task_count) {}
 
-PrioritizedTaskRunner::Job::Job() = default;
+PrioritizedTaskRunner::Job::Job() {}
 
 PrioritizedTaskRunner::Job::~Job() = default;
 PrioritizedTaskRunner::Job::Job(Job&& other) = default;
@@ -31,8 +31,8 @@ PrioritizedTaskRunner::Job& PrioritizedTaskRunner::Job::operator=(Job&& other) =
     default;
 
 PrioritizedTaskRunner::PrioritizedTaskRunner(
-    const base::TaskTraits& task_traits)
-    : task_traits_(task_traits) {}
+    scoped_refptr<base::TaskRunner> task_runner)
+    : task_runner_(std::move(task_runner)) {}
 
 void PrioritizedTaskRunner::PostTaskAndReply(const base::Location& from_here,
                                              base::OnceClosure task,
@@ -46,14 +46,7 @@ void PrioritizedTaskRunner::PostTaskAndReply(const base::Location& from_here,
     std::push_heap(task_job_heap_.begin(), task_job_heap_.end(), JobComparer());
   }
 
-  scoped_refptr<base::TaskRunner> task_runner;
-  if (task_runner_for_testing_) {
-    task_runner = task_runner_for_testing_;
-  } else {
-    task_runner = base::ThreadPool::CreateSequencedTaskRunner(task_traits_);
-  }
-
-  task_runner->PostTaskAndReply(
+  task_runner_->PostTaskAndReply(
       from_here,
       base::BindOnce(&PrioritizedTaskRunner::RunTaskAndPostReply, this),
       base::BindOnce(&PrioritizedTaskRunner::RunReply, this));

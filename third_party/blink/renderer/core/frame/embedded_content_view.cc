@@ -9,16 +9,17 @@
 
 namespace blink {
 
-void EmbeddedContentView::SetFrameRect(const gfx::Rect& frame_rect) {
+void EmbeddedContentView::SetFrameRect(const IntRect& unsaturated_frame_rect) {
+  IntRect frame_rect(SaturatedRect(unsaturated_frame_rect));
   if (frame_rect == frame_rect_)
     return;
-  gfx::Rect old_rect = frame_rect_;
+  IntRect old_rect = frame_rect_;
   frame_rect_ = frame_rect;
   FrameRectsChanged(old_rect);
 }
 
-gfx::Point EmbeddedContentView::Location() const {
-  gfx::Point location(frame_rect_.origin());
+IntPoint EmbeddedContentView::Location() const {
+  IntPoint location(frame_rect_.Location());
 
   // As an optimization, we don't include the root layer's scroll offset in the
   // frame rect.  As a result, we don't need to recalculate the frame rect every
@@ -28,10 +29,11 @@ gfx::Point EmbeddedContentView::Location() const {
     LayoutView* owner_layout_view = owner->View();
     DCHECK(owner_layout_view);
     if (owner_layout_view->IsScrollContainer()) {
-      // Floored because the frame_rect in a content view is an gfx::Rect. We
-      // may want to reevaluate that since scroll offsets/layout can be
-      // fractional.
-      location -= ToFlooredVector2d(owner_layout_view->ScrolledContentOffset());
+      // Floored because the frame_rect in a content view is an IntRect. We may
+      // want to reevaluate that since scroll offsets/layout can be fractional.
+      IntPoint scroll_offset(
+          FlooredIntPoint(owner_layout_view->ScrolledContentOffset()));
+      location.SaturatedMove(-scroll_offset.X(), -scroll_offset.Y());
     }
   }
   return location;

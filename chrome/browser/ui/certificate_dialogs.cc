@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -16,23 +16,18 @@
 #include "base/bind.h"
 #include "base/files/file_util.h"
 #include "base/logging.h"
+#include "base/task/post_task.h"
 #include "base/task/thread_pool.h"
 #include "chrome/browser/download/download_prefs.h"
 #include "chrome/browser/ui/chrome_select_file_policy.h"
+#include "chrome/common/net/x509_certificate_model_nss.h"
 #include "chrome/grit/generated_resources.h"
 #include "content/public/browser/web_contents.h"
 #include "net/base/filename_util.h"
-#include "net/cert/x509_util.h"
-#include "third_party/boringssl/src/include/openssl/bytestring.h"
-#include "third_party/boringssl/src/include/openssl/pkcs7.h"
+#include "net/cert/x509_util_nss.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/shell_dialogs/select_file_dialog.h"
 #include "url/gurl.h"
-
-#if BUILDFLAG(USE_NSS_CERTS)
-#include "chrome/common/net/x509_certificate_model_nss.h"
-#include "net/cert/x509_util_nss.h"
-#endif
 
 namespace {
 
@@ -46,9 +41,10 @@ enum CertFileType {
 };
 
 void WriterCallback(const base::FilePath& path, const std::string& data) {
-  if (!base::WriteFile(path, data)) {
-    LOG(ERROR) << "Error writing " << path.value() << " (" << data.size()
-               << "B)";
+  int bytes_written = base::WriteFile(path, data.data(), data.size());
+  if (bytes_written != static_cast<ssize_t>(data.size())) {
+    LOG(ERROR) << "Writing " << path.value() << " (" << data.size()
+               << "B) returned " << bytes_written;
   }
 }
 
@@ -61,9 +57,12 @@ std::string WrapAt64(const std::string& str) {
   return result;
 }
 
-std::string GetBase64String(const CRYPTO_BUFFER* cert) {
-  std::string base64 =
-      base::Base64Encode(net::x509_util::CryptoBufferAsSpan(cert));
+std::string GetBase64String(CERTCertificate* cert) {
+  std::string der_cert;
+  if (!net::x509_util::GetDEREncoded(cert, &der_cert))
+    return std::string();
+  std::string base64;
+  base::Base64Encode(der_cert, &base64);
   return "-----BEGIN CERTIFICATE-----\r\n" + WrapAt64(base64) +
          "-----END CERTIFICATE-----\r\n";
 }
@@ -75,11 +74,7 @@ class Exporter : public ui::SelectFileDialog::Listener {
  public:
   Exporter(content::WebContents* web_contents,
            gfx::NativeWindow parent,
-           std::vector<bssl::UniquePtr<CRYPTO_BUFFER>> cert_chain,
-           const std::string& cert_title);
-
-  Exporter(const Exporter&) = delete;
-  Exporter& operator=(const Exporter&) = delete;
+           net::ScopedCERTCertificateList cert_chain);
 
   // SelectFileDialog::Listener implemenation.
   void FileSelected(const base::FilePath& path,
@@ -90,22 +85,23 @@ class Exporter : public ui::SelectFileDialog::Listener {
  private:
   ~Exporter() override;
 
-  std::string GetCMSString(size_t start, size_t end) const;
-
   scoped_refptr<ui::SelectFileDialog> const select_file_dialog_;
 
   // The certificate hierarchy (leaf cert first).
-  std::vector<bssl::UniquePtr<CRYPTO_BUFFER>> cert_chain_list_;
+  net::ScopedCERTCertificateList cert_chain_list_;
+
+  DISALLOW_COPY_AND_ASSIGN(Exporter);
 };
 
 Exporter::Exporter(content::WebContents* web_contents,
                    gfx::NativeWindow parent,
-                   std::vector<bssl::UniquePtr<CRYPTO_BUFFER>> cert_chain,
-                   const std::string& cert_title)
+                   net::ScopedCERTCertificateList cert_chain)
     : select_file_dialog_(ui::SelectFileDialog::Create(
           this,
           std::make_unique<ChromeSelectFilePolicy>(web_contents))),
       cert_chain_list_(std::move(cert_chain)) {
+  std::string cert_title =
+      x509_certificate_model::GetTitle(cert_chain_list_.begin()->get());
   base::FilePath suggested_name =
       net::GenerateFileName(GURL(),          // url
                             std::string(),   // content_disposition
@@ -141,14 +137,14 @@ void Exporter::FileSelected(const base::FilePath& path,
         data += GetBase64String(cert.get());
       break;
     case kDer:
-      data = std::string(
-          net::x509_util::CryptoBufferAsStringPiece(cert_chain_list_[0].get()));
+      net::x509_util::GetDEREncoded(cert_chain_list_[0].get(), &data);
       break;
     case kPkcs7:
-      data = GetCMSString(0, 1);
+      data = x509_certificate_model::GetCMSString(cert_chain_list_, 0, 1);
       break;
     case kPkcs7Chain:
-      data = GetCMSString(0, cert_chain_list_.size());
+      data = x509_certificate_model::GetCMSString(cert_chain_list_, 0,
+                                                  cert_chain_list_.size());
       break;
     case kBase64:
     default:
@@ -166,23 +162,6 @@ void Exporter::FileSelected(const base::FilePath& path,
 
 void Exporter::FileSelectionCanceled(void* params) {
   delete this;
-}
-
-std::string Exporter::GetCMSString(size_t start, size_t end) const {
-  size_t size_hint = 64;
-  bssl::UniquePtr<STACK_OF(CRYPTO_BUFFER)> stack(sk_CRYPTO_BUFFER_new_null());
-  for (size_t i = start; i < end; ++i) {
-    if (!bssl::PushToStack(stack.get(), bssl::UpRef(cert_chain_list_[i])))
-      return std::string();
-    size_hint += CRYPTO_BUFFER_len(cert_chain_list_[i].get());
-  }
-  bssl::ScopedCBB cbb;
-  if (!CBB_init(cbb.get(), size_hint) ||
-      !PKCS7_bundle_raw_certificates(cbb.get(), stack.get())) {
-    return std::string();
-  }
-  return std::string(reinterpret_cast<const char*>(CBB_data(cbb.get())),
-                     CBB_len(cbb.get()));
 }
 
 }  // namespace
@@ -220,27 +199,25 @@ void ShowCertSelectFileDialog(ui::SelectFileDialog* select_file_dialog,
 
 void ShowCertExportDialog(content::WebContents* web_contents,
                           gfx::NativeWindow parent,
-                          std::vector<bssl::UniquePtr<CRYPTO_BUFFER>> certs,
-                          const std::string& cert_title) {
-  DCHECK(!certs.empty());
+                          const scoped_refptr<net::X509Certificate>& cert) {
+  net::ScopedCERTCertificateList cert_chain =
+      net::x509_util::CreateCERTCertificateListFromX509Certificate(cert.get());
+  if (cert_chain.empty())
+    return;
+
   // Exporter is self-deleting.
-  new Exporter(web_contents, parent, std::move(certs), cert_title);
+  new Exporter(web_contents, parent, std::move(cert_chain));
 }
 
-#if BUILDFLAG(USE_NSS_CERTS)
 void ShowCertExportDialog(content::WebContents* web_contents,
                           gfx::NativeWindow parent,
                           net::ScopedCERTCertificateList::iterator certs_begin,
                           net::ScopedCERTCertificateList::iterator certs_end) {
   DCHECK(certs_begin != certs_end);
-  std::vector<bssl::UniquePtr<CRYPTO_BUFFER>> cert_chain;
-  for (auto it = certs_begin; it != certs_end; ++it) {
-    cert_chain.push_back(net::x509_util::CreateCryptoBuffer(
-        base::make_span((*it)->derCert.data, (*it)->derCert.len)));
-  }
+  net::ScopedCERTCertificateList cert_chain;
+  for (auto it = certs_begin; it != certs_end; ++it)
+    cert_chain.push_back(net::x509_util::DupCERTCertificate(it->get()));
 
   // Exporter is self-deleting.
-  new Exporter(web_contents, parent, std::move(cert_chain),
-               x509_certificate_model::GetTitle(certs_begin->get()));
+  new Exporter(web_contents, parent, std::move(cert_chain));
 }
-#endif

@@ -1,4 +1,4 @@
-// Copyright 2014 The Chromium Authors
+// Copyright (c) 2014 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -105,7 +105,7 @@ TEST(NetworkChangeNotifierTest, IgnoreTeredoOnWindows) {
   interface_teredo.friendly_name = "Teredo Tunneling Pseudo-Interface";
   list.push_back(interface_teredo);
 
-#if BUILDFLAG(IS_WIN)
+#if defined(OS_WIN)
   EXPECT_EQ(NetworkChangeNotifier::CONNECTION_NONE,
             NetworkChangeNotifier::ConnectionTypeFromInterfaceList(list));
 #else
@@ -125,7 +125,7 @@ TEST(NetworkChangeNotifierTest, IgnoreAirdropOnMac) {
       IPAddress({0xfe, 0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 4});
   list.push_back(interface_airdrop);
 
-#if BUILDFLAG(IS_APPLE)
+#if defined(OS_APPLE)
   EXPECT_EQ(NetworkChangeNotifier::CONNECTION_NONE,
             NetworkChangeNotifier::ConnectionTypeFromInterfaceList(list));
 #else
@@ -145,7 +145,7 @@ TEST(NetworkChangeNotifierTest, IgnoreTunnelsOnMac) {
       IPAddress({0xfe, 0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 3, 2, 1});
   list.push_back(interface_tunnel);
 
-#if BUILDFLAG(IS_APPLE)
+#if defined(OS_APPLE)
   EXPECT_EQ(NetworkChangeNotifier::CONNECTION_NONE,
             NetworkChangeNotifier::ConnectionTypeFromInterfaceList(list));
 #else
@@ -165,7 +165,7 @@ TEST(NetworkChangeNotifierTest, IgnoreDisconnectedEthernetOnMac) {
       IPAddress({0xfe, 0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 1, 2, 3});
   list.push_back(interface_ethernet);
 
-#if BUILDFLAG(IS_APPLE)
+#if defined(OS_APPLE)
   EXPECT_EQ(NetworkChangeNotifier::CONNECTION_NONE,
             NetworkChangeNotifier::ConnectionTypeFromInterfaceList(list));
 #else

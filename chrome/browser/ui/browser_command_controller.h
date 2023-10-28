@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -6,8 +6,7 @@
 #define CHROME_BROWSER_UI_BROWSER_COMMAND_CONTROLLER_H_
 
 #include "base/gtest_prod_util.h"
-#include "base/memory/raw_ptr.h"
-#include "build/build_config.h"
+#include "base/macros.h"
 #include "build/chromeos_buildflags.h"
 #include "chrome/browser/command_updater.h"
 #include "chrome/browser/command_updater_delegate.h"
@@ -36,10 +35,6 @@ class BrowserCommandController : public CommandUpdater,
                                  public sessions::TabRestoreServiceObserver {
  public:
   explicit BrowserCommandController(Browser* browser);
-
-  BrowserCommandController(const BrowserCommandController&) = delete;
-  BrowserCommandController& operator=(const BrowserCommandController&) = delete;
-
   ~BrowserCommandController() override;
 
   // Returns true if |command_id| is a reserved command whose keyboard shortcuts
@@ -54,7 +49,7 @@ class BrowserCommandController : public CommandUpdater,
   void ZoomStateChanged();
   void ContentRestrictionsChanged();
   void FullscreenStateChanged();
-#if BUILDFLAG(IS_CHROMEOS)
+#if BUILDFLAG(IS_CHROMEOS_ASH)
   // Called when the browser goes in or out of the special locked fullscreen
   // mode. In this mode the user is basically locked into the current browser
   // window and tab hence we disable most keyboard shortcuts and we also
@@ -86,6 +81,9 @@ class BrowserCommandController : public CommandUpdater,
 
   // Shared state updating: these functions are static and public to share with
   // outside code.
+
+  // Updates the open-file state.
+  static void UpdateOpenFileState(CommandUpdater* command_updater);
 
   // Update commands whose state depends on incognito mode availability and that
   // only depend on the profile.
@@ -120,9 +118,6 @@ class BrowserCommandController : public CommandUpdater,
   // Returns true if the location bar is shown or is currently hidden, but can
   // be shown. Used for updating window command states only.
   bool IsShowingLocationBar();
-
-  // Returns true if the browser window is for a web app or custom tab.
-  bool IsWebAppOrCustomTab() const;
 
   // Initialize state for all browser commands.
   void InitCommandState();
@@ -160,7 +155,7 @@ class BrowserCommandController : public CommandUpdater,
   // app windows.
   void UpdateCommandsForHostedAppAvailability();
 
-#if BUILDFLAG(IS_CHROMEOS)
+#if BUILDFLAG(IS_CHROMEOS_ASH)
   // Update commands whose state depends on whether the window is in locked
   // fullscreen mode or not.
   void UpdateCommandsForLockedFullscreenMode();
@@ -205,7 +200,7 @@ class BrowserCommandController : public CommandUpdater,
   inline BrowserWindow* window();
   inline Profile* profile();
 
-  const raw_ptr<Browser> browser_;
+  Browser* const browser_;
 
   // The CommandUpdaterImpl that manages the browser window commands.
   CommandUpdaterImpl command_updater_;
@@ -216,6 +211,8 @@ class BrowserCommandController : public CommandUpdater,
 
   // In locked fullscreen mode disallow enabling/disabling commands.
   bool is_locked_fullscreen_ = false;
+
+  DISALLOW_COPY_AND_ASSIGN(BrowserCommandController);
 };
 
 }  // namespace chrome

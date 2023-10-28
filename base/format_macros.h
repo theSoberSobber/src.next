@@ -1,4 +1,4 @@
-// Copyright 2009 The Chromium Authors
+// Copyright (c) 2009 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -26,20 +26,19 @@
 
 #include "build/build_config.h"
 
-#if (BUILDFLAG(IS_POSIX) || BUILDFLAG(IS_FUCHSIA)) && \
+#if (defined(OS_POSIX) || defined(OS_FUCHSIA)) && \
     (defined(_INTTYPES_H) || defined(_INTTYPES_H_)) && !defined(PRId64)
 #error "inttypes.h has already been included before this header file, but "
 #error "without __STDC_FORMAT_MACROS defined."
 #endif
 
-#if (BUILDFLAG(IS_POSIX) || BUILDFLAG(IS_FUCHSIA)) && \
-    !defined(__STDC_FORMAT_MACROS)
+#if (defined(OS_POSIX) || defined(OS_FUCHSIA)) && !defined(__STDC_FORMAT_MACROS)
 #define __STDC_FORMAT_MACROS
 #endif
 
 #include <inttypes.h>
 
-#if BUILDFLAG(IS_WIN)
+#if defined(OS_WIN)
 
 #if !defined(PRId64) || !defined(PRIu64) || !defined(PRIx64)
 #error "inttypes.h provided by win toolchain should define these."
@@ -53,7 +52,7 @@
 #define PRIuS "Iu"
 #endif
 
-#elif BUILDFLAG(IS_POSIX) || BUILDFLAG(IS_FUCHSIA)
+#elif defined(OS_POSIX) || defined(OS_FUCHSIA)
 
 // GCC will concatenate wide and narrow strings correctly, so nothing needs to
 // be done here.
@@ -65,13 +64,13 @@
 #define PRIuS "zu"
 #endif
 
-#endif  // BUILDFLAG(IS_WIN)
+#endif  // defined(OS_WIN)
 
 // The size of NSInteger and NSUInteger varies between 32-bit and 64-bit
 // architectures and Apple does not provides standard format macros and
 // recommends casting. This has many drawbacks, so instead define macros
 // for formatting those types.
-#if BUILDFLAG(IS_APPLE)
+#if defined(OS_APPLE)
 #if defined(ARCH_CPU_64_BITS)
 #if !defined(PRIdNS)
 #define PRIdNS "ld"
@@ -93,6 +92,6 @@
 #define PRIxNS "x"
 #endif
 #endif
-#endif  // BUILDFLAG(IS_APPLE)
+#endif  // defined(OS_APPLE)
 
 #endif  // BASE_FORMAT_MACROS_H_

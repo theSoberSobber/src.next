@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -12,10 +12,8 @@
 
 #include "base/callback.h"
 #include "base/compiler_specific.h"
-#include "base/memory/raw_ptr.h"
 #include "net/base/completion_once_callback.h"
 #include "net/base/net_errors.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 
 //-----------------------------------------------------------------------------
 // completion callback helper
@@ -165,7 +163,7 @@ class ReleaseBufferCompletionCallback: public TestCompletionCallback {
  private:
   void SetResult(int result) override;
 
-  raw_ptr<IOBuffer> buffer_;
+  IOBuffer* buffer_;
 };
 
 }  // namespace net

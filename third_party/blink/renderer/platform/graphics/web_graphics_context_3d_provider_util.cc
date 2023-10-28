@@ -5,11 +5,9 @@
 #include "third_party/blink/renderer/platform/graphics/web_graphics_context_3d_provider_util.h"
 
 #include "base/synchronization/waitable_event.h"
-#include "third_party/blink/public/platform/web_url.h"
-#include "third_party/blink/renderer/platform/scheduler/public/main_thread.h"
 #include "third_party/blink/renderer/platform/scheduler/public/post_cross_thread_task.h"
+#include "third_party/blink/renderer/platform/scheduler/public/thread.h"
 #include "third_party/blink/renderer/platform/wtf/cross_thread_functional.h"
-#include "third_party/blink/renderer/platform/wtf/wtf.h"
 
 namespace blink {
 
@@ -44,9 +42,9 @@ CreateContextProviderOnWorkerThread(
   ContextProviderCreationInfo creation_info;
   creation_info.context_attributes = context_attributes;
   creation_info.gl_info = gl_info;
-  creation_info.url = url;
+  creation_info.url = url.Copy();
   PostCrossThreadTask(
-      *Thread::MainThread()->GetDeprecatedTaskRunner(), FROM_HERE,
+      *Thread::MainThread()->GetTaskRunner(), FROM_HERE,
       CrossThreadBindOnce(&CreateContextProviderOnMainThread,
                           CrossThreadUnretained(&creation_info),
                           CrossThreadUnretained(&waitable_event)));

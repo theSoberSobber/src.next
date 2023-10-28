@@ -1,4 +1,4 @@
-// Copyright 2017 The Chromium Authors
+// Copyright 2017 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -19,7 +19,8 @@
 
 struct ifaddrs;
 
-namespace net::internal {
+namespace net {
+namespace internal {
 
 class NET_EXPORT_PRIVATE IPAttributesGetter {
  public:
@@ -48,17 +49,13 @@ NET_EXPORT_PRIVATE bool IfaddrsToNetworkInterfaceList(
     IPAttributesGetter* ip_attributes_getter,
     NetworkInterfaceList* networks);
 
-#if BUILDFLAG(IS_ANDROID)
+#if defined(OS_ANDROID)
 // A version of GetNetworkList() that uses getifaddrs(). Only callable on
 // Android N+ where getifaddrs() was available.
-// Also, some devices are with buggy getifaddrs(). To work around,
-// Use Chromium's own getifaddrs() implementation if
-// use_alternative_getifaddrs is true.
-bool GetNetworkListUsingGetifaddrs(NetworkInterfaceList* networks,
-                                   int policy,
-                                   bool use_alternative_getifaddrs);
+bool GetNetworkListUsingGetifaddrs(NetworkInterfaceList* networks, int policy);
 #endif
 
-}  // namespace net::internal
+}  // namespace internal
+}  // namespace net
 
 #endif  // NET_BASE_NETWORK_INTERFACES_GETIFADDRS_H_

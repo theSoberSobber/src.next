@@ -1,4 +1,4 @@
-// Copyright 2020 The Chromium Authors
+// Copyright 2020 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -21,5 +21,10 @@ public class DropdownItemViewInfo extends MVCListAdapter.ListItem {
         super(processor.getViewTypeId(), model);
         this.processor = processor;
         this.groupId = groupId;
+    }
+
+    @Override
+    public String toString() {
+        return "DropdownItemViewInfo(group=" + groupId + ", type=" + type + ")";
     }
 }

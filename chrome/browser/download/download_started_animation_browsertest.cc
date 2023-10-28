@@ -1,7 +1,8 @@
-// Copyright 2013 The Chromium Authors
+// Copyright 2013 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/macros.h"
 #include "chrome/browser/download/download_started_animation.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
@@ -14,9 +15,8 @@ class DownloadStartedAnimationTest : public InProcessBrowserTest {
   DownloadStartedAnimationTest() {
   }
 
-  DownloadStartedAnimationTest(const DownloadStartedAnimationTest&) = delete;
-  DownloadStartedAnimationTest& operator=(const DownloadStartedAnimationTest&) =
-      delete;
+ private:
+  DISALLOW_COPY_AND_ASSIGN(DownloadStartedAnimationTest);
 };
 
 IN_PROC_BROWSER_TEST_F(DownloadStartedAnimationTest,

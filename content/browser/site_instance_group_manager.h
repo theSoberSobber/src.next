@@ -1,17 +1,15 @@
-// Copyright 2021 The Chromium Authors
+// Copyright (c) 2021 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CONTENT_BROWSER_SITE_INSTANCE_GROUP_MANAGER_H_
 #define CONTENT_BROWSER_SITE_INSTANCE_GROUP_MANAGER_H_
 
-#include "base/memory/raw_ptr.h"
 #include "content/public/browser/render_process_host_observer.h"
 
 namespace content {
 
 class RenderProcessHost;
-class SiteInstanceGroup;
 class SiteInstanceImpl;
 
 // Policy class that manages groups of SiteInstances and controls whether
@@ -34,29 +32,16 @@ class SiteInstanceImpl;
 // get assigned to groups. Currently this object only holds the logic for the
 // 'default process' model which implements mode 2 mentioned above for any
 // SiteInstance that does not require a dedicated process.
-class SiteInstanceGroupManager final : private RenderProcessHostObserver {
+class SiteInstanceGroupManager : private RenderProcessHostObserver {
  public:
   SiteInstanceGroupManager();
-  ~SiteInstanceGroupManager() override;
+  ~SiteInstanceGroupManager() final;
 
   // Returns a process that can be assigned to `site_instance`. This may be
   // the process for an existing group the SiteInstance is assigned to, or
   // it could be the default process if that process mode is enabled and the
   // process is suitable.
   RenderProcessHost* GetExistingGroupProcess(SiteInstanceImpl* site_instance);
-
-  // Returns the group `site_instance` is assigned to. This should only be
-  // called once for each SiteInstance.
-  // Also sets the RenderProcessHost and AgentSchedulingGroupHost for the group.
-  // TODO(crbug.com/1291351): Remove the `process` parameter. Currently it's
-  // required due to SiteInstanceImpl::ReuseCurrentProcessIfPossible. This
-  // function could instead take a hint for which process the caller would like
-  // to use if possible. This will be needed before a group can have multiple
-  // SiteInstances. When this change happens, this should be renamed as it can
-  // be called multiple times per SiteInstance at that point.
-  scoped_refptr<SiteInstanceGroup> GetOrCreateGroupForNewSiteInstance(
-      SiteInstanceImpl* site_instance,
-      RenderProcessHost* process);
 
   // Called when the SiteInfo is set on `site_instance`. This is used to
   // discover new SiteInstances when they are assigned a specific security
@@ -74,11 +59,9 @@ class SiteInstanceGroupManager final : private RenderProcessHostObserver {
   // selecting an appropriate default process.
   void OnProcessSet(SiteInstanceImpl* site_instance);
 
-  RenderProcessHost* default_process() { return default_process_; }
-
  private:
   // RenderProcessHostObserver implementation.
-  void RenderProcessHostDestroyed(RenderProcessHost* host) override;
+  void RenderProcessHostDestroyed(RenderProcessHost* host) final;
 
   // Evaluates the process assigned to `site_instance` and determines if it is
   // suitable to be the default process. If suitable, it keeps a reference
@@ -90,7 +73,7 @@ class SiteInstanceGroupManager final : private RenderProcessHostObserver {
 
   // The process to use for any SiteInstance in this BrowsingInstance that
   // doesn't require a dedicated process.
-  raw_ptr<RenderProcessHost> default_process_ = nullptr;
+  RenderProcessHost* default_process_ = nullptr;
 };
 }  // namespace content
 

@@ -34,10 +34,10 @@
 #include <memory>
 
 #include "base/format_macros.h"
-#include "base/time/time.h"
 #include "third_party/blink/public/web/web_settings.h"
 #include "third_party/blink/renderer/bindings/core/v8/js_based_event_listener.h"
 #include "third_party/blink/renderer/bindings/core/v8/js_event_listener.h"
+#include "third_party/blink/renderer/bindings/core/v8/source_location.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_union_addeventlisteneroptions_boolean.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_union_boolean_eventlisteneroptions.h"
 #include "third_party/blink/renderer/core/dom/abort_signal.h"
@@ -57,7 +57,6 @@
 #include "third_party/blink/renderer/core/pointer_type_names.h"
 #include "third_party/blink/renderer/core/probe/core_probes.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
-#include "third_party/blink/renderer/platform/bindings/source_location.h"
 #include "third_party/blink/renderer/platform/bindings/v8_dom_activity_logger.h"
 #include "third_party/blink/renderer/platform/instrumentation/histogram.h"
 #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
@@ -336,6 +335,42 @@ void EventTarget::SetDefaultAddEventListenerOptions(
     }
   }
 
+  // For mousewheel event listeners that have the target as the window and
+  // a bound function name of "ssc_wheel" treat and no passive value default
+  // passive to true. See crbug.com/501568.
+  if (event_type == event_type_names::kMousewheel && ToLocalDOMWindow() &&
+      event_listener && !options->hasPassive()) {
+    JSBasedEventListener* v8_listener =
+        DynamicTo<JSBasedEventListener>(event_listener);
+    if (!v8_listener)
+      return;
+    v8::Local<v8::Value> callback_object =
+        v8_listener->GetListenerObject(*this);
+    if (!callback_object.IsEmpty() && callback_object->IsFunction() &&
+        strcmp(
+            "ssc_wheel",
+            *v8::String::Utf8Value(
+                v8::Isolate::GetCurrent(),
+                v8::Local<v8::Function>::Cast(callback_object)->GetName())) ==
+            0) {
+      options->setPassive(true);
+      if (executing_window) {
+        UseCounter::Count(executing_window->document(),
+                          WebFeature::kSmoothScrollJSInterventionActivated);
+
+        executing_window->GetFrame()->Console().AddMessage(
+            MakeGarbageCollected<ConsoleMessage>(
+                mojom::ConsoleMessageSource::kIntervention,
+                mojom::ConsoleMessageLevel::kWarning,
+                "Registering mousewheel event as passive due to "
+                "smoothscroll.js usage. The smoothscroll.js library is "
+                "buggy, no longer necessary and degrades performance. See "
+                "https://www.chromestatus.com/feature/5749447073988608"));
+      }
+      return;
+    }
+  }
+
   if (!options->hasPassive())
     options->setPassive(false);
 
@@ -419,36 +454,6 @@ bool EventTarget::AddEventListenerInternal(
   if (options->hasSignal() && options->signal()->aborted())
     return false;
 
-  // It doesn't make sense to add an event listener without an ExecutionContext
-  // and some code below here assumes we have one.
-  auto* execution_context = GetExecutionContext();
-  if (!execution_context)
-    return false;
-
-  // Consider `Permissions-Policy: unload`.
-  if (event_type == event_type_names::kUnload &&
-      RuntimeEnabledFeatures::PermissionsPolicyUnloadEnabled(
-          execution_context) &&
-      !execution_context->IsFeatureEnabled(
-          mojom::blink::PermissionsPolicyFeature::kUnload,
-          ReportOptions::kReportOnFailure)) {
-    return false;
-  }
-
-  // Unload/Beforeunload handlers are not allowed in fenced frames.
-  if (event_type == event_type_names::kUnload ||
-      event_type == event_type_names::kBeforeunload) {
-    if (const LocalDOMWindow* window = ExecutingWindow()) {
-      if (const LocalFrame* frame = window->GetFrame()) {
-        if (frame->IsInFencedFrameTree()) {
-          window->PrintErrorMessage(
-              "unload/beforeunload handlers are prohibited in fenced frames.");
-          return false;
-        }
-      }
-    }
-  }
-
   if (event_type == event_type_names::kTouchcancel ||
       event_type == event_type_names::kTouchend ||
       event_type == event_type_names::kTouchmove ||
@@ -499,8 +504,8 @@ bool EventTarget::AddEventListenerInternal(
     AddedEventListener(event_type, registered_listener);
     if (IsA<JSBasedEventListener>(listener) &&
         IsInstrumentedForAsyncStack(event_type)) {
-      listener->async_task_context()->Schedule(GetExecutionContext(),
-                                               event_type);
+      probe::AsyncTaskScheduled(GetExecutionContext(), event_type,
+                                listener->async_task_id());
     }
   }
   return added;
@@ -521,11 +526,6 @@ void EventTarget::AddedEventListener(
         UseCounter::Count(*document, WebFeature::kSlotChangeEventAddListener);
       } else if (event_type == event_type_names::kBeforematch) {
         UseCounter::Count(*document, WebFeature::kBeforematchHandlerRegistered);
-      } else if (event_type ==
-                 event_type_names::kContentvisibilityautostatechanged) {
-        UseCounter::Count(
-            *document,
-            WebFeature::kContentVisibilityAutoStateChangedHandlerRegistered);
       }
     }
   }
@@ -546,7 +546,7 @@ void EventTarget::AddedEventListener(
 bool EventTarget::removeEventListener(const AtomicString& event_type,
                                       V8EventListener* listener) {
   EventListener* event_listener = JSEventListener::CreateOrNull(listener);
-  return removeEventListener(event_type, event_listener, /*use_capture=*/false);
+  return removeEventListener(event_type, event_listener);
 }
 
 bool EventTarget::removeEventListener(
@@ -660,8 +660,8 @@ bool EventTarget::SetAttributeEventListener(const AtomicString& event_type,
   if (registered_listener) {
     if (IsA<JSBasedEventListener>(listener) &&
         IsInstrumentedForAsyncStack(event_type)) {
-      listener->async_task_context()->Schedule(GetExecutionContext(),
-                                               event_type);
+      probe::AsyncTaskScheduled(GetExecutionContext(), event_type,
+                                listener->async_task_id());
     }
     registered_listener->SetCallback(listener);
     return true;
@@ -713,9 +713,9 @@ DispatchEventResult EventTarget::DispatchEvent(Event& event) {
 DispatchEventResult EventTarget::DispatchEventInternal(Event& event) {
   event.SetTarget(this);
   event.SetCurrentTarget(this);
-  event.SetEventPhase(Event::PhaseType::kAtTarget);
+  event.SetEventPhase(Event::kAtTarget);
   DispatchEventResult dispatch_result = FireEventListeners(event);
-  event.SetEventPhase(Event::PhaseType::kNone);
+  event.SetEventPhase(0);
   return dispatch_result;
 }
 
@@ -888,8 +888,7 @@ bool EventTarget::FireEventListeners(Event& event,
     event.SetHandlingPassive(EventPassiveMode(registered_listener));
 
     probe::UserCallback probe(context, nullptr, event.type(), false, this);
-    probe::AsyncTask async_task(context, listener->async_task_context(),
-                                "event",
+    probe::AsyncTask async_task(context, listener->async_task_id(), "event",
                                 IsInstrumentedForAsyncStack(event.type()));
 
     // To match Mozilla, the AT_TARGET phase fires both capturing and bubbling
@@ -962,7 +961,7 @@ void EventTarget::EnqueueEvent(Event& event, TaskType task_type) {
   ExecutionContext* context = GetExecutionContext();
   if (!context)
     return;
-  event.async_task_context()->Schedule(context, event.type());
+  probe::AsyncTaskScheduled(context, event.type(), event.async_task_id());
   context->GetTaskRunner(task_type)->PostTask(
       FROM_HERE,
       WTF::Bind(&EventTarget::DispatchEnqueuedEvent, WrapPersistent(this),
@@ -972,15 +971,15 @@ void EventTarget::EnqueueEvent(Event& event, TaskType task_type) {
 void EventTarget::DispatchEnqueuedEvent(Event* event,
                                         ExecutionContext* context) {
   if (!GetExecutionContext()) {
-    event->async_task_context()->Cancel();
+    probe::AsyncTaskCanceled(context, event->async_task_id());
     return;
   }
-  probe::AsyncTask async_task(context, event->async_task_context());
+  probe::AsyncTask async_task(context, event->async_task_id());
   DispatchEvent(*event);
 }
 
 void EventTargetWithInlineData::Trace(Visitor* visitor) const {
-  visitor->Trace(data_);
+  EventTargetData::Trace(visitor);
   EventTarget::Trace(visitor);
 }
 

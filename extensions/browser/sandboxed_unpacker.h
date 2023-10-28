@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -10,12 +10,13 @@
 
 #include "base/files/file_path.h"
 #include "base/files/scoped_temp_dir.h"
+#include "base/macros.h"
 #include "base/memory/ref_counted_delete_on_sequence.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/strings/string_piece.h"
 #include "base/values.h"
-#include "extensions/browser/api/declarative_net_request/install_index_helper.h"
+#include "extensions/browser/api/declarative_net_request/index_helper.h"
 #include "extensions/browser/api/declarative_net_request/ruleset_install_pref.h"
 #include "extensions/browser/content_verifier/content_verifier_key.h"
 #include "extensions/browser/crx_file_info.h"
@@ -115,7 +116,17 @@ class SandboxedUnpackerClient
 // transcoding all images to PNG, parsing all message catalogs, and rewriting
 // the manifest JSON. As such, it should not be used when the output is not
 // intended to be given back to the author.
-class SandboxedUnpacker : public ImageSanitizer::Client {
+//
+// Lifetime management:
+//
+// This class is ref-counted by each call it makes to itself on another thread.
+//
+// Additionally, we hold a reference to our own client so that the client lives
+// long enough to receive the result of unpacking.
+//
+// NOTE: This class should only be used on the FILE thread.
+//
+class SandboxedUnpacker : public base::RefCountedThreadSafe<SandboxedUnpacker> {
  public:
   // Overrides the required verifier format for testing purposes. Only one
   // ScopedVerifierFormatOverrideForTest may exist at a time.
@@ -124,9 +135,6 @@ class SandboxedUnpacker : public ImageSanitizer::Client {
     explicit ScopedVerifierFormatOverrideForTest(
         crx_file::VerifierFormat format);
     ~ScopedVerifierFormatOverrideForTest();
-
-   private:
-    THREAD_CHECKER(thread_checker_);
   };
 
   // Creates a SandboxedUnpacker that will do work to unpack an extension,
@@ -146,9 +154,6 @@ class SandboxedUnpacker : public ImageSanitizer::Client {
       const scoped_refptr<base::SequencedTaskRunner>& unpacker_io_task_runner,
       SandboxedUnpackerClient* client);
 
-  SandboxedUnpacker(const SandboxedUnpacker&) = delete;
-  SandboxedUnpacker& operator=(const SandboxedUnpacker&) = delete;
-
   // Start processing the extension, either from a CRX file or already unzipped
   // in a directory. The client is called with the results. The directory form
   // requires the id and base64-encoded public key (for insertion into the
@@ -159,10 +164,11 @@ class SandboxedUnpacker : public ImageSanitizer::Client {
                           const base::FilePath& directory);
 
  private:
-  friend class SandboxedUnpackerTest;
-  class IOThreadState;
+  friend class base::RefCountedThreadSafe<SandboxedUnpacker>;
 
-  ~SandboxedUnpacker() override;
+  friend class SandboxedUnpackerTest;
+
+  ~SandboxedUnpacker();
 
   // Create |temp_dir_| used to unzip or unpack the extension in.
   bool CreateTempDirectory();
@@ -188,7 +194,7 @@ class SandboxedUnpacker : public ImageSanitizer::Client {
   // Callback which is called after the verified contents are uncompressed.
   void OnVerifiedContentsUncompressed(
       const base::FilePath& unzip_dir,
-      base::expected<mojo_base::BigBuffer, std::string> result);
+      data_decoder::DataDecoder::ResultOrError<mojo_base::BigBuffer> result);
 
   // Verifies the decompressed verified contents fetched from the header of CRX
   // and stores them if the verification of these contents is successful.
@@ -206,11 +212,9 @@ class SandboxedUnpacker : public ImageSanitizer::Client {
   // Helper which calls ReportFailure.
   void ReportUnpackExtensionFailed(base::StringPiece error);
 
-  // Implementation of ImageSanitizer::Client:
-  data_decoder::DataDecoder* GetDataDecoder() override;
-  void OnImageSanitizationDone(ImageSanitizer::Status status,
-                               const base::FilePath& path) override;
-  void OnImageDecoded(const base::FilePath& path, SkBitmap image) override;
+  void ImageSanitizationDone(ImageSanitizer::Status status,
+                             const base::FilePath& path);
+  void ImageSanitizerDecodedImage(const base::FilePath& path, SkBitmap image);
 
   void ReadMessageCatalogs();
 
@@ -241,7 +245,7 @@ class SandboxedUnpacker : public ImageSanitizer::Client {
   void IndexAndPersistJSONRulesetsIfNeeded();
 
   void OnJSONRulesetsIndexed(
-      declarative_net_request::InstallIndexHelper::Result result);
+      declarative_net_request::IndexHelper::Result result);
 
   // Computed hashes: if requested (via ShouldComputeHashes callback in
   // SandbloxedUnpackerClient), calculate hashes of all extensions' resources
@@ -304,9 +308,6 @@ class SandboxedUnpacker : public ImageSanitizer::Client {
   // when calling Extension::Create() by the CRX installer.
   int creation_flags_;
 
-  // Overridden value of VerifierFormat that is used from StartWithCrx().
-  absl::optional<crx_file::VerifierFormat> format_verifier_override_;
-
   // Sequenced task runner where file I/O operations will be performed.
   scoped_refptr<base::SequencedTaskRunner> unpacker_io_task_runner_;
 
@@ -316,8 +317,22 @@ class SandboxedUnpacker : public ImageSanitizer::Client {
   // The decoded install icon.
   SkBitmap install_icon_;
 
-  // TODO(crbug.com/1346172): Consider to wrap it in base::SequenceBound
-  std::unique_ptr<IOThreadState> io_thread_state_;
+  // Controls our own lazily started, isolated instance of the Data Decoder
+  // service so that multiple decode operations related to this
+  // SandboxedUnpacker can share a single instance.
+  data_decoder::DataDecoder data_decoder_;
+
+  // The JSONParser remote from the data decoder service.
+  mojo::Remote<data_decoder::mojom::JsonParser> json_parser_;
+
+  // The ImageSanitizer used to clean-up images.
+  std::unique_ptr<ImageSanitizer> image_sanitizer_;
+
+  // Used during the message catalog rewriting phase to sanitize the extension
+  // provided message catalogs.
+  std::unique_ptr<JsonFileSanitizer> json_file_sanitizer_;
+
+  DISALLOW_COPY_AND_ASSIGN(SandboxedUnpacker);
 };
 
 }  // namespace extensions

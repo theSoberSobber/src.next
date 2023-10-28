@@ -1,1 +1,4 @@
-mixins: "//chrome/browser/ui/extensions/COMMON_METADATA"
+monorail {
+  component: "Platform>Extensions"
+}
+team_email: "extensions-dev@chromium.org"

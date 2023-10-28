@@ -48,8 +48,8 @@ static int64_t GenerateSequenceNumber() {
 HistoryItem::HistoryItem()
     : item_sequence_number_(GenerateSequenceNumber()),
       document_sequence_number_(GenerateSequenceNumber()),
-      navigation_api_key_(WTF::CreateCanonicalUUIDString()),
-      navigation_api_id_(WTF::CreateCanonicalUUIDString()) {}
+      app_history_key_(WTF::CreateCanonicalUUIDString()),
+      app_history_id_(WTF::CreateCanonicalUUIDString()) {}
 
 HistoryItem::~HistoryItem() = default;
 
@@ -61,12 +61,8 @@ KURL HistoryItem::Url() const {
   return KURL(url_string_);
 }
 
-const String& HistoryItem::GetReferrer() const {
+const Referrer& HistoryItem::GetReferrer() const {
   return referrer_;
-}
-
-network::mojom::ReferrerPolicy HistoryItem::GetReferrerPolicy() const {
-  return referrer_policy_;
 }
 
 void HistoryItem::SetURLString(const String& url_string) {
@@ -78,12 +74,10 @@ void HistoryItem::SetURL(const KURL& url) {
   SetURLString(url.GetString());
 }
 
-void HistoryItem::SetReferrer(const String& referrer) {
-  referrer_ = referrer;
-}
-
-void HistoryItem::SetReferrerPolicy(network::mojom::ReferrerPolicy policy) {
-  referrer_policy_ = policy;
+void HistoryItem::SetReferrer(const Referrer& referrer) {
+  // This should be a CHECK.
+  referrer_ = SecurityPolicy::GenerateReferrer(referrer.referrer_policy, Url(),
+                                               referrer.referrer);
 }
 
 void HistoryItem::SetVisualViewportScrollOffset(const ScrollOffset& offset) {
@@ -155,16 +149,16 @@ EncodedFormData* HistoryItem::FormData() {
   return form_data_.get();
 }
 
-void HistoryItem::SetNavigationApiState(
+void HistoryItem::SetAppHistoryState(
     scoped_refptr<SerializedScriptValue> value) {
-  navigation_api_state_ = std::move(value);
+  app_history_state_ = std::move(value);
 }
 
 ResourceRequest HistoryItem::GenerateResourceRequest(
     mojom::FetchCacheMode cache_mode) {
   ResourceRequest request(url_string_);
-  request.SetReferrerString(referrer_);
-  request.SetReferrerPolicy(referrer_policy_);
+  request.SetReferrerString(referrer_.referrer);
+  request.SetReferrerPolicy(referrer_.referrer_policy);
   request.SetCacheMode(cache_mode);
   if (form_data_) {
     request.SetHttpMethod(http_names::kPOST);

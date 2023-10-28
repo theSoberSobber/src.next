@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Copyright 2018 The Chromium Authors
+# Copyright 2018 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -176,26 +176,26 @@ class CheckCompatibleAlertDialogBuilder(unittest.TestCase):
         mock_input, MockOutputApi())
     self.assertEqual(0, len(errors))
 
-class CheckBundleUtilsIdentifierName(unittest.TestCase):
-  """Test the _CheckBundleUtilsIdentifierName presubmit check."""
+class CheckSplitCompatUtilsIdentifierName(unittest.TestCase):
+  """Test the _CheckSplitCompatUtilsIdentifierName presubmit check."""
 
   def testFailure(self):
     """
-    BundleUtils.getIdentifierName() without a String literal is flagged.
+    SplitCompatUtils.getIdentifierName() without a String literal is flagged.
     """
     mock_input = MockInputApi()
     mock_input.files = [
         MockFile('path/One.java',
                  [
-                  'BundleUtils.getIdentifierName(foo)',
+                  'SplitCompatUtils.getIdentifierName(foo)',
                   'A new line to make sure there is no duplicate error.']),
         MockFile('path/Two.java',
-                 ['BundleUtils.getIdentifierName(    foo)']),
+                 ['SplitCompatUtils.getIdentifierName(    foo)']),
         MockFile('path/Three.java',
-                 ['BundleUtils.getIdentifierName(',
+                 ['SplitCompatUtils.getIdentifierName(',
                   '     bar)']),
     ]
-    errors = PRESUBMIT._CheckBundleUtilsIdentifierName(
+    errors = PRESUBMIT._CheckSplitCompatUtilsIdentifierName(
         mock_input, MockOutputApi())
     self.assertEqual(1, len(errors))
     self.assertEqual(3, len(errors[0].items))
@@ -205,24 +205,24 @@ class CheckBundleUtilsIdentifierName(unittest.TestCase):
 
   def testSuccess(self):
     """
-    Examples of when BundleUtils.getIdentifierName() should not be flagged.
+    Examples of when SplitCompatUtils.getIdentifierName() should not be flagged.
     """
     mock_input = MockInputApi()
     mock_input.files = [
         MockFile('path/One.java',
                  [
-                  'BundleUtils.getIdentifierName("foo")',
+                  'SplitCompatUtils.getIdentifierName("foo")',
                   'A new line.']),
         MockFile('path/Two.java',
-                 ['BundleUtils.getIdentifierName(    "foo")']),
+                 ['SplitCompatUtils.getIdentifierName(    "foo")']),
         MockFile('path/Three.java',
-                 ['BundleUtils.getIdentifierName(',
+                 ['SplitCompatUtils.getIdentifierName(',
                   '    "bar")']),
         MockFile('path/Four.java',
-                 ['  super(BundleUtils.getIdentifierName(',
+                 ['  super(SplitCompatUtils.getIdentifierName(',
                   '"bar"))']),
     ]
-    errors = PRESUBMIT._CheckBundleUtilsIdentifierName(
+    errors = PRESUBMIT._CheckSplitCompatUtilsIdentifierName(
         mock_input, MockOutputApi())
     self.assertEqual(0, len(errors))
 

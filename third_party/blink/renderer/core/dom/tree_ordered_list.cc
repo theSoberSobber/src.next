@@ -43,20 +43,20 @@ void TreeOrderedList::Add(Node* node) {
   iterator begin = nodes_.begin();
   iterator end = nodes_.end();
   iterator it = end;
-  iterator following = end;
+  Node* following_node = nullptr;
   do {
     --it;
     Node* n = *it;
     uint16_t position =
         n->compareDocumentPosition(node, Node::kTreatShadowTreesAsComposed);
     if (position & Node::kDocumentPositionFollowing) {
-      nodes_.InsertBefore(following, node);
+      nodes_.InsertBefore(following_node, node);
       return;
     }
-    following = it;
+    following_node = n;
   } while (it != begin);
 
-  nodes_.InsertBefore(following, node);
+  nodes_.InsertBefore(following_node, node);
 }
 
 void TreeOrderedList::Remove(const Node* node) {

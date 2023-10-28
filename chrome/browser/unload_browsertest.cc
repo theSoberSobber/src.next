@@ -1,11 +1,16 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+
+#if defined(OS_POSIX)
+#include <signal.h>
+#endif
 
 #include "base/bind.h"
 #include "base/command_line.h"
 #include "base/run_loop.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/task/post_task.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
 #include "chrome/browser/profiles/profile.h"
@@ -30,6 +35,7 @@
 #include "net/dns/mock_host_resolver.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
 
+using base::TimeDelta;
 using content::BrowserThread;
 
 const char NOLISTENERS_HTML[] =
@@ -132,7 +138,7 @@ class UnloadTest : public InProcessBrowserTest {
       command_line->AppendSwitch(embedder_support::kDisablePopupBlocking);
     } else if (strstr(test_info->name(), "BrowserTerminateBeforeUnload") !=
                nullptr) {
-#if BUILDFLAG(IS_POSIX)
+#if defined(OS_POSIX)
       DisableSIGTERMHandling();
 #endif
     }
@@ -154,17 +160,17 @@ class UnloadTest : public InProcessBrowserTest {
   }
 
   void NavigateToDataURL(const char* html_content, const char* expected_title) {
-    ASSERT_TRUE(ui_test_utils::NavigateToURL(
-        browser(), GURL(std::string("data:text/html,") + html_content)));
+    ui_test_utils::NavigateToURL(
+        browser(), GURL(std::string("data:text/html,") + html_content));
     CheckTitle(expected_title);
   }
 
   void NavigateToNolistenersFileTwice() {
     ASSERT_TRUE(embedded_test_server()->Start());
     GURL url(embedded_test_server()->GetURL("/title2.html"));
-    ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
+    ui_test_utils::NavigateToURL(browser(), url);
     CheckTitle("Title Of Awesomeness");
-    ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
+    ui_test_utils::NavigateToURL(browser(), url);
     CheckTitle("Title Of Awesomeness");
   }
 
@@ -176,7 +182,7 @@ class UnloadTest : public InProcessBrowserTest {
     GURL url(embedded_test_server()->GetURL("/title2.html"));
     ui_test_utils::NavigateToURLWithDisposition(
         browser(), url, WindowOpenDisposition::CURRENT_TAB, 0);
-    ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
+    ui_test_utils::NavigateToURL(browser(), url);
     CheckTitle("Title Of Awesomeness");
   }
 
@@ -617,7 +623,7 @@ IN_PROC_BROWSER_TEST_F(UnloadTest, VisibilityChangeOnlyDispatchedOnce) {
   EXPECT_TRUE(embedded_test_server()->Start());
   // Start on a.com and open a popup to another page in a.com.
   GURL opener_url(embedded_test_server()->GetURL("a.com", "/title1.html"));
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), opener_url));
+  ui_test_utils::NavigateToURL(browser(), opener_url);
   content::WebContents* opener_contents =
       browser()->tab_strip_model()->GetActiveWebContents();
 
@@ -631,7 +637,7 @@ IN_PROC_BROWSER_TEST_F(UnloadTest, VisibilityChangeOnlyDispatchedOnce) {
   content::WebContents* popup_contents =
       browser()->tab_strip_model()->GetActiveWebContents();
   ASSERT_NE(opener_contents, popup_contents);
-  content::RenderFrameHost* popup_rfh = popup_contents->GetPrimaryMainFrame();
+  content::RenderFrameHost* popup_rfh = popup_contents->GetMainFrame();
 
   // In the popup, add a visibilitychange handler that ensures we only see the
   // visibilitychange event fired once on tab close.
@@ -695,7 +701,7 @@ IN_PROC_BROWSER_TEST_F(UnloadTest, BrowserCloseWithCrossSiteIframe) {
 
   // Navigate to a page with an iframe.
   GURL main_url(embedded_test_server()->GetURL("a.com", "/iframe.html"));
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), main_url));
+  ui_test_utils::NavigateToURL(browser(), main_url);
 
   // Navigate iframe cross-site.
   GURL frame_url(embedded_test_server()->GetURL("b.com", "/title1.html"));
@@ -705,7 +711,7 @@ IN_PROC_BROWSER_TEST_F(UnloadTest, BrowserCloseWithCrossSiteIframe) {
 
   // Install a dialog-showing beforeunload handler in the iframe.
   content::RenderFrameHost* child =
-      ChildFrameAt(web_contents->GetPrimaryMainFrame(), 0);
+      ChildFrameAt(web_contents->GetMainFrame(), 0);
   EXPECT_TRUE(
       ExecuteScript(child, "window.onbeforeunload = () => { return 'x' };"));
 
@@ -722,13 +728,13 @@ IN_PROC_BROWSER_TEST_F(UnloadTest, BrowserCloseWithSameSiteIframe) {
 
   // Navigate to a page with a same-site iframe.
   GURL main_url(embedded_test_server()->GetURL("a.com", "/iframe.html"));
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), main_url));
+  ui_test_utils::NavigateToURL(browser(), main_url);
   content::WebContents* web_contents =
       browser()->tab_strip_model()->GetActiveWebContents();
   content::RenderFrameHost* child =
-      ChildFrameAt(web_contents->GetPrimaryMainFrame(), 0);
+      ChildFrameAt(web_contents->GetMainFrame(), 0);
   EXPECT_EQ(child->GetSiteInstance(),
-            web_contents->GetPrimaryMainFrame()->GetSiteInstance());
+            web_contents->GetMainFrame()->GetSiteInstance());
 
   // Install a dialog-showing beforeunload handler in the iframe.
   EXPECT_TRUE(

@@ -128,7 +128,7 @@ TEST_F(CollapsedBorderValueTest, Compare) {
       9,         // Thick cell border.
       10,        // The hidden border ranks the highest.
   };
-  static constexpr int kExpectedCoversJoint[kCount][kCount] = {
+  bool expected_covers_joint[kCount][kCount] = {
       // An invisible border doesn't cover joint.
       {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
       {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
@@ -159,8 +159,7 @@ TEST_F(CollapsedBorderValueTest, Compare) {
       // SCOPED_TRACE prints j first.
       EXPECT_EQ(rank[j] < rank[i], values[j].LessThan(values[i]));
       EXPECT_EQ(rank[j] == rank[i], values[j].IsSameIgnoringColor(values[i]));
-      EXPECT_EQ(static_cast<bool>(kExpectedCoversJoint[j][i]),
-                values[j].CoversJoint(values[i]));
+      EXPECT_EQ(expected_covers_joint[j][i], values[j].CoversJoint(values[i]));
     }
   }
 }

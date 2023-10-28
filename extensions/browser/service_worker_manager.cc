@@ -1,4 +1,4 @@
-// Copyright 2015 The Chromium Authors
+// Copyright 2015 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -10,7 +10,6 @@
 #include "content/public/browser/service_worker_context.h"
 #include "content/public/browser/storage_partition.h"
 #include "extensions/browser/extension_util.h"
-#include "third_party/blink/public/common/storage_key/storage_key.h"
 
 namespace extensions {
 
@@ -28,8 +27,7 @@ void ServiceWorkerManager::OnExtensionUnloaded(
     UnloadedExtensionReason reason) {
   util::GetStoragePartitionForExtensionId(extension->id(), browser_context_)
       ->GetServiceWorkerContext()
-      ->StopAllServiceWorkersForStorageKey(
-          blink::StorageKey(extension->origin()));
+      ->StopAllServiceWorkersForOrigin(extension->origin());
 }
 
 void ServiceWorkerManager::OnExtensionUninstalled(
@@ -42,8 +40,7 @@ void ServiceWorkerManager::OnExtensionUninstalled(
   // c) Check for any orphaned workers.
   util::GetStoragePartitionForExtensionId(extension->id(), browser_context_)
       ->GetServiceWorkerContext()
-      ->DeleteForStorageKey(blink::StorageKey(extension->origin()),
-                            base::DoNothing());
+      ->DeleteForOrigin(extension->origin(), base::DoNothing());
 }
 
 }  // namespace extensions

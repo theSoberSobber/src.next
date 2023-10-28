@@ -1,4 +1,4 @@
-// Copyright 2018 The Chromium Authors
+// Copyright 2018 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -8,6 +8,8 @@
 #include <errno.h>
 
 #include "base/base_export.h"
+// TODO(crbug.com/1010217) Remove once no #includers are getting base/macros.h
+// by including this header.
 #include "build/build_config.h"
 
 namespace base {
@@ -30,7 +32,7 @@ class BASE_EXPORT ScopedClearLastErrorBase {
   const int last_errno_;
 };
 
-#if BUILDFLAG(IS_WIN)
+#if defined(OS_WIN)
 
 // Windows specific implementation of ScopedClearLastError.
 class BASE_EXPORT ScopedClearLastError : public ScopedClearLastErrorBase {
@@ -44,11 +46,11 @@ class BASE_EXPORT ScopedClearLastError : public ScopedClearLastErrorBase {
   const unsigned long last_system_error_;
 };
 
-#elif BUILDFLAG(IS_POSIX) || BUILDFLAG(IS_FUCHSIA)
+#elif defined(OS_POSIX) || defined(OS_FUCHSIA)
 
 using ScopedClearLastError = ScopedClearLastErrorBase;
 
-#endif  // BUILDFLAG(IS_WIN)
+#endif  // defined(OS_WIN)
 
 }  // namespace base
 

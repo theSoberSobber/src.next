@@ -1,4 +1,4 @@
-// Copyright 2015 The Chromium Authors
+// Copyright 2015 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -6,7 +6,7 @@
 
 #include "base/bind.h"
 #include "base/check_op.h"
-#include "base/command_line.h"
+#include "base/macros.h"
 #include "base/strings/stringprintf.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
@@ -14,7 +14,6 @@
 #include "chrome/browser/download/download_core_service.h"
 #include "chrome/browser/download/download_core_service_factory.h"
 #include "chrome/browser/profiles/profile_manager.h"
-#include "chrome/common/chrome_switches.h"
 #include "chrome/test/base/test_browser_window.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_profile.h"
@@ -28,11 +27,6 @@
 class TestingDownloadCoreService : public DownloadCoreService {
  public:
   TestingDownloadCoreService() : download_count_(0) {}
-
-  TestingDownloadCoreService(const TestingDownloadCoreService&) = delete;
-  TestingDownloadCoreService& operator=(const TestingDownloadCoreService&) =
-      delete;
-
   ~TestingDownloadCoreService() override {}
 
   // All methods that aren't expected to be called in the execution of
@@ -47,11 +41,6 @@ class TestingDownloadCoreService : public DownloadCoreService {
 
   // DownloadCoreService
   ChromeDownloadManagerDelegate* GetDownloadManagerDelegate() override {
-    ADD_FAILURE();
-    return nullptr;
-  }
-
-  DownloadUIController* GetDownloadUIController() override {
     ADD_FAILURE();
     return nullptr;
   }
@@ -79,15 +68,15 @@ class TestingDownloadCoreService : public DownloadCoreService {
     ADD_FAILURE();
   }
 
-  bool IsDownloadUiEnabled() override { return true; }
-
-  bool IsDownloadObservedByExtension() override { return false; }
+  bool IsShelfEnabled() override { return true; }
 
   // KeyedService
   void Shutdown() override {}
 
  private:
   int download_count_;
+
+  DISALLOW_COPY_AND_ASSIGN(TestingDownloadCoreService);
 };
 
 static std::unique_ptr<KeyedService> CreateTestingDownloadCoreService(
@@ -98,9 +87,7 @@ static std::unique_ptr<KeyedService> CreateTestingDownloadCoreService(
 class BrowserCloseTest : public testing::Test {
  public:
   BrowserCloseTest()
-      : profile_manager_(TestingBrowserProcess::GetGlobal()), name_index_(0) {
-    base::CommandLine::ForCurrentProcess()->AppendSwitch(switches::kNoFirstRun);
-  }
+      : profile_manager_(TestingBrowserProcess::GetGlobal()), name_index_(0) {}
 
   ~BrowserCloseTest() override {}
 
@@ -285,7 +272,7 @@ TEST_F(BrowserCloseTest, LastRegular) {
   EXPECT_EQ(Browser::DownloadCloseType::kBrowserShutdown,
             browser->OkToCloseWithInProgressDownloads(&num_downloads_blocking));
   EXPECT_EQ(num_downloads_blocking, 1);
-#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_CHROMEOS_ASH)
+#if defined(OS_MAC) || BUILDFLAG(IS_CHROMEOS_ASH)
   EXPECT_EQ(true, browser->CanCloseWithInProgressDownloads());
 #else
   EXPECT_EQ(false, browser->CanCloseWithInProgressDownloads());

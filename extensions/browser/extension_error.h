@@ -1,4 +1,4 @@
-// Copyright 2013 The Chromium Authors
+// Copyright 2013 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -12,6 +12,7 @@
 
 #include "base/compiler_specific.h"
 #include "base/logging.h"
+#include "base/macros.h"
 #include "extensions/common/stack_frame.h"
 #include "url/gurl.h"
 
@@ -25,9 +26,6 @@ class ExtensionError {
     INTERNAL_ERROR,
     NUM_ERROR_TYPES,  // Put new values above this.
   };
-
-  ExtensionError(const ExtensionError&) = delete;
-  ExtensionError& operator=(const ExtensionError&) = delete;
 
   virtual ~ExtensionError();
 
@@ -76,6 +74,9 @@ class ExtensionError {
   std::u16string message_;
   // The number of times this error has occurred.
   size_t occurrences_;
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(ExtensionError);
 };
 
 class ManifestError : public ExtensionError {
@@ -84,10 +85,6 @@ class ManifestError : public ExtensionError {
                 const std::u16string& message,
                 const std::u16string& manifest_key,
                 const std::u16string& manifest_specific);
-
-  ManifestError(const ManifestError&) = delete;
-  ManifestError& operator=(const ManifestError&) = delete;
-
   ~ManifestError() override;
 
   std::string GetDebugString() const override;
@@ -104,6 +101,8 @@ class ManifestError : public ExtensionError {
   // If present, this is a more-specific location of the error - for instance,
   // a specific permission which is incorrect, rather than simply "permissions".
   std::u16string manifest_specific_;
+
+  DISALLOW_COPY_AND_ASSIGN(ManifestError);
 };
 
 class RuntimeError : public ExtensionError {
@@ -117,10 +116,6 @@ class RuntimeError : public ExtensionError {
                logging::LogSeverity level,
                int render_frame_id,
                int render_process_id);
-
-  RuntimeError(const RuntimeError&) = delete;
-  RuntimeError& operator=(const RuntimeError&) = delete;
-
   ~RuntimeError() override;
 
   std::string GetDebugString() const override;
@@ -145,6 +140,8 @@ class RuntimeError : public ExtensionError {
   // inspect the frame later, if possible.
   int render_frame_id_;
   int render_process_id_;
+
+  DISALLOW_COPY_AND_ASSIGN(RuntimeError);
 };
 
 class InternalError : public ExtensionError {
@@ -152,16 +149,14 @@ class InternalError : public ExtensionError {
   InternalError(const std::string& extension_id,
                 const std::u16string& message,
                 logging::LogSeverity level);
-
-  InternalError(const InternalError&) = delete;
-  InternalError& operator=(const InternalError&) = delete;
-
   ~InternalError() override;
 
   std::string GetDebugString() const override;
 
  private:
   bool IsEqualImpl(const ExtensionError* rhs) const override;
+
+  DISALLOW_COPY_AND_ASSIGN(InternalError);
 };
 
 }  // namespace extensions

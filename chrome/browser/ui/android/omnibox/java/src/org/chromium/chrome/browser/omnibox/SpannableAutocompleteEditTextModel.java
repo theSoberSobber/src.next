@@ -1,4 +1,4 @@
-// Copyright 2017 The Chromium Authors
+// Copyright 2017 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -564,14 +564,15 @@ public class SpannableAutocompleteEditTextModel implements AutocompleteEditTextM
         public boolean beginBatchEdit() {
             if (DEBUG) Log.i(TAG, "beginBatchEdit");
             onBeginImeCommand();
-            incrementBatchEditCount();
-            return onEndImeCommand();
+            boolean retVal = incrementBatchEditCount();
+            onEndImeCommand();
+            return retVal;
         }
 
         /**
          * Always call this at the beginning of any IME command. Compare this with beginBatchEdit()
          * which is by itself an IME command.
-         * @return {@code true} if the batch edit is still in progress. {@code false} otherwise.
+         * @return Whether the call was successful.
          */
         public boolean onBeginImeCommand() {
             if (DEBUG) Log.i(TAG, "onBeginImeCommand: " + mBatchEditNestCount);
@@ -624,14 +625,15 @@ public class SpannableAutocompleteEditTextModel implements AutocompleteEditTextM
         public boolean endBatchEdit() {
             if (DEBUG) Log.i(TAG, "endBatchEdit");
             onBeginImeCommand();
-            decrementBatchEditCount();
-            return onEndImeCommand();
+            boolean retVal = decrementBatchEditCount();
+            onEndImeCommand();
+            return retVal;
         }
 
         /**
          * Always call this at the end of an IME command. Compare this with endBatchEdit()
          * which is by itself an IME command.
-         * @return {@code true} if the batch edit is still in progress. {@code false} otherwise.
+         * @return Whether the call was successful.
          */
         public boolean onEndImeCommand() {
             if (DEBUG) Log.i(TAG, "onEndImeCommand: " + (mBatchEditNestCount - 1));

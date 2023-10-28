@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -10,18 +10,16 @@
 #include "base/callback.h"
 #include "base/callback_helpers.h"
 #include "base/location.h"
-#include "base/memory/raw_ptr.h"
 #include "base/message_loop/message_pump.h"
 #include "base/message_loop/message_pump_type.h"
 #include "base/run_loop.h"
+#include "base/sequenced_task_runner_helpers.h"
+#include "base/single_thread_task_runner.h"
 #include "base/task/current_thread.h"
 #include "base/task/sequence_manager/sequence_manager_impl.h"
-#include "base/task/sequenced_task_runner_helpers.h"
-#include "base/task/single_thread_task_runner.h"
 #include "base/test/mock_callback.h"
 #include "base/test/task_environment.h"
 #include "base/threading/thread_task_runner_handle.h"
-#include "base/time/time.h"
 #include "build/build_config.h"
 #include "content/browser/browser_process_io_thread.h"
 #include "content/browser/browser_thread_impl.h"
@@ -45,7 +43,9 @@ class SequenceManagerThreadDelegate : public base::Thread::Delegate {
         base::sequence_manager::internal::SequenceManagerImpl::CreateUnbound(
             base::sequence_manager::SequenceManager::Settings());
     auto browser_ui_thread_scheduler =
-        BrowserUIThreadScheduler::CreateForTesting(ui_sequence_manager_.get());
+        BrowserUIThreadScheduler::CreateForTesting(
+            ui_sequence_manager_.get(),
+            ui_sequence_manager_->GetRealTimeDomain());
 
     default_task_runner_ =
         browser_ui_thread_scheduler->GetHandle()->GetDefaultTaskRunner();
@@ -55,12 +55,8 @@ class SequenceManagerThreadDelegate : public base::Thread::Delegate {
     BrowserTaskExecutor::CreateForTesting(
         std::move(browser_ui_thread_scheduler),
         std::make_unique<BrowserIOThreadDelegate>());
-    BrowserTaskExecutor::OnStartupComplete();
+    BrowserTaskExecutor::EnableAllQueues();
   }
-
-  SequenceManagerThreadDelegate(const SequenceManagerThreadDelegate&) = delete;
-  SequenceManagerThreadDelegate& operator=(
-      const SequenceManagerThreadDelegate&) = delete;
 
   ~SequenceManagerThreadDelegate() override {
     BrowserTaskExecutor::ResetForTesting();
@@ -81,6 +77,8 @@ class SequenceManagerThreadDelegate : public base::Thread::Delegate {
  private:
   std::unique_ptr<base::sequence_manager::SequenceManager> ui_sequence_manager_;
   scoped_refptr<base::SingleThreadTaskRunner> default_task_runner_;
+
+  DISALLOW_COPY_AND_ASSIGN(SequenceManagerThreadDelegate);
 };
 
 }  // namespace
@@ -190,7 +188,7 @@ class UIThreadDestructionObserver
   const scoped_refptr<base::SingleThreadTaskRunner> callback_task_runner_;
   const scoped_refptr<base::SingleThreadTaskRunner> ui_task_runner_;
   base::OnceClosure callback_;
-  raw_ptr<bool> did_shutdown_;
+  bool* did_shutdown_;
 };
 
 TEST_F(BrowserThreadTest, PostTask) {
@@ -276,7 +274,8 @@ class BrowserThreadWithCustomSchedulerTest : public testing::Test {
     TaskEnvironmentWithCustomScheduler()
         : base::test::TaskEnvironment(SubclassCreatesDefaultTaskRunner{}) {
       std::unique_ptr<BrowserUIThreadScheduler> browser_ui_thread_scheduler =
-          BrowserUIThreadScheduler::CreateForTesting(sequence_manager());
+          BrowserUIThreadScheduler::CreateForTesting(sequence_manager(),
+                                                     GetTimeDomain());
       DeferredInitFromSubclass(
           browser_ui_thread_scheduler->GetHandle()->GetBrowserTaskRunner(
               QueueType::kDefault));
@@ -322,7 +321,7 @@ TEST_F(BrowserThreadWithCustomSchedulerTest, PostBestEffortTask) {
 
   testing::Mock::VerifyAndClearExpectations(&regular_task);
 
-  BrowserTaskExecutor::OnStartupComplete();
+  BrowserTaskExecutor::EnableAllQueues();
   base::RunLoop run_loop;
   EXPECT_CALL(best_effort_task, Run).WillOnce(Invoke([&]() {
     run_loop.Quit();

@@ -1,4 +1,4 @@
-// Copyright 2013 The Chromium Authors
+// Copyright 2013 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -96,15 +96,15 @@ std::string FileHighlighter::GetAfterFeature() const {
 void FileHighlighter::SetHighlightedRegions(base::DictionaryValue* dict) const {
   std::string before_feature = GetBeforeFeature();
   if (!before_feature.empty())
-    dict->SetStringKey(kBeforeHighlightKey, before_feature);
+    dict->SetString(kBeforeHighlightKey, before_feature);
 
   std::string feature = GetFeature();
   if (!feature.empty())
-    dict->SetStringKey(kHighlightKey, feature);
+    dict->SetString(kHighlightKey, feature);
 
   std::string after_feature = GetAfterFeature();
   if (!after_feature.empty())
-    dict->SetStringKey(kAfterHighlightKey, after_feature);
+    dict->SetString(kAfterHighlightKey, after_feature);
 }
 
 ManifestHighlighter::ManifestHighlighter(const std::string& manifest,

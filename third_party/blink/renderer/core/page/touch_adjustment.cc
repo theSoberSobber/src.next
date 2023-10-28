@@ -36,13 +36,11 @@
 #include "third_party/blink/renderer/core/page/chrome_client.h"
 #include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/core/style/computed_style.h"
+#include "third_party/blink/renderer/platform/geometry/float_point.h"
+#include "third_party/blink/renderer/platform/geometry/float_quad.h"
+#include "third_party/blink/renderer/platform/geometry/int_size.h"
 #include "third_party/blink/renderer/platform/text/text_break_iterator.h"
 #include "ui/display/screen_info.h"
-#include "ui/gfx/geometry/point_conversions.h"
-#include "ui/gfx/geometry/point_f.h"
-#include "ui/gfx/geometry/quad_f.h"
-#include "ui/gfx/geometry/rect_conversions.h"
-#include "ui/gfx/geometry/size.h"
 
 namespace blink {
 
@@ -51,8 +49,8 @@ namespace touch_adjustment {
 const float kZeroTolerance = 1e-6f;
 // The touch adjustment range (diameters) in dip, using same as the value in
 // gesture_configuration_android.cc
-constexpr LayoutUnit kMaxAdjustmentSizeDip(32);
-constexpr LayoutUnit kMinAdjustmentSizeDip(20);
+constexpr float kMaxAdjustmentSizeDip = 32.f;
+constexpr float kMinAdjustmentSizeDip = 20.f;
 
 // Class for remembering absolute quads of a target node and what node they
 // represent.
@@ -60,19 +58,17 @@ class SubtargetGeometry {
   DISALLOW_NEW();
 
  public:
-  SubtargetGeometry(Node* node, const gfx::QuadF& quad)
+  SubtargetGeometry(Node* node, const FloatQuad& quad)
       : node_(node), quad_(quad) {}
   void Trace(Visitor* visitor) const { visitor->Trace(node_); }
 
   Node* GetNode() const { return node_; }
-  gfx::QuadF Quad() const { return quad_; }
-  gfx::Rect BoundingBox() const {
-    return gfx::ToEnclosingRect(quad_.BoundingBox());
-  }
+  FloatQuad Quad() const { return quad_; }
+  IntRect BoundingBox() const { return quad_.EnclosingBoundingBox(); }
 
  private:
   Member<Node> node_;
-  gfx::QuadF quad_;
+  FloatQuad quad_;
 };
 
 }  // namespace touch_adjustment
@@ -89,12 +85,11 @@ namespace touch_adjustment {
 typedef HeapVector<SubtargetGeometry> SubtargetGeometryList;
 typedef bool (*NodeFilter)(Node*);
 typedef void (*AppendSubtargetsForNode)(Node*, SubtargetGeometryList&);
-typedef float (*DistanceFunction)(const gfx::Point&,
-                                  const gfx::Rect&,
+typedef float (*DistanceFunction)(const IntPoint&,
+                                  const IntRect&,
                                   const SubtargetGeometry&);
 
-// Takes non-const |Node*| because |Node::WillRespondToMouseClickEvents()| is
-// non-const.
+// Takes non-const Node* because isContentEditable is a non-const function.
 bool NodeRespondsToTapGesture(Node* node) {
   if (node->WillRespondToMouseClickEvents() ||
       node->WillRespondToMouseMoveEvents())
@@ -133,7 +128,7 @@ bool ProvidesContextMenuItems(Node* node) {
   if (!node->GetLayoutObject())
     return false;
   node->GetDocument().UpdateStyleAndLayoutTree();
-  if (IsEditable(*node))
+  if (HasEditableStyle(*node))
     return true;
   if (node->IsLink())
     return true;
@@ -159,11 +154,11 @@ bool ProvidesContextMenuItems(Node* node) {
 }
 
 static inline void AppendQuadsToSubtargetList(
-    Vector<gfx::QuadF>& quads,
+    Vector<FloatQuad>& quads,
     Node* node,
     SubtargetGeometryList& subtargets) {
-  Vector<gfx::QuadF>::const_iterator it = quads.begin();
-  const Vector<gfx::QuadF>::const_iterator end = quads.end();
+  Vector<FloatQuad>::const_iterator it = quads.begin();
+  const Vector<FloatQuad>::const_iterator end = quads.end();
   for (; it != end; ++it)
     subtargets.push_back(SubtargetGeometry(node, *it));
 }
@@ -174,7 +169,7 @@ static inline void AppendBasicSubtargetsForNode(
   // Node guaranteed to have layoutObject due to check in node filter.
   DCHECK(node->GetLayoutObject());
 
-  Vector<gfx::QuadF> quads;
+  Vector<FloatQuad> quads;
   node->GetLayoutObject()->AbsoluteQuads(quads);
 
   AppendQuadsToSubtargetList(quads, node, subtargets);
@@ -207,7 +202,7 @@ static inline void AppendContextSubtargetsForNode(
     int offset;
     while ((offset = word_iterator->next()) != -1) {
       if (IsWordTextBreak(word_iterator)) {
-        Vector<gfx::QuadF> quads;
+        Vector<FloatQuad> quads;
         text_layout_object->AbsoluteQuadsForRange(quads, last_offset, offset);
         AppendQuadsToSubtargetList(quads, text_node, subtargets);
       }
@@ -221,7 +216,7 @@ static inline void AppendContextSubtargetsForNode(
     const LayoutTextSelectionStatus& selection_status =
         frame_selection.ComputeLayoutSelectionStatus(*text_layout_object);
     // If selected, make subtargets out of only the selected part of the text.
-    Vector<gfx::QuadF> quads;
+    Vector<FloatQuad> quads;
     text_layout_object->AbsoluteQuadsForRange(quads, selection_status.start,
                                               selection_status.end);
     AppendQuadsToSubtargetList(quads, text_node, subtargets);
@@ -258,11 +253,9 @@ void CompileSubtargetList(const HeapVector<Member<Node>>& intersected_nodes,
          visited_node = visited_node->ParentOrShadowHostNode()) {
       // Check if we already have a result for a common ancestor from another
       // candidate.
-      const auto it = responder_map.find(visited_node);
-      if (it != responder_map.end()) {
-        responding_node = it->value;
+      responding_node = responder_map.at(visited_node);
+      if (responding_node)
         break;
-      }
       visited_nodes.push_back(visited_node);
       // Check if the node filter applies, which would mean we have found a
       // responding node.
@@ -280,13 +273,12 @@ void CompileSubtargetList(const HeapVector<Member<Node>>& intersected_nodes,
         break;
       }
     }
-    if (responding_node) {
-      // Insert the detected responder for all the visited nodes.
-      for (unsigned j = 0; j < visited_nodes.size(); j++)
-        responder_map.insert(visited_nodes[j], responding_node);
+    // Insert the detected responder for all the visited nodes.
+    for (unsigned j = 0; j < visited_nodes.size(); j++)
+      responder_map.insert(visited_nodes[j], responding_node);
 
+    if (responding_node)
       candidates.push_back(node);
-    }
   }
 
   // We compile the list of component absolute quads instead of using the
@@ -294,8 +286,7 @@ void CompileSubtargetList(const HeapVector<Member<Node>>& intersected_nodes,
   // line-breaks.
   for (unsigned i = 0; i < candidates.size(); i++) {
     Node* candidate = candidates[i];
-
-    // Skip nodes whose responders are ancestors of other responders. This gives
+    // Skip nodes who's responders are ancestors of other responders. This gives
     // preference to the inner-most event-handlers. So that a link is always
     // preferred even when contained in an element that monitors all
     // click-events.
@@ -303,18 +294,14 @@ void CompileSubtargetList(const HeapVector<Member<Node>>& intersected_nodes,
     DCHECK(responding_node);
     if (ancestors_to_responders_set.Contains(responding_node))
       continue;
-
     // Consolidate bounds for editable content.
     if (editable_ancestors.Contains(candidate))
       continue;
     candidate->GetDocument().UpdateStyleAndLayoutTree();
-    if (IsEditable(*candidate)) {
+    if (HasEditableStyle(*candidate)) {
       Node* replacement = candidate;
       Node* parent = candidate->ParentOrShadowHostNode();
-
-      // Ignore parents without layout objects.  E.g. editable elements with
-      // display:contents.  https://crbug.com/1196872
-      while (parent && IsEditable(*parent) && parent->GetLayoutObject()) {
+      while (parent && HasEditableStyle(*parent)) {
         replacement = parent;
         if (editable_ancestors.Contains(replacement)) {
           replacement = nullptr;
@@ -333,23 +320,21 @@ void CompileSubtargetList(const HeapVector<Member<Node>>& intersected_nodes,
 // This returns quotient of the target area and its intersection with the touch
 // area.  This will prioritize largest intersection and smallest area, while
 // balancing the two against each other.
-float ZoomableIntersectionQuotient(const gfx::Point& touch_hotspot,
-                                   const gfx::Rect& touch_area,
+float ZoomableIntersectionQuotient(const IntPoint& touch_hotspot,
+                                   const IntRect& touch_area,
                                    const SubtargetGeometry& subtarget) {
-  gfx::Rect rect =
-      subtarget.GetNode()->GetDocument().View()->ConvertToRootFrame(
-          subtarget.BoundingBox());
+  IntRect rect = subtarget.GetNode()->GetDocument().View()->ConvertToRootFrame(
+      subtarget.BoundingBox());
 
   // Check the rectangle is meaningful zoom target. It should at least contain
   // the hotspot.
   if (!rect.Contains(touch_hotspot))
     return std::numeric_limits<float>::infinity();
-  gfx::Rect intersection = rect;
+  IntRect intersection = rect;
   intersection.Intersect(touch_area);
 
   // Return the quotient of the intersection.
-  return static_cast<float>(rect.size().Area64()) /
-         static_cast<float>(intersection.size().Area64());
+  return rect.Size().Area() / (float)intersection.Size().Area();
 }
 
 // Uses a hybrid of distance to adjust and intersect ratio, normalizing each
@@ -359,26 +344,21 @@ float ZoomableIntersectionQuotient(const gfx::Point& touch_hotspot,
 // cases can lead to a bias towards shorter links. Conversely, percentage of
 // overlap can provide strong confidence in tapping on a small target, where the
 // overlap is often quite high, and works well for tightly packed controls.
-float HybridDistanceFunction(const gfx::Point& touch_hotspot,
-                             const gfx::Rect& touch_rect,
+float HybridDistanceFunction(const IntPoint& touch_hotspot,
+                             const IntRect& touch_rect,
                              const SubtargetGeometry& subtarget) {
-  gfx::RectF rect(subtarget.GetNode()->GetDocument().View()->ConvertToRootFrame(
-      subtarget.BoundingBox()));
-  float radius_squared =
-      0.25f *
-      gfx::Vector2dF(touch_rect.width(), touch_rect.height()).LengthSquared();
-  gfx::PointF hotspot_f(touch_hotspot);
-  float distance_to_adjust_score =
-      (rect.ClosestPoint(hotspot_f) - hotspot_f).LengthSquared() /
-      radius_squared;
+  IntRect rect = subtarget.GetNode()->GetDocument().View()->ConvertToRootFrame(
+      subtarget.BoundingBox());
 
-  float max_overlap_width = std::min<float>(touch_rect.width(), rect.width());
-  float max_overlap_height =
-      std::min<float>(touch_rect.height(), rect.height());
-  float max_overlap_area =
-      std::max<float>(max_overlap_width * max_overlap_height, 1);
-  rect.Intersect(gfx::RectF(touch_rect));
-  float intersect_area = rect.size().GetArea();
+  float radius_squared = 0.25f * (touch_rect.Size().DiagonalLengthSquared());
+  float distance_to_adjust_score =
+      rect.DistanceSquaredToPoint(touch_hotspot) / radius_squared;
+
+  int max_overlap_width = std::min(touch_rect.Width(), rect.Width());
+  int max_overlap_height = std::min(touch_rect.Height(), rect.Height());
+  float max_overlap_area = std::max(max_overlap_width * max_overlap_height, 1);
+  rect.Intersect(touch_rect);
+  float intersect_area = rect.Size().Area();
   float intersection_score = 1 - intersect_area / max_overlap_area;
 
   float hybrid_score = intersection_score + distance_to_adjust_score;
@@ -386,43 +366,43 @@ float HybridDistanceFunction(const gfx::Point& touch_hotspot,
   return hybrid_score;
 }
 
-gfx::PointF ConvertToRootFrame(LocalFrameView* view, gfx::PointF pt) {
-  int x = static_cast<int>(pt.x() + 0.5f);
-  int y = static_cast<int>(pt.y() + 0.5f);
-  gfx::Point adjusted = view->ConvertToRootFrame(gfx::Point(x, y));
-  return gfx::PointF(adjusted.x(), adjusted.y());
+FloatPoint ConvertToRootFrame(LocalFrameView* view, FloatPoint pt) {
+  int x = static_cast<int>(pt.X() + 0.5f);
+  int y = static_cast<int>(pt.Y() + 0.5f);
+  IntPoint adjusted = view->ConvertToRootFrame(IntPoint(x, y));
+  return FloatPoint(adjusted.X(), adjusted.Y());
 }
 
 // Adjusts 'point' to the nearest point inside rect, and leaves it unchanged if
 // already inside.
-void AdjustPointToRect(gfx::PointF& point, const gfx::Rect& rect) {
-  if (point.x() < rect.x())
-    point.set_x(rect.x());
-  else if (point.x() > rect.right())
-    point.set_x(rect.right());
+void AdjustPointToRect(FloatPoint& point, const IntRect& rect) {
+  if (point.X() < rect.X())
+    point.SetX(rect.X());
+  else if (point.X() > rect.MaxX())
+    point.SetX(rect.MaxX());
 
-  if (point.y() < rect.y())
-    point.set_y(rect.y());
-  else if (point.y() > rect.bottom())
-    point.set_y(rect.bottom());
+  if (point.Y() < rect.Y())
+    point.SetY(rect.Y());
+  else if (point.Y() > rect.MaxY())
+    point.SetY(rect.MaxY());
 }
 
 bool SnapTo(const SubtargetGeometry& geom,
-            const gfx::Point& touch_point,
-            const gfx::Rect& touch_area,
-            gfx::Point& adjusted_point) {
+            const IntPoint& touch_point,
+            const IntRect& touch_area,
+            IntPoint& adjusted_point) {
   LocalFrameView* view = geom.GetNode()->GetDocument().View();
-  gfx::QuadF quad = geom.Quad();
+  FloatQuad quad = geom.Quad();
 
   if (quad.IsRectilinear()) {
-    gfx::Rect bounds = view->ConvertToRootFrame(geom.BoundingBox());
+    IntRect bounds = view->ConvertToRootFrame(geom.BoundingBox());
     if (bounds.Contains(touch_point)) {
       adjusted_point = touch_point;
       return true;
     }
     if (bounds.Intersects(touch_area)) {
       bounds.Intersect(touch_area);
-      adjusted_point = bounds.CenterPoint();
+      adjusted_point = bounds.Center();
       return true;
     }
     return false;
@@ -435,24 +415,24 @@ bool SnapTo(const SubtargetGeometry& geom,
   // the quad. Corner-cases exist where the quad will intersect but this will
   // fail to adjust the point to somewhere in the intersection.
 
-  gfx::PointF p1 = ConvertToRootFrame(view, quad.p1());
-  gfx::PointF p2 = ConvertToRootFrame(view, quad.p2());
-  gfx::PointF p3 = ConvertToRootFrame(view, quad.p3());
-  gfx::PointF p4 = ConvertToRootFrame(view, quad.p4());
-  quad = gfx::QuadF(p1, p2, p3, p4);
+  FloatPoint p1 = ConvertToRootFrame(view, quad.P1());
+  FloatPoint p2 = ConvertToRootFrame(view, quad.P2());
+  FloatPoint p3 = ConvertToRootFrame(view, quad.P3());
+  FloatPoint p4 = ConvertToRootFrame(view, quad.P4());
+  quad = FloatQuad(p1, p2, p3, p4);
 
-  if (quad.Contains(gfx::PointF(touch_point))) {
+  if (quad.ContainsPoint(FloatPoint(touch_point))) {
     adjusted_point = touch_point;
     return true;
   }
 
   // Pull point towards the center of the element.
-  gfx::PointF center = quad.CenterPoint();
+  FloatPoint center = quad.Center();
 
   AdjustPointToRect(center, touch_area);
-  adjusted_point = gfx::ToRoundedPoint(center);
+  adjusted_point = RoundedIntPoint(center);
 
-  return quad.Contains(gfx::PointF(adjusted_point));
+  return quad.ContainsPoint(FloatPoint(adjusted_point));
 }
 
 // A generic function for finding the target node with the lowest distance
@@ -460,17 +440,17 @@ bool SnapTo(const SubtargetGeometry& geom,
 // that computes how well the touch hits the node.  Distance functions could for
 // instance be distance squared or area of intersection.
 bool FindNodeWithLowestDistanceMetric(Node*& target_node,
-                                      gfx::Point& target_point,
-                                      gfx::Rect& target_area,
-                                      const gfx::Point& touch_hotspot,
-                                      const gfx::Rect& touch_area,
+                                      IntPoint& target_point,
+                                      IntRect& target_area,
+                                      const IntPoint& touch_hotspot,
+                                      const IntRect& touch_area,
                                       SubtargetGeometryList& subtargets,
                                       DistanceFunction distance_function) {
   target_node = nullptr;
   float best_distance_metric = std::numeric_limits<float>::infinity();
   SubtargetGeometryList::const_iterator it = subtargets.begin();
   const SubtargetGeometryList::const_iterator end = subtargets.end();
-  gfx::Point adjusted_point;
+  IntPoint adjusted_point;
 
   for (; it != end; ++it) {
     Node* node = it->GetNode();
@@ -509,11 +489,11 @@ bool FindNodeWithLowestDistanceMetric(Node*& target_node,
 }  // namespace touch_adjustment
 
 bool FindBestClickableCandidate(Node*& target_node,
-                                gfx::Point& target_point,
-                                const gfx::Point& touch_hotspot,
-                                const gfx::Rect& touch_area,
+                                IntPoint& target_point,
+                                const IntPoint& touch_hotspot,
+                                const IntRect& touch_area,
                                 const HeapVector<Member<Node>>& nodes) {
-  gfx::Rect target_area;
+  IntRect target_area;
   touch_adjustment::SubtargetGeometryList subtargets;
   touch_adjustment::CompileSubtargetList(
       nodes, subtargets, touch_adjustment::NodeRespondsToTapGesture,
@@ -524,11 +504,11 @@ bool FindBestClickableCandidate(Node*& target_node,
 }
 
 bool FindBestContextMenuCandidate(Node*& target_node,
-                                  gfx::Point& target_point,
-                                  const gfx::Point& touch_hotspot,
-                                  const gfx::Rect& touch_area,
+                                  IntPoint& target_point,
+                                  const IntPoint& touch_hotspot,
+                                  const IntRect& touch_area,
                                   const HeapVector<Member<Node>>& nodes) {
-  gfx::Rect target_area;
+  IntRect target_area;
   touch_adjustment::SubtargetGeometryList subtargets;
   touch_adjustment::CompileSubtargetList(
       nodes, subtargets, touch_adjustment::ProvidesContextMenuItems,
@@ -543,6 +523,10 @@ LayoutSize GetHitTestRectForAdjustment(LocalFrame& frame,
   ChromeClient& chrome_client = frame.GetChromeClient();
   float device_scale_factor =
       chrome_client.GetScreenInfo(frame).device_scale_factor;
+  // Check if zoom-for-dsf is enabled. If not, touch_area is in dip, so we don't
+  // need to convert max_size_in_dip to physical pixel.
+  if (frame.GetPage()->DeviceScaleFactorDeprecated() != 1)
+    device_scale_factor = 1;
 
   float page_scale_factor = frame.GetPage()->PageScaleFactor();
   const LayoutSize max_size_in_dip(touch_adjustment::kMaxAdjustmentSizeDip,

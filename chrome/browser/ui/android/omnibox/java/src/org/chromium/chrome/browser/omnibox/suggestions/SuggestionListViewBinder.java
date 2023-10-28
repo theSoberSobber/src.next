@@ -1,4 +1,4 @@
-// Copyright 2018 The Chromium Authors
+// Copyright 2018 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -53,10 +53,6 @@ class SuggestionListViewBinder {
             view.dropdown.setEmbedder(model.get(SuggestionListProperties.EMBEDDER));
         } else if (SuggestionListProperties.OBSERVER.equals(propertyKey)) {
             view.dropdown.setObserver(model.get(SuggestionListProperties.OBSERVER));
-        } else if (SuggestionListProperties.LIST_IS_FINAL.equals(propertyKey)) {
-            if (model.get(SuggestionListProperties.LIST_IS_FINAL)) {
-                view.dropdown.emitWindowContentChanged();
-            }
         } else if (SuggestionListProperties.SUGGESTION_MODELS.equals(propertyKey)) {
             // This should only ever be bound once.
             model.get(SuggestionListProperties.SUGGESTION_MODELS)
@@ -67,8 +63,8 @@ class SuggestionListViewBinder {
                             view.dropdown.resetSelection();
                         }
                     });
-        } else if (SuggestionListProperties.COLOR_SCHEME.equals(propertyKey)) {
-            view.dropdown.refreshPopupBackground(model.get(SuggestionListProperties.COLOR_SCHEME));
+        } else if (SuggestionListProperties.IS_INCOGNITO.equals(propertyKey)) {
+            view.dropdown.refreshPopupBackground(model.get(SuggestionListProperties.IS_INCOGNITO));
         }
     }
 }

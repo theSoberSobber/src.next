@@ -1,4 +1,4 @@
-// Copyright 2011 The Chromium Authors
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -10,6 +10,7 @@
 #include <string>
 
 #include "base/compiler_specific.h"
+#include "base/macros.h"
 #include "base/threading/thread_checker.h"
 #include "net/base/net_export.h"
 
@@ -40,10 +41,6 @@ class NET_EXPORT URLRequestJobFactory {
   };
 
   URLRequestJobFactory();
-
-  URLRequestJobFactory(const URLRequestJobFactory&) = delete;
-  URLRequestJobFactory& operator=(const URLRequestJobFactory&) = delete;
-
   virtual ~URLRequestJobFactory();
 
   // Sets the ProtocolHandler for a scheme. Returns true on success, false on
@@ -80,6 +77,8 @@ class NET_EXPORT URLRequestJobFactory {
   static void SetInterceptorForTesting(URLRequestInterceptor* interceptor);
 
   ProtocolHandlerMap protocol_handler_map_;
+
+  DISALLOW_COPY_AND_ASSIGN(URLRequestJobFactory);
 };
 
 }  // namespace net

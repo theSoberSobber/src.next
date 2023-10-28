@@ -25,7 +25,6 @@
 #include "third_party/blink/renderer/core/dom/first_letter_pseudo_element.h"
 
 #include "third_party/blink/renderer/core/css/style_change_reason.h"
-#include "third_party/blink/renderer/core/css/style_request.h"
 #include "third_party/blink/renderer/core/dom/element.h"
 #include "third_party/blink/renderer/core/dom/node_computed_style.h"
 #include "third_party/blink/renderer/core/layout/generated_children.h"
@@ -91,11 +90,6 @@ unsigned FirstLetterPseudoElement::FirstLetterLength(const String& text) {
   return length;
 }
 
-void FirstLetterPseudoElement::Trace(Visitor* visitor) const {
-  visitor->Trace(remaining_text_layout_object_);
-  PseudoElement::Trace(visitor);
-}
-
 // Once we see any of these layoutObjects we can stop looking for first-letter
 // as they signal the end of the first line of text.
 static bool IsInvalidFirstLetterLayoutObject(const LayoutObject* obj) {
@@ -139,20 +133,14 @@ LayoutText* FirstLetterPseudoElement::FirstLetterTextLayoutObject(
             kPseudoIdFirstLetter) {
       first_letter_text_layout_object =
           first_letter_text_layout_object->NextSibling();
-    } else if (auto* layout_text =
-                   DynamicTo<LayoutText>(first_letter_text_layout_object)) {
-      // Don't apply first letter styling to passwords and other elements
-      // obfuscated by -webkit-text-security. Also, see
-      // ShouldUpdateLayoutByReattaching() in text.cc.
-      if (layout_text->IsSecure())
-        return nullptr;
+    } else if (first_letter_text_layout_object->IsText()) {
       // FIXME: If there is leading punctuation in a different LayoutText than
       // the first letter, we'll not apply the correct style to it.
       scoped_refptr<StringImpl> str =
-          layout_text->IsTextFragment()
+          To<LayoutText>(first_letter_text_layout_object)->IsTextFragment()
               ? To<LayoutTextFragment>(first_letter_text_layout_object)
                     ->CompleteText()
-              : layout_text->OriginalText();
+              : To<LayoutText>(first_letter_text_layout_object)->OriginalText();
       if (FirstLetterLength(str.get()) ||
           IsInvalidFirstLetterLayoutObject(first_letter_text_layout_object))
         break;

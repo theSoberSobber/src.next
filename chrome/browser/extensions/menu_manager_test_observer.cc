@@ -1,4 +1,4 @@
-// Copyright 2020 The Chromium Authors
+// Copyright 2020 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -10,7 +10,7 @@ namespace extensions {
 
 MenuManagerTestObserver::MenuManagerTestObserver(MenuManager* menu_manager)
     : menu_manager_(menu_manager) {
-  observation_.Observe(menu_manager_.get());
+  observation_.Observe(menu_manager_);
 }
 
 MenuManagerTestObserver::~MenuManagerTestObserver() = default;

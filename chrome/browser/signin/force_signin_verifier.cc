@@ -1,4 +1,4 @@
-// Copyright 2017 The Chromium Authors
+// Copyright 2017 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -76,7 +76,7 @@ void ForceSigninVerifier::OnAccessTokenFetchComplete(
       backoff_request_timer_.Start(
           FROM_HERE, backoff_entry_.GetTimeUntilRelease(),
           base::BindOnce(&ForceSigninVerifier::SendRequest,
-                         weak_factory_.GetWeakPtr()));
+                         base::Unretained(this)));
       access_token_fetcher_.reset();
     }
     return;
@@ -117,7 +117,7 @@ void ForceSigninVerifier::SendRequest() {
   if (content::GetNetworkConnectionTracker()->GetConnectionType(
           &type,
           base::BindOnce(&ForceSigninVerifier::SendRequestIfNetworkAvailable,
-                         weak_factory_.GetWeakPtr()))) {
+                         base::Unretained(this)))) {
     SendRequestIfNetworkAvailable(type);
   }
 }
@@ -131,11 +131,13 @@ void ForceSigninVerifier::SendRequestIfNetworkAvailable(
 
   signin::ScopeSet oauth2_scopes;
   oauth2_scopes.insert(GaiaConstants::kChromeSyncOAuth2Scope);
+  // It is safe to use Unretained(this) here given that the callback
+  // will not be invoked if this object is deleted.
   access_token_fetcher_ =
       std::make_unique<signin::PrimaryAccountAccessTokenFetcher>(
           "force_signin_verifier", identity_manager_, oauth2_scopes,
           base::BindOnce(&ForceSigninVerifier::OnAccessTokenFetchComplete,
-                         weak_factory_.GetWeakPtr()),
+                         base::Unretained(this)),
           signin::PrimaryAccountAccessTokenFetcher::Mode::kImmediate);
 }
 
@@ -178,8 +180,7 @@ void ForceSigninVerifier::OnCloseBrowsersSuccess(
   if (!entry)
     return;
   entry->LockForceSigninProfile(true);
-  ProfilePicker::Show(ProfilePicker::Params::FromEntryPoint(
-      ProfilePicker::EntryPoint::kProfileLocked));
+  ProfilePicker::Show(ProfilePicker::EntryPoint::kProfileLocked);
 }
 
 signin::PrimaryAccountAccessTokenFetcher*

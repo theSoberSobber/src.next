@@ -1,4 +1,4 @@
-// Copyright 2018 The Chromium Authors
+// Copyright 2018 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -24,9 +24,6 @@ namespace {
 class JsonFileSanitizerTest : public testing::Test {
  public:
   JsonFileSanitizerTest() {}
-
-  JsonFileSanitizerTest(const JsonFileSanitizerTest&) = delete;
-  JsonFileSanitizerTest& operator=(const JsonFileSanitizerTest&) = delete;
 
  protected:
   base::FilePath CreateFilePath(const base::FilePath::StringType& file_name) {
@@ -87,6 +84,8 @@ class JsonFileSanitizerTest : public testing::Test {
   base::OnceClosure done_callback_;
   std::unique_ptr<JsonFileSanitizer> sanitizer_;
   base::ScopedTempDir temp_dir_;
+
+  DISALLOW_COPY_AND_ASSIGN(JsonFileSanitizerTest);
 };
 
 }  // namespace

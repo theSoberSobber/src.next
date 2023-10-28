@@ -1,9 +1,10 @@
-// Copyright 2017 The Chromium Authors
+// Copyright 2017 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include "chrome/browser/extensions/install_verifier.h"
 
+#include "base/macros.h"
 #include "base/values.h"
 #include "chrome/browser/extensions/extension_management.h"
 #include "chrome/browser/extensions/extension_service_test_base.h"
@@ -25,10 +26,6 @@ namespace extensions {
 class InstallVerifierTest : public ExtensionServiceTestBase {
  public:
   InstallVerifierTest() = default;
-
-  InstallVerifierTest(const InstallVerifierTest&) = delete;
-  InstallVerifierTest& operator=(const InstallVerifierTest&) = delete;
-
   ~InstallVerifierTest() override = default;
 
   void SetUp() override {
@@ -53,6 +50,8 @@ class InstallVerifierTest : public ExtensionServiceTestBase {
       ScopedInstallVerifierBypassForTest::kForceOn};
   std::unique_ptr<ExtensionManagement> extension_management_;
   std::unique_ptr<TestingPrefServiceSimple> pref_service_;
+
+  DISALLOW_COPY_AND_ASSIGN(InstallVerifierTest);
 };
 
 // Test the behavior of the InstallVerifier for various extensions.

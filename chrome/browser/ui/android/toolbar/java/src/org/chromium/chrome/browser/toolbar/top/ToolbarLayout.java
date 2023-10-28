@@ -1,4 +1,4 @@
-// Copyright 2015 The Chromium Authors
+// Copyright 2015 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -16,12 +16,9 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
-import android.widget.ImageView;
 import android.widget.ProgressBar;
 
 import androidx.annotation.CallSuper;
-import androidx.annotation.ColorInt;
-import androidx.annotation.DrawableRes;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
@@ -30,7 +27,6 @@ import org.chromium.base.ObserverList;
 import org.chromium.base.TraceEvent;
 import org.chromium.base.supplier.BooleanSupplier;
 import org.chromium.base.supplier.ObservableSupplier;
-import org.chromium.chrome.browser.browser_controls.BrowserStateBrowserControlsVisibilityDelegate;
 import org.chromium.chrome.browser.omnibox.LocationBar;
 import org.chromium.chrome.browser.omnibox.LocationBarCoordinator;
 import org.chromium.chrome.browser.omnibox.NewTabPageDelegate;
@@ -55,7 +51,6 @@ import org.chromium.chrome.browser.toolbar.top.NavigationPopup.HistoryDelegate;
 import org.chromium.chrome.browser.toolbar.top.ToolbarTablet.OfflineDownloader;
 import org.chromium.chrome.browser.toolbar.top.TopToolbarCoordinator.UrlExpansionObserver;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuButtonHelper;
-import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
 import org.chromium.ui.UiUtils;
 import org.chromium.ui.base.ViewUtils;
 
@@ -207,8 +202,15 @@ public abstract class ToolbarLayout
         return mThemeColorProvider == null ? mDefaultTint : mThemeColorProvider.getTint();
     }
 
+    /**
+     * @return Whether to use light assets.
+     */
+    protected boolean useLight() {
+        return mThemeColorProvider != null && mThemeColorProvider.useLight();
+    }
+
     @Override
-    public void onTintChanged(ColorStateList tint, @BrandedColorScheme int brandedColorScheme) {}
+    public void onTintChanged(ColorStateList tint, boolean useLight) {}
 
     @Override
     public void onThemeColorChanged(int color, boolean shouldAnimate) {}
@@ -289,16 +291,6 @@ public abstract class ToolbarLayout
 
             @Override
             public boolean isUsingBrandColor() {
-                return false;
-            }
-
-            @Override
-            public @DrawableRes int getSecurityIconResource(boolean isTablet) {
-                return 0;
-            }
-
-            @Override
-            public boolean isPaintPreview() {
                 return false;
             }
         };
@@ -473,6 +465,15 @@ public abstract class ToolbarLayout
     protected void setUrlBarHidden(boolean hide) {}
 
     /**
+     * @return The name of the publisher of the content if it can be reliably extracted, or null
+     *         otherwise.
+     */
+    @Nullable
+    protected String getContentPublisher() {
+        return null;
+    }
+
+    /**
      * Tells the Toolbar to update what buttons it is currently displaying.
      */
     void updateButtonVisibility() {}
@@ -582,8 +583,8 @@ public abstract class ToolbarLayout
      */
     void onTabContentViewChanged() {}
 
-    CaptureReadinessResult isReadyForTextureCapture() {
-        return CaptureReadinessResult.unknown(/*isReady=*/true);
+    boolean isReadyForTextureCapture() {
+        return true;
     }
 
     boolean setForceTextureCapture(boolean forceTextureCapture) {
@@ -823,7 +824,7 @@ public abstract class ToolbarLayout
      * @return Optional button view.
      */
     @VisibleForTesting
-    public View getOptionalButtonViewForTesting() {
+    public View getOptionalButtonView() {
         return null;
     }
 
@@ -839,37 +840,4 @@ public abstract class ToolbarLayout
     public HomeButton getHomeButton() {
         return null;
     }
-
-    /**
-     * Returns whether there are any ongoing animations.
-     */
-    @VisibleForTesting
-    public boolean isAnimationRunningForTesting() {
-        return false;
-    }
-
-    /**
-     * Sets the toolbar hairline color, if the toolbar has a hairline below it.
-     * @param toolbarColor The toolbar color to base the hairline color on.
-     */
-    protected void setToolbarHairlineColor(@ColorInt int toolbarColor) {
-        final ImageView shadow = getRootView().findViewById(R.id.toolbar_hairline);
-        shadow.setImageTintList(ColorStateList.valueOf(getToolbarHairlineColor(toolbarColor)));
-    }
-
-    /**
-     * Returns the border color between the toolbar and WebContents area.
-     * @param toolbarColor Toolbar color
-     */
-    public @ColorInt int getToolbarHairlineColor(@ColorInt int toolbarColor) {
-        return ThemeUtils.getToolbarHairlineColor(getContext(), toolbarColor, isIncognito());
-    }
-
-    /**
-     * Sets the {@link BrowserStateBrowserControlsVisibilityDelegate} instance the toolbar should
-     * use to manipulate the visibility of browser controls; notably, "browser controls" includes
-     * the toolbar itself.
-     */
-    public void setBrowserControlsVisibilityDelegate(
-            BrowserStateBrowserControlsVisibilityDelegate controlsVisibilityDelegate) {}
 }

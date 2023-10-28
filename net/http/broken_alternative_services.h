@@ -1,4 +1,4 @@
-// Copyright 2017 The Chromium Authors
+// Copyright (c) 2017 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -8,8 +8,7 @@
 #include <list>
 #include <set>
 
-#include "base/containers/lru_cache.h"
-#include "base/memory/raw_ptr.h"
+#include "base/containers/mru_cache.h"
 #include "base/memory/weak_ptr.h"
 #include "base/time/time.h"
 #include "base/timer/timer.h"
@@ -48,11 +47,11 @@ typedef std::list<std::pair<BrokenAlternativeService, base::TimeTicks>>
 
 // Stores how many times an alternative service has been marked broken.
 class RecentlyBrokenAlternativeServices
-    : public base::LRUCache<BrokenAlternativeService, int> {
+    : public base::MRUCache<BrokenAlternativeService, int> {
  public:
-  explicit RecentlyBrokenAlternativeServices(
+  RecentlyBrokenAlternativeServices(
       int max_recently_broken_alternative_service_entries)
-      : base::LRUCache<BrokenAlternativeService, int>(
+      : base::MRUCache<BrokenAlternativeService, int>(
             max_recently_broken_alternative_service_entries) {}
 };
 
@@ -74,7 +73,7 @@ class NET_EXPORT_PRIVATE BrokenAlternativeServices {
     virtual void OnExpireBrokenAlternativeService(
         const AlternativeService& expired_alternative_service,
         const NetworkIsolationKey& network_isolation_key) = 0;
-    virtual ~Delegate() = default;
+    virtual ~Delegate() {}
   };
 
   // |delegate| will be notified when a broken alternative service expires. It
@@ -155,13 +154,6 @@ class NET_EXPORT_PRIVATE BrokenAlternativeServices {
       std::unique_ptr<RecentlyBrokenAlternativeServices>
           recently_broken_alternative_services);
 
-  // If values are present, sets initial_delay_ and
-  // exponential_backoff_on_initial_delay_ which are used to calculate delay of
-  // broken alternative services.
-  void SetDelayParams(
-      absl::optional<base::TimeDelta> initial_delay,
-      absl::optional<bool> exponential_backoff_on_initial_delay);
-
   const BrokenAlternativeServiceList& broken_alternative_service_list() const;
 
   const RecentlyBrokenAlternativeServices&
@@ -201,8 +193,8 @@ class NET_EXPORT_PRIVATE BrokenAlternativeServices {
   void ExpireBrokenAlternateProtocolMappings();
   void ScheduleBrokenAlternateProtocolMappingsExpiration();
 
-  raw_ptr<Delegate> delegate_;            // Unowned
-  raw_ptr<const base::TickClock> clock_;  // Unowned
+  Delegate* delegate_;            // Unowned
+  const base::TickClock* clock_;  // Unowned
 
   // List of <broken alt svc, expiration time> pairs sorted by expiration time.
   BrokenAlternativeServiceList broken_alternative_service_list_;
@@ -221,15 +213,6 @@ class NET_EXPORT_PRIVATE BrokenAlternativeServices {
   // Used for scheduling the task that expires the brokenness of alternative
   // services.
   base::OneShotTimer expiration_timer_;
-
-  // Delay for the 1st time alternative service is marked broken.
-  base::TimeDelta initial_delay_;
-
-  // If true, the delay for broken alternative service =
-  // initial_delay_for_broken_alternative_service * (1 << broken_count).
-  // Otherwise, the delay would be initial_delay_for_broken_alternative_service,
-  // 5min, 10min.. and so on.
-  bool exponential_backoff_on_initial_delay_ = true;
 
   base::WeakPtrFactory<BrokenAlternativeServices> weak_ptr_factory_{this};
 };

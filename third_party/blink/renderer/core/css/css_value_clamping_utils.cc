@@ -22,7 +22,7 @@ constexpr static double kApproxDoubleInfinityAngle = 2867080569122160;
 double CSSValueClampingUtils::ClampDouble(double value) {
   if (std::isnan(value))
     value = std::numeric_limits<double>::max();
-  return ClampTo<double>(value);
+  return clampTo<double>(value);
 }
 
 double CSSValueClampingUtils::ClampLength(double value) {
@@ -36,14 +36,14 @@ double CSSValueClampingUtils::ClampTime(double value) {
 double CSSValueClampingUtils::ClampAngle(double value) {
   if (std::isnan(value))
     value = kApproxDoubleInfinityAngle;
-  return ClampTo<double>(value, -kApproxDoubleInfinityAngle,
+  return clampTo<double>(value, -kApproxDoubleInfinityAngle,
                          kApproxDoubleInfinityAngle);
 }
 
 float CSSValueClampingUtils::ClampLength(float value) {
   if (std::isnan(value))
     value = std::numeric_limits<float>::max();
-  return ClampTo<float>(value);
+  return clampTo<float>(value);
 }
 
 }  // namespace blink

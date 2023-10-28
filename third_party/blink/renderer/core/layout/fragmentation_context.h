@@ -8,7 +8,6 @@
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/platform/geometry/layout_size.h"
 #include "third_party/blink/renderer/platform/geometry/layout_unit.h"
-#include "third_party/blink/renderer/platform/heap/garbage_collected.h"
 
 namespace blink {
 
@@ -28,7 +27,7 @@ namespace blink {
 // multicol implementation).
 //
 // [1] http://www.w3.org/TR/css3-break/#fragmentation-model
-class CORE_EXPORT FragmentationContext : public GarbageCollectedMixin {
+class CORE_EXPORT FragmentationContext {
  public:
   virtual ~FragmentationContext() = default;
 
@@ -57,8 +56,6 @@ class CORE_EXPORT FragmentationContext : public GarbageCollectedMixin {
   virtual class LayoutMultiColumnFlowThread* AssociatedFlowThread() {
     return nullptr;
   }
-
-  void Trace(Visitor*) const override {}
 };
 
 }  // namespace blink

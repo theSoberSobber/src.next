@@ -5,7 +5,6 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_CORE_FRAME_FIND_IN_PAGE_H_
 #define THIRD_PARTY_BLINK_RENDERER_CORE_FRAME_FIND_IN_PAGE_H_
 
-#include "build/build_config.h"
 #include "mojo/public/cpp/bindings/associated_receiver.h"
 #include "mojo/public/cpp/bindings/pending_associated_receiver.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
@@ -44,12 +43,10 @@ class CORE_EXPORT FindInPage final : public GarbageCollected<FindInPage>,
 
   int FindMatchMarkersVersion() const;
 
-#if BUILDFLAG(IS_ANDROID)
   // Returns the bounding box of the active find-in-page match marker or an
   // empty rect if no such marker exists. The rect is returned in find-in-page
   // coordinates.
   gfx::RectF ActiveFindMatchRect();
-#endif
 
   void ReportFindInPageMatchCount(int request_id, int count, bool final_update);
 
@@ -62,18 +59,25 @@ class CORE_EXPORT FindInPage final : public GarbageCollected<FindInPage>,
   void Find(int request_id,
             const String& search_text,
             mojom::blink::FindOptionsPtr) final;
-  void StopFinding(mojom::StopFindAction action) final;
-  void ClearActiveFindMatch() final;
+
   void SetClient(mojo::PendingRemote<mojom::blink::FindInPageClient>) final;
-#if BUILDFLAG(IS_ANDROID)
+
+  void ActivateNearestFindResult(int request_id, const gfx::PointF&) final;
+
+  // Stops the current find-in-page, following the given |action|
+  void StopFinding(mojom::StopFindAction action) final;
+
+  // Returns the distance (squared) to the closest find-in-page match from the
+  // provided point, in find-in-page coordinates.
   void GetNearestFindResult(const gfx::PointF&,
                             GetNearestFindResultCallback) final;
 
-  void ActivateNearestFindResult(int request_id, const gfx::PointF&) final;
-#endif
-#if BUILDFLAG(IS_ANDROID)
+  // Returns the bounding boxes of the find-in-page match markers in the frame,
+  // in find-in-page coordinates.
   void FindMatchRects(int current_version, FindMatchRectsCallback) final;
-#endif
+
+  // Clears the active find match in the frame, if one exists.
+  void ClearActiveFindMatch() final;
 
   TextFinder* GetTextFinder() const;
 

@@ -10,9 +10,10 @@
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
 #include "third_party/blink/renderer/core/frame/csp/csp_violation_report_body.h"
-#include "third_party/blink/renderer/core/frame/deprecation/deprecation_report_body.h"
+#include "third_party/blink/renderer/core/frame/deprecation_report_body.h"
 #include "third_party/blink/renderer/core/frame/document_policy_violation_report_body.h"
 #include "third_party/blink/renderer/core/frame/intervention_report_body.h"
+#include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/permissions_policy_violation_report_body.h"
 #include "third_party/blink/renderer/core/frame/report.h"
 #include "third_party/blink/renderer/core/frame/reporting_observer.h"
@@ -154,7 +155,7 @@ void ReportingContext::NotifyInternal(Report* report) {
   if (!report_buffer_.Contains(report->type())) {
     report_buffer_.insert(
         report->type(),
-        MakeGarbageCollected<HeapLinkedHashSet<Member<Report>>>());
+        MakeGarbageCollected<HeapListHashSet<Member<Report>>>());
   }
   report_buffer_.find(report->type())->value->insert(report);
 
@@ -201,8 +202,7 @@ void ReportingContext::SendToReportingAPI(Report* report,
     const DeprecationReportBody* body =
         static_cast<DeprecationReportBody*>(report->body());
     GetReportingService()->QueueDeprecationReport(
-        url, body->id(), body->AnticipatedRemoval(),
-        body->message().IsNull() ? g_empty_string : body->message(),
+        url, body->id(), body->AnticipatedRemoval(), body->message(),
         body->sourceFile(), line_number, column_number);
   } else if (type == ReportType::kPermissionsPolicyViolation) {
     // Send the permissions policy violation report.
@@ -216,9 +216,8 @@ void ReportingContext::SendToReportingAPI(Report* report,
     const InterventionReportBody* body =
         static_cast<InterventionReportBody*>(report->body());
     GetReportingService()->QueueInterventionReport(
-        url, body->id(),
-        body->message().IsNull() ? g_empty_string : body->message(),
-        body->sourceFile(), line_number, column_number);
+        url, body->id(), body->message(), body->sourceFile(), line_number,
+        column_number);
   } else if (type == ReportType::kDocumentPolicyViolation) {
     const DocumentPolicyViolationReportBody* body =
         static_cast<DocumentPolicyViolationReportBody*>(report->body());

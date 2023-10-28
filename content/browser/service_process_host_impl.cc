@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium Authors
+// Copyright 2019 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,81 +7,92 @@
 #include <utility>
 
 #include "base/bind.h"
+#include "base/macros.h"
 #include "base/memory/weak_ptr.h"
 #include "base/no_destructor.h"
-#include "base/observer_list.h"
-#include "base/process/process.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/synchronization/lock.h"
-#include "base/threading/sequenced_task_runner_handle.h"
-#include "build/chromecast_buildflags.h"
 #include "content/browser/utility_process_host.h"
 #include "content/common/child_process.mojom.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
-#include "content/public/browser/content_browser_client.h"
 #include "content/public/browser/service_process_host.h"
-#include "content/public/browser/service_process_info.h"
-#include "content/public/common/content_client.h"
+#include "content/public/common/content_features.h"
 #include "mojo/public/cpp/bindings/generic_pending_receiver.h"
 #include "mojo/public/cpp/bindings/remote.h"
-#include "sandbox/policy/mojom/sandbox.mojom.h"
-
-#if BUILDFLAG(IS_CASTOS) || BUILDFLAG(IS_CAST_ANDROID)
-#include "base/process/process_handle.h"
-#endif
 
 namespace content {
 
 namespace {
 
-// Changes to this function should be reviewed by a security person.
-bool ShouldEnableSandbox(sandbox::mojom::Sandbox sandbox) {
-  if (sandbox == sandbox::mojom::Sandbox::kAudio)
-    return GetContentClient()->browser()->ShouldSandboxAudioService();
-  if (sandbox == sandbox::mojom::Sandbox::kNetwork)
-    return GetContentClient()->browser()->ShouldSandboxNetworkService();
-  return true;
-}
-
-// Internal helper to track running service processes.
+// Internal helper to track running service processes. Usage of this class is
+// split across the IO thread and UI thread.
 class ServiceProcessTracker {
  public:
-  ServiceProcessTracker() = default;
-
-  ServiceProcessTracker(const ServiceProcessTracker&) = delete;
-  ServiceProcessTracker& operator=(const ServiceProcessTracker&) = delete;
-
+  ServiceProcessTracker() : ui_task_runner_(GetUIThreadTaskRunner({})) {}
   ~ServiceProcessTracker() = default;
 
-  ServiceProcessInfo AddProcess(base::Process process,
+  ServiceProcessInfo AddProcess(const base::Process& process,
                                 const std::string& service_interface_name) {
-    DCHECK_CURRENTLY_ON(BrowserThread::UI);
+    // TODO(jam): remove this class or at least the locks once we only have UI
+    // thread mode.
+    DCHECK_CURRENTLY_ON(base::FeatureList::IsEnabled(features::kProcessHostOnUI)
+                            ? BrowserThread::UI
+                            : BrowserThread::IO);
+    base::AutoLock lock(processes_lock_);
     auto id = GenerateNextId();
-    ServiceProcessInfo info(service_interface_name, id, std::move(process));
-    auto info_dup = info.Duplicate();
-    processes_.insert({id, std::move(info)});
-    for (auto& observer : observers_)
-      observer.OnServiceProcessLaunched(info_dup);
-    return info_dup;
+    ServiceProcessInfo& info = processes_[id];
+    info.service_process_id = id;
+    info.pid = process.Pid();
+    info.service_interface_name = service_interface_name;
+    if (base::FeatureList::IsEnabled(features::kProcessHostOnUI)) {
+      for (auto& observer : observers_)
+        observer.OnServiceProcessLaunched(info);
+    } else {
+      ui_task_runner_->PostTask(
+          FROM_HERE,
+          base::BindOnce(&ServiceProcessTracker::NotifyLaunchOnUIThread,
+                         base::Unretained(this), info));
+    }
+    return info;
   }
 
   void NotifyTerminated(ServiceProcessId id) {
-    DCHECK_CURRENTLY_ON(BrowserThread::UI);
+    DCHECK_CURRENTLY_ON(base::FeatureList::IsEnabled(features::kProcessHostOnUI)
+                            ? BrowserThread::UI
+                            : BrowserThread::IO);
+    base::AutoLock lock(processes_lock_);
     auto iter = processes_.find(id);
     DCHECK(iter != processes_.end());
 
-    for (auto& observer : observers_)
-      observer.OnServiceProcessTerminatedNormally(iter->second.Duplicate());
+    if (base::FeatureList::IsEnabled(features::kProcessHostOnUI)) {
+      for (auto& observer : observers_)
+        observer.OnServiceProcessTerminatedNormally(iter->second);
+    } else {
+      ui_task_runner_->PostTask(
+          FROM_HERE,
+          base::BindOnce(&ServiceProcessTracker::NotifyTerminatedOnUIThread,
+                         base::Unretained(this), iter->second));
+    }
     processes_.erase(iter);
   }
 
   void NotifyCrashed(ServiceProcessId id) {
-    DCHECK_CURRENTLY_ON(BrowserThread::UI);
+    DCHECK_CURRENTLY_ON(base::FeatureList::IsEnabled(features::kProcessHostOnUI)
+                            ? BrowserThread::UI
+                            : BrowserThread::IO);
+    base::AutoLock lock(processes_lock_);
     auto iter = processes_.find(id);
     DCHECK(iter != processes_.end());
-    for (auto& observer : observers_)
-      observer.OnServiceProcessCrashed(iter->second.Duplicate());
+    if (base::FeatureList::IsEnabled(features::kProcessHostOnUI)) {
+      for (auto& observer : observers_)
+        observer.OnServiceProcessCrashed(iter->second);
+    } else {
+      ui_task_runner_->PostTask(
+          FROM_HERE,
+          base::BindOnce(&ServiceProcessTracker::NotifyCrashedOnUIThread,
+                         base::Unretained(this), iter->second));
+    }
     processes_.erase(iter);
   }
 
@@ -99,24 +110,46 @@ class ServiceProcessTracker {
 
   std::vector<ServiceProcessInfo> GetProcesses() {
     DCHECK_CURRENTLY_ON(BrowserThread::UI);
+    base::AutoLock lock(processes_lock_);
     std::vector<ServiceProcessInfo> processes;
     for (const auto& entry : processes_)
-      processes.push_back(entry.second.Duplicate());
+      processes.push_back(entry.second);
     return processes;
   }
 
  private:
+  void NotifyLaunchOnUIThread(const content::ServiceProcessInfo& info) {
+    for (auto& observer : observers_)
+      observer.OnServiceProcessLaunched(info);
+  }
+
+  void NotifyTerminatedOnUIThread(const content::ServiceProcessInfo& info) {
+    for (auto& observer : observers_)
+      observer.OnServiceProcessTerminatedNormally(info);
+  }
+
+  void NotifyCrashedOnUIThread(const content::ServiceProcessInfo& info) {
+    for (auto& observer : observers_)
+      observer.OnServiceProcessCrashed(info);
+  }
+
   ServiceProcessId GenerateNextId() {
-    DCHECK_CURRENTLY_ON(BrowserThread::UI);
+    DCHECK_CURRENTLY_ON(base::FeatureList::IsEnabled(features::kProcessHostOnUI)
+                            ? BrowserThread::UI
+                            : BrowserThread::IO);
     return service_process_id_generator_.GenerateNextId();
   }
 
+  const scoped_refptr<base::TaskRunner> ui_task_runner_;
   ServiceProcessId::Generator service_process_id_generator_;
 
+  base::Lock processes_lock_;
   std::map<ServiceProcessId, ServiceProcessInfo> processes_;
 
   // Observers are owned and used exclusively on the UI thread.
   base::ObserverList<ServiceProcessHost::Observer> observers_;
+
+  DISALLOW_COPY_AND_ASSIGN(ServiceProcessTracker);
 };
 
 ServiceProcessTracker& GetServiceProcessTracker() {
@@ -129,30 +162,19 @@ ServiceProcessTracker& GetServiceProcessTracker() {
 // has a unique instance of this class associated with it.
 class UtilityProcessClient : public UtilityProcessHost::Client {
  public:
-  UtilityProcessClient(
-      const std::string& service_interface_name,
-      base::OnceCallback<void(const base::Process&)> process_callback)
-      : service_interface_name_(service_interface_name),
-        process_callback_(std::move(process_callback)) {}
-
-  UtilityProcessClient(const UtilityProcessClient&) = delete;
-  UtilityProcessClient& operator=(const UtilityProcessClient&) = delete;
-
+  explicit UtilityProcessClient(const std::string& service_interface_name)
+      : service_interface_name_(service_interface_name) {}
   ~UtilityProcessClient() override = default;
 
   // UtilityProcessHost::Client:
   void OnProcessLaunched(const base::Process& process) override {
-    DCHECK_CURRENTLY_ON(BrowserThread::UI);
-    process_info_.emplace(GetServiceProcessTracker().AddProcess(
-        process.Duplicate(), service_interface_name_));
-    if (process_callback_) {
-      std::move(process_callback_).Run(process);
-    }
+    process_info_ =
+        GetServiceProcessTracker().AddProcess(process, service_interface_name_);
   }
 
   void OnProcessTerminatedNormally() override {
     GetServiceProcessTracker().NotifyTerminated(
-        process_info_->service_process_id());
+        process_info_->service_process_id);
   }
 
   void OnProcessCrashed() override {
@@ -162,31 +184,27 @@ class UtilityProcessClient : public UtilityProcessHost::Client {
     if (!process_info_)
       return;
 
-    GetServiceProcessTracker().NotifyCrashed(
-        process_info_->service_process_id());
+    GetServiceProcessTracker().NotifyCrashed(process_info_->service_process_id);
   }
 
  private:
   const std::string service_interface_name_;
-  base::OnceCallback<void(const base::Process&)> process_callback_;
   absl::optional<ServiceProcessInfo> process_info_;
+
+  DISALLOW_COPY_AND_ASSIGN(UtilityProcessClient);
 };
 
 // TODO(crbug.com/977637): Once UtilityProcessHost is used only by service
 // processes, its logic can be inlined here.
 void LaunchServiceProcess(mojo::GenericPendingReceiver receiver,
-                          ServiceProcessHost::Options options,
-                          sandbox::mojom::Sandbox sandbox) {
-  UtilityProcessHost* host =
-      new UtilityProcessHost(std::make_unique<UtilityProcessClient>(
-          *receiver.interface_name(), std::move(options.process_callback)));
+                          ServiceProcessHost::Options options) {
+  UtilityProcessHost* host = new UtilityProcessHost(
+      std::make_unique<UtilityProcessClient>(*receiver.interface_name()));
   host->SetName(!options.display_name.empty()
                     ? options.display_name
                     : base::UTF8ToUTF16(*receiver.interface_name()));
   host->SetMetricsName(*receiver.interface_name());
-  if (!ShouldEnableSandbox(sandbox))
-    sandbox = sandbox::mojom::Sandbox::kNoSandbox;
-  host->SetSandboxType(sandbox);
+  host->SetSandboxType(options.sandbox_type);
   host->SetExtraCommandLineSwitches(std::move(options.extra_switches));
   if (options.child_flags)
     host->set_child_flags(*options.child_flags);
@@ -213,24 +231,24 @@ void ServiceProcessHost::RemoveObserver(Observer* observer) {
 
 // static
 void ServiceProcessHost::Launch(mojo::GenericPendingReceiver receiver,
-                                Options options,
-                                sandbox::mojom::Sandbox sandbox) {
+                                Options options) {
   DCHECK(receiver.interface_name().has_value());
-  if (GetUIThreadTaskRunner({})->BelongsToCurrentThread()) {
-    LaunchServiceProcess(std::move(receiver), std::move(options), sandbox);
+  auto task_runner = base::FeatureList::IsEnabled(features::kProcessHostOnUI)
+                         ? GetUIThreadTaskRunner({})
+                         : GetIOThreadTaskRunner({});
+  if (task_runner->BelongsToCurrentThread()) {
+    LaunchServiceProcess(std::move(receiver), std::move(options));
   } else {
-    GetUIThreadTaskRunner({})->PostTask(
+    task_runner->PostTask(
         FROM_HERE, base::BindOnce(&LaunchServiceProcess, std::move(receiver),
-                                  std::move(options), sandbox));
+                                  std::move(options)));
   }
 }
 
-// TODO(crbug.com/1328879): Remove this method when fixing the bug.
-#if BUILDFLAG(IS_CASTOS) || BUILDFLAG(IS_CAST_ANDROID)
 void LaunchUtilityProcessServiceDeprecated(
     const std::string& service_name,
     const std::u16string& display_name,
-    sandbox::mojom::Sandbox sandbox_type,
+    sandbox::policy::SandboxType sandbox_type,
     mojo::ScopedMessagePipeHandle service_pipe,
     base::OnceCallback<void(base::ProcessId)> callback) {
   UtilityProcessHost* host = new UtilityProcessHost();
@@ -247,6 +265,5 @@ void LaunchUtilityProcessServiceDeprecated(
           },
           std::move(callback)));
 }
-#endif
 
 }  // namespace content

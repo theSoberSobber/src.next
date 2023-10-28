@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -10,14 +10,13 @@
 #include "base/files/file_path.h"
 #include "base/location.h"
 #include "base/logging.h"
-#include "base/task/task_runner.h"
-#include "base/task/task_runner_util.h"
+#include "base/task_runner.h"
+#include "base/task_runner_util.h"
 #include "base/threading/thread_restrictions.h"
 #include "base/values.h"
-#include "build/build_config.h"
 #include "net/base/net_errors.h"
 
-#if BUILDFLAG(IS_ANDROID)
+#if defined(OS_ANDROID)
 #include "base/android/content_uri_utils.h"
 #endif
 
@@ -75,7 +74,7 @@ void FileStream::Context::Orphan() {
   if (!async_in_progress_) {
     CloseAndDelete();
   } else if (file_.IsValid()) {
-#if BUILDFLAG(IS_WIN)
+#if defined(OS_WIN)
     CancelIo(file_.GetPlatformFile());
 #endif
   }
@@ -160,30 +159,30 @@ bool FileStream::Context::IsOpen() const {
 
 FileStream::Context::OpenResult FileStream::Context::OpenFileImpl(
     const base::FilePath& path, int open_flags) {
-#if BUILDFLAG(IS_POSIX)
+#if defined(OS_POSIX)
   // Always use blocking IO.
   open_flags &= ~base::File::FLAG_ASYNC;
 #endif
   base::File file;
-#if BUILDFLAG(IS_ANDROID)
+#if defined(OS_ANDROID)
   if (path.IsContentUri()) {
     // Check that only Read flags are set.
     DCHECK_EQ(open_flags & ~base::File::FLAG_ASYNC,
               base::File::FLAG_OPEN | base::File::FLAG_READ);
     file = base::OpenContentUriForRead(path);
   } else {
-#endif  // BUILDFLAG(IS_ANDROID)
+#endif  // defined(OS_ANDROID)
     // FileStream::Context actually closes the file asynchronously,
     // independently from FileStream's destructor. It can cause problems for
     // users wanting to delete the file right after FileStream deletion. Thus
     // we are always adding SHARE_DELETE flag to accommodate such use case.
     // TODO(rvargas): This sounds like a bug, as deleting the file would
     // presumably happen on the wrong thread. There should be an async delete.
-    open_flags |= base::File::FLAG_WIN_SHARE_DELETE;
+    open_flags |= base::File::FLAG_SHARE_DELETE;
     file.Initialize(path, open_flags);
-#if BUILDFLAG(IS_ANDROID)
+#if defined(OS_ANDROID)
   }
-#endif  // BUILDFLAG(IS_ANDROID)
+#endif  // defined(OS_ANDROID)
   if (!file.IsValid()) {
     return OpenResult(base::File(),
                       IOResult::FromOSError(logging::GetLastSystemErrorCode()));

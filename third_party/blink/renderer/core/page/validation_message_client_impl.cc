@@ -41,12 +41,6 @@
 
 namespace blink {
 
-namespace {
-// The max length of 256 is also used by other browsers:
-// https://bugs.chromium.org/p/chromium/issues/detail?id=1261191#c17
-constexpr int kMaxValidationStringLength = 256;
-}  // namespace
-
 ValidationMessageClientImpl::ValidationMessageClientImpl(Page& page)
     : page_(&page), current_anchor_(nullptr) {}
 
@@ -58,33 +52,24 @@ LocalFrameView* ValidationMessageClientImpl::CurrentView() {
 
 void ValidationMessageClientImpl::ShowValidationMessage(
     const Element& anchor,
-    const String& original_message,
+    const String& message,
     TextDirection message_dir,
     const String& sub_message,
     TextDirection sub_message_dir) {
-  if (original_message.IsEmpty()) {
+  if (message.IsEmpty()) {
     HideValidationMessage(anchor);
     return;
   }
   if (!anchor.GetLayoutObject())
     return;
-
-  // If this subframe or fencedframe is cross origin to the main frame, then
-  // shorten the validation message to prevent validation popups that cover too
-  // much of the main frame.
-  String message = original_message;
-  if (original_message.length() > kMaxValidationStringLength &&
-      anchor.GetDocument().GetFrame()->IsCrossOriginToOutermostMainFrame()) {
-    message = original_message.Substring(0, kMaxValidationStringLength) + "...";
-  }
-
   if (current_anchor_)
     HideValidationMessageImmediately(*current_anchor_);
   current_anchor_ = &anchor;
   message_ = message;
   page_->GetChromeClient().RegisterPopupOpeningObserver(this);
-  constexpr auto kMinimumTimeToShowValidationMessage = base::Seconds(5);
-  constexpr auto kTimePerCharacter = base::Milliseconds(50);
+  constexpr auto kMinimumTimeToShowValidationMessage =
+      base::TimeDelta::FromSeconds(5);
+  constexpr auto kTimePerCharacter = base::TimeDelta::FromMilliseconds(50);
   finish_time_ =
       base::TimeTicks::Now() +
       std::max(kMinimumTimeToShowValidationMessage,
@@ -98,9 +83,7 @@ void ValidationMessageClientImpl::ShowValidationMessage(
   auto delegate = std::make_unique<ValidationMessageOverlayDelegate>(
       *page_, anchor, message_, message_dir, sub_message, sub_message_dir);
   overlay_delegate_ = delegate.get();
-  DCHECK(!overlay_);
-  overlay_ =
-      MakeGarbageCollected<FrameOverlay>(target_frame, std::move(delegate));
+  overlay_ = std::make_unique<FrameOverlay>(target_frame, std::move(delegate));
   overlay_delegate_->CreatePage(*overlay_);
   bool success = target_frame->View()->UpdateAllLifecyclePhasesExceptPaint(
       DocumentUpdateReason::kOverlay);
@@ -131,7 +114,8 @@ void ValidationMessageClientImpl::HideValidationMessage(const Element& anchor) {
       &ValidationMessageClientImpl::Reset);
   // This should be equal to or larger than transition duration of
   // #container.hiding in validation_bubble.css.
-  const base::TimeDelta kHidingAnimationDuration = base::Seconds(0.13333);
+  const base::TimeDelta kHidingAnimationDuration =
+      base::TimeDelta::FromSecondsD(0.13333);
   timer_->Value().StartOneShot(kHidingAnimationDuration, FROM_HERE);
 }
 
@@ -152,8 +136,7 @@ void ValidationMessageClientImpl::Reset(TimerBase*) {
   current_anchor_ = nullptr;
   message_ = String();
   finish_time_ = base::TimeTicks();
-  if (overlay_)
-    overlay_.Release()->Destroy();
+  overlay_ = nullptr;
   overlay_delegate_ = nullptr;
   page_->GetChromeClient().UnregisterPopupOpeningObserver(this);
   ValidationMessageVisibilityChanged(anchor);
@@ -190,7 +173,7 @@ void ValidationMessageClientImpl::CheckAnchorStatus(TimerBase*) {
     return;
   }
 
-  gfx::Rect new_anchor_rect_in_viewport =
+  IntRect new_anchor_rect_in_viewport =
       current_anchor_->VisibleBoundsInVisualViewport();
   if (new_anchor_rect_in_viewport.IsEmpty()) {
     // In a remote frame, VisibleBoundsInVisualViewport() returns an empty
@@ -227,14 +210,12 @@ void ValidationMessageClientImpl::LayoutOverlay() {
 }
 
 void ValidationMessageClientImpl::UpdatePrePaint() {
-  if (overlay_) {
+  if (overlay_)
     overlay_->UpdatePrePaint();
-    DCHECK(overlay_delegate_);
-    overlay_delegate_->UpdateFrameViewState(*overlay_);
-  }
 }
 
 void ValidationMessageClientImpl::PaintOverlay(GraphicsContext& context) {
+  DCHECK(RuntimeEnabledFeatures::CompositeAfterPaintEnabled());
   if (overlay_)
     overlay_->Paint(context);
 }
@@ -243,7 +224,6 @@ void ValidationMessageClientImpl::Trace(Visitor* visitor) const {
   visitor->Trace(page_);
   visitor->Trace(current_anchor_);
   visitor->Trace(timer_);
-  visitor->Trace(overlay_);
   ValidationMessageClient::Trace(visitor);
 }
 

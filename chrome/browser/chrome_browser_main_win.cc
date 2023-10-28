@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,7 +7,6 @@
 // windows.h must be included before shellapi.h
 #include <windows.h>
 
-#include <delayimp.h>
 #include <shellapi.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -20,7 +19,6 @@
 #include "base/bind.h"
 #include "base/callback_helpers.h"
 #include "base/command_line.h"
-#include "base/dcheck_is_on.h"
 #include "base/enterprise_util.h"
 #include "base/environment.h"
 #include "base/feature_list.h"
@@ -35,9 +33,10 @@
 #include "base/scoped_native_library.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/task/post_task.h"
 #include "base/task/thread_pool.h"
 #include "base/threading/sequenced_task_runner_handle.h"
-#include "base/trace_event/base_tracing.h"
+#include "base/trace_event/trace_event.h"
 #include "base/version.h"
 #include "base/win/pe_image.h"
 #include "base/win/registry.h"
@@ -45,13 +44,10 @@
 #include "base/win/windows_version.h"
 #include "base/win/wrapped_window_proc.h"
 #include "build/branding_buildflags.h"
-#include "build/build_config.h"
 #include "chrome/browser/about_flags.h"
-#include "chrome/browser/browser_features.h"
 #include "chrome/browser/browser_process.h"
-#include "chrome/browser/enterprise/browser_management/management_service_factory.h"
+#include "chrome/browser/enterprise/util/critical_policy_section_metrics_win.h"
 #include "chrome/browser/first_run/first_run.h"
-#include "chrome/browser/os_crypt/app_bound_encryption_metrics_win.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/profiles/profile_shortcut_manager.h"
 #include "chrome/browser/safe_browsing/chrome_cleaner/settings_resetter_win.h"
@@ -64,8 +60,8 @@
 #include "chrome/browser/web_applications/chrome_pwa_launcher/last_browser_file_util.h"
 #include "chrome/browser/web_applications/chrome_pwa_launcher/launcher_log_reporter.h"
 #include "chrome/browser/web_applications/chrome_pwa_launcher/launcher_update.h"
-#include "chrome/browser/web_applications/os_integration/web_app_handler_registration_utils_win.h"
-#include "chrome/browser/web_applications/os_integration/web_app_shortcut.h"
+#include "chrome/browser/web_applications/components/web_app_handler_registration_utils_win.h"
+#include "chrome/browser/web_applications/components/web_app_shortcut.h"
 #include "chrome/browser/web_applications/web_app_provider.h"
 #include "chrome/browser/win/browser_util.h"
 #include "chrome/browser/win/chrome_elf_init.h"
@@ -96,7 +92,6 @@
 #include "components/crash/core/app/dump_hung_process_with_ptype.h"
 #include "components/crash/core/common/crash_key.h"
 #include "components/os_crypt/os_crypt.h"
-#include "components/policy/core/common/management/management_service.h"
 #include "components/prefs/pref_service.h"
 #include "components/version_info/channel.h"
 #include "components/version_info/version_info.h"
@@ -388,6 +383,68 @@ bool TryGetModuleTimeDateStamp(void* module_load_address,
   return true;
 }
 
+// Used as the callback for ModuleWatcher events in this process. Dispatches
+// them to the ModuleDatabase.
+// Note: This callback may be invoked on any thread, even those not owned by the
+//       task scheduler, under the loader lock, directly on the thread where the
+//       DLL is currently loading.
+void OnModuleEvent(const ModuleWatcher::ModuleEvent& event) {
+  TRACE_EVENT1("browser", "OnModuleEvent", "module_path",
+               event.module_path.BaseName().AsUTF8Unsafe());
+
+  switch (event.event_type) {
+    case ModuleWatcher::ModuleEventType::kModuleAlreadyLoaded: {
+      // kModuleAlreadyLoaded comes from the enumeration of loaded modules
+      // using CreateToolhelp32Snapshot().
+      uint32_t time_date_stamp = 0;
+      if (TryGetModuleTimeDateStamp(event.module_load_address,
+                                    event.module_path, event.module_size,
+                                    &time_date_stamp)) {
+        ModuleDatabase::HandleModuleLoadEvent(
+            content::PROCESS_TYPE_BROWSER, event.module_path, event.module_size,
+            time_date_stamp);
+      } else {
+        // Failed to get the TimeDateStamp directly from memory. The next step
+        // to try is to read the file on disk. This must be done in a blocking
+        // task.
+        base::ThreadPool::PostTask(
+            FROM_HERE,
+            {base::MayBlock(), base::TaskPriority::BEST_EFFORT,
+             base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN},
+            base::BindOnce(&HandleModuleLoadEventWithoutTimeDateStamp,
+                           event.module_path, event.module_size));
+      }
+      break;
+    }
+    case ModuleWatcher::ModuleEventType::kModuleLoaded: {
+      ModuleDatabase::HandleModuleLoadEvent(
+          content::PROCESS_TYPE_BROWSER, event.module_path, event.module_size,
+          GetModuleTimeDateStamp(event.module_load_address));
+      break;
+    }
+  }
+}
+
+// Helper function for initializing the module database subsystem and populating
+// the provided |module_watcher|.
+void SetupModuleDatabase(std::unique_ptr<ModuleWatcher>* module_watcher) {
+  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  DCHECK(module_watcher);
+
+  bool third_party_blocking_policy_enabled =
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
+      ModuleDatabase::IsThirdPartyBlockingPolicyEnabled();
+#else
+      false;
+#endif
+
+  ModuleDatabase::GetTaskRunner()->PostTask(
+      FROM_HERE, base::BindOnce(&InitializeModuleDatabase,
+                                third_party_blocking_policy_enabled));
+
+  *module_watcher = ModuleWatcher::Create(base::BindRepeating(&OnModuleEvent));
+}
+
 void ShowCloseBrowserFirstMessageBox() {
   chrome::ShowWarningMessageBox(
       nullptr, l10n_util::GetStringUTF16(IDS_PRODUCT_NAME),
@@ -413,7 +470,7 @@ void UpdatePwaLaunchersForProfile(const base::FilePath& profile_dir) {
     // The profile was unloaded.
     return;
   }
-  auto* provider = web_app::WebAppProvider::GetForWebApps(profile);
+  auto* provider = web_app::WebAppProvider::Get(profile);
   if (!provider)
     return;
   web_app::WebAppRegistrar& registrar = provider->registrar();
@@ -502,9 +559,10 @@ int DoUninstallTasks(bool chrome_still_running) {
 
 // ChromeBrowserMainPartsWin ---------------------------------------------------
 
-ChromeBrowserMainPartsWin::ChromeBrowserMainPartsWin(bool is_integration_test,
-                                                     StartupData* startup_data)
-    : ChromeBrowserMainParts(is_integration_test, startup_data) {}
+ChromeBrowserMainPartsWin::ChromeBrowserMainPartsWin(
+    const content::MainFunctionParams& parameters,
+    StartupData* startup_data)
+    : ChromeBrowserMainParts(parameters, startup_data) {}
 
 ChromeBrowserMainPartsWin::~ChromeBrowserMainPartsWin() = default;
 
@@ -529,7 +587,7 @@ void ChromeBrowserMainPartsWin::PreCreateMainMessageLoop() {
   DCHECK(os_crypt_init);
 
   ChromeBrowserMainParts::PreCreateMainMessageLoop();
-  if (!is_integration_test()) {
+  if (!parameters().ui_task) {
     // Make sure that we know how to handle exceptions from the message loop.
     InitializeWindowProcExceptions();
   }
@@ -540,12 +598,7 @@ int ChromeBrowserMainPartsWin::PreCreateThreads() {
   // be used to better identify whether crashes are from enterprise users.
   static crash_reporter::CrashKeyString<4> is_enterprise_managed(
       "is-enterprise-managed");
-  is_enterprise_managed.Set(
-      policy::ManagementServiceFactory::GetForPlatform()
-                  ->GetManagementAuthorityTrustworthiness() >=
-              policy::ManagementAuthorityTrustworthiness::TRUSTED
-          ? "yes"
-          : "no");
+  is_enterprise_managed.Set(base::IsMachineExternallyManaged() ? "yes" : "no");
 
   // Set crash keys containing the registry values used to determine Chrome's
   // update channel at process startup; see https://crbug.com/579504.
@@ -577,13 +630,8 @@ void ChromeBrowserMainPartsWin::ShowMissingLocaleMessageBox() {
                  MB_OK | MB_ICONERROR | MB_TOPMOST);
 }
 
-void ChromeBrowserMainPartsWin::PostProfileInit(Profile* profile,
-                                                bool is_initial_profile) {
-  ChromeBrowserMainParts::PostProfileInit(profile, is_initial_profile);
-
-  // The setup below is intended to run for only the initial profile.
-  if (!is_initial_profile)
-    return;
+void ChromeBrowserMainPartsWin::PostProfileInit() {
+  ChromeBrowserMainParts::PostProfileInit();
 
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
   // Explicitly disable the third-party modules blocking.
@@ -609,24 +657,13 @@ void ChromeBrowserMainPartsWin::PostProfileInit(Profile* profile,
   // needs to be done before any child processes are initialized as the
   // ModuleDatabase is an endpoint for IPC from child processes.
   SetupModuleDatabase(&module_watcher_);
-
-  // If Chrome was launched by a Progressive Web App launcher that needs to be
-  // updated, update all launchers for this profile.
-  if (base::CommandLine::ForCurrentProcess()->HasSwitch(switches::kAppId) &&
-      base::CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
-          switches::kPwaLauncherVersion) != chrome::kChromeVersion) {
-    content::BrowserThread::PostBestEffortTask(
-        FROM_HERE, base::SequencedTaskRunnerHandle::Get(),
-        base::BindOnce(&UpdatePwaLaunchersForProfile, profile->GetPath()));
-  }
 }
 
 void ChromeBrowserMainPartsWin::PostBrowserStart() {
   ChromeBrowserMainParts::PostBrowserStart();
 
-  // Verify that the delay load helper hooks are in place. This cannot be tested
-  // from unit tests, so rely on this failing here.
-  DCHECK(__pfnDliFailureHook2);
+  UMA_HISTOGRAM_BOOLEAN("Windows.Tablet",
+      base::win::IsTabletDevice(nullptr, ui::GetHiddenWindow()));
 
   InitializeChromeElf();
 
@@ -635,7 +672,7 @@ void ChromeBrowserMainPartsWin::PostBrowserStart() {
   // enabled, we delay checks for settings reset prompt until the scheduled
   // reset is finished.
   if (safe_browsing::PostCleanupSettingsResetter::IsEnabled() &&
-      !base::CommandLine::ForCurrentProcess()->HasSwitch(switches::kAppId)) {
+      !parsed_command_line().HasSwitch(switches::kAppId)) {
     // Using last opened profiles, because we want to find reset the profile
     // that was open in the last Chrome run, which may not be open yet in
     // the current run.
@@ -650,13 +687,8 @@ void ChromeBrowserMainPartsWin::PostBrowserStart() {
   // Record UMA data about whether the fault-tolerant heap is enabled.
   // Use a delayed task to minimize the impact on startup time.
   content::GetUIThreadTaskRunner({})->PostDelayedTask(
-      FROM_HERE, base::BindOnce(&DetectFaultTolerantHeap), base::Minutes(1));
-
-  // Query feature first, to include full population in field trial.
-  if (base::FeatureList::IsEnabled(features::kAppBoundEncryptionMetrics) &&
-      install_static::IsSystemInstall()) {
-    os_crypt::MeasureAppBoundEncryptionStatus(g_browser_process->local_state());
-  }
+      FROM_HERE, base::BindOnce(&DetectFaultTolerantHeap),
+      base::TimeDelta::FromMinutes(1));
 
   // Record Processor Metrics. This is very low priority, hence posting as
   // BEST_EFFORT to start after Chrome startup has completed. This metric is
@@ -678,6 +710,16 @@ void ChromeBrowserMainPartsWin::PostBrowserStart() {
       base::BindOnce(&web_app::WriteChromePathToLastBrowserFile,
                      user_data_dir()));
 
+  // If Chrome was launched by a Progressive Web App launcher that needs to be
+  // updated, update all launchers for this profile.
+  if (parsed_command_line().HasSwitch(switches::kAppId) &&
+      parsed_command_line().GetSwitchValueASCII(
+          switches::kPwaLauncherVersion) != chrome::kChromeVersion) {
+    content::BrowserThread::PostBestEffortTask(
+        FROM_HERE, base::SequencedTaskRunnerHandle::Get(),
+        base::BindOnce(&UpdatePwaLaunchersForProfile, profile()->GetPath()));
+  }
+
   // Record the result of the latest Progressive Web App launcher launch.
   base::ThreadPool::PostTask(
       FROM_HERE, {base::TaskPriority::BEST_EFFORT, base::MayBlock()},
@@ -691,12 +733,12 @@ void ChromeBrowserMainPartsWin::PostBrowserStart() {
 
   // Send an accessibility announcement if this launch originated from the
   // installer.
-  if (base::CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kFromInstaller)) {
+  if (parsed_command_line().HasSwitch(switches::kFromInstaller))
     AnnounceInActiveBrowser(l10n_util::GetStringUTF16(IDS_WELCOME_TO_CHROME));
-  }
 
   base::ImportantFileWriterCleaner::GetInstance().Start();
+
+  chrome::enterprise_util::MeasureAndReportCriticalPolicySectionAcquisition();
 }
 
 // static
@@ -879,75 +921,4 @@ base::CommandLine ChromeBrowserMainPartsWin::GetRestartCommandLine(
   // TODO(crbug.com/964541): Remove other unneeded switches, including
   // duplicates, perhaps harmonize with switches::RemoveSwitchesForAutostart.
   return restart_command;
-}
-
-// Used as the callback for ModuleWatcher events in this process. Dispatches
-// them to the ModuleDatabase.
-// Note: This callback may be invoked on any thread, even those not owned by the
-//       task scheduler, under the loader lock, directly on the thread where the
-//       DLL is currently loading.
-void ChromeBrowserMainPartsWin::OnModuleEvent(
-    const ModuleWatcher::ModuleEvent& event) {
-  {
-    TRACE_EVENT1("browser", "OnModuleEvent", "module_path",
-                 event.module_path.BaseName().AsUTF8Unsafe());
-
-    switch (event.event_type) {
-      case ModuleWatcher::ModuleEventType::kModuleAlreadyLoaded: {
-        // kModuleAlreadyLoaded comes from the enumeration of loaded modules
-        // using CreateToolhelp32Snapshot().
-        uint32_t time_date_stamp = 0;
-        if (TryGetModuleTimeDateStamp(event.module_load_address,
-                                      event.module_path, event.module_size,
-                                      &time_date_stamp)) {
-          ModuleDatabase::HandleModuleLoadEvent(
-              content::PROCESS_TYPE_BROWSER, event.module_path,
-              event.module_size, time_date_stamp);
-        } else {
-          // Failed to get the TimeDateStamp directly from memory. The next step
-          // to try is to read the file on disk. This must be done in a blocking
-          // task.
-          base::ThreadPool::PostTask(
-              FROM_HERE,
-              {base::MayBlock(), base::TaskPriority::BEST_EFFORT,
-               base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN},
-              base::BindOnce(&HandleModuleLoadEventWithoutTimeDateStamp,
-                             event.module_path, event.module_size));
-        }
-        break;
-      }
-      case ModuleWatcher::ModuleEventType::kModuleLoaded: {
-        ModuleDatabase::HandleModuleLoadEvent(
-            content::PROCESS_TYPE_BROWSER, event.module_path, event.module_size,
-            GetModuleTimeDateStamp(event.module_load_address));
-        break;
-      }
-    }
-  }
-  // Since OnModuleEvent can be invoked from any thread, the above trace event's
-  // END might be the last event on this thread, emit an empty event to force
-  // the END to be flushed. TODO(crbug.com/1021571): Remove this once fixed.
-  PERFETTO_INTERNAL_ADD_EMPTY_EVENT();
-}
-
-// Helper function for initializing the module database subsystem and populating
-// the provided |module_watcher|.
-void ChromeBrowserMainPartsWin::SetupModuleDatabase(
-    std::unique_ptr<ModuleWatcher>* module_watcher) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-  DCHECK(module_watcher);
-
-  bool third_party_blocking_policy_enabled =
-#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
-      ModuleDatabase::IsThirdPartyBlockingPolicyEnabled();
-#else
-      false;
-#endif
-
-  ModuleDatabase::GetTaskRunner()->PostTask(
-      FROM_HERE, base::BindOnce(&InitializeModuleDatabase,
-                                third_party_blocking_policy_enabled));
-
-  *module_watcher = ModuleWatcher::Create(base::BindRepeating(
-      &ChromeBrowserMainPartsWin::OnModuleEvent, base::Unretained(this)));
 }

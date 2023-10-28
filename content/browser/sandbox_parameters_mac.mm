@@ -1,4 +1,4 @@
-// Copyright 2017 The Chromium Authors
+// Copyright 2017 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -20,21 +20,20 @@
 #include "base/strings/sys_string_conversions.h"
 #include "base/system/sys_info.h"
 #include "content/public/browser/content_browser_client.h"
+#include "content/public/browser/plugin_service.h"
 #include "content/public/common/content_client.h"
 #include "content/public/common/content_features.h"
 #include "content/public/common/content_switches.h"
 #include "ppapi/buildflags/buildflags.h"
-#include "printing/buildflags/buildflags.h"
 #include "sandbox/mac/seatbelt_exec.h"
 #include "sandbox/policy/mac/params.h"
 #include "sandbox/policy/mac/sandbox_mac.h"
-#include "sandbox/policy/mojom/sandbox.mojom.h"
+#include "sandbox/policy/sandbox_type.h"
 #include "sandbox/policy/switches.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
 
-#if BUILDFLAG(ENABLE_PPAPI)
-#include "content/public/browser/plugin_service.h"
-#include "content/public/common/webplugininfo.h"
+#if BUILDFLAG(ENABLE_PLUGINS)
+#include "content/public/common/pepper_plugin_info.h"
 #endif
 
 namespace content {
@@ -165,7 +164,7 @@ void SetupNetworkSandboxParameters(sandbox::SeatbeltExecClient* client) {
   }
 }
 
-#if BUILDFLAG(ENABLE_PPAPI)
+#if BUILDFLAG(ENABLE_PLUGINS)
 void SetupPPAPISandboxParameters(sandbox::SeatbeltExecClient* client) {
   SetupCommonSandboxParameters(client);
 
@@ -204,45 +203,39 @@ void SetupGpuSandboxParameters(sandbox::SeatbeltExecClient* client,
 
 }  // namespace
 
-void SetupSandboxParameters(sandbox::mojom::Sandbox sandbox_type,
+void SetupSandboxParameters(sandbox::policy::SandboxType sandbox_type,
                             const base::CommandLine& command_line,
                             sandbox::SeatbeltExecClient* client) {
   switch (sandbox_type) {
-    case sandbox::mojom::Sandbox::kAudio:
-    case sandbox::mojom::Sandbox::kCdm:
-    case sandbox::mojom::Sandbox::kMirroring:
-    case sandbox::mojom::Sandbox::kNaClLoader:
-#if BUILDFLAG(ENABLE_OOP_PRINTING)
-    case sandbox::mojom::Sandbox::kPrintBackend:
-#endif
-    case sandbox::mojom::Sandbox::kPrintCompositor:
-    case sandbox::mojom::Sandbox::kRenderer:
-    case sandbox::mojom::Sandbox::kService:
-    case sandbox::mojom::Sandbox::kServiceWithJit:
-    case sandbox::mojom::Sandbox::kUtility:
+    case sandbox::policy::SandboxType::kAudio:
+    case sandbox::policy::SandboxType::kCdm:
+    case sandbox::policy::SandboxType::kMirroring:
+    case sandbox::policy::SandboxType::kNaClLoader:
+    case sandbox::policy::SandboxType::kPrintBackend:
+    case sandbox::policy::SandboxType::kPrintCompositor:
+    case sandbox::policy::SandboxType::kRenderer:
+    case sandbox::policy::SandboxType::kUtility:
       SetupCommonSandboxParameters(client);
       break;
-    case sandbox::mojom::Sandbox::kGpu: {
+    case sandbox::policy::SandboxType::kGpu: {
       SetupGpuSandboxParameters(client, command_line);
       break;
     }
-    case sandbox::mojom::Sandbox::kNetwork:
+    case sandbox::policy::SandboxType::kNetwork:
       SetupNetworkSandboxParameters(client);
       break;
-#if BUILDFLAG(ENABLE_PPAPI)
-    case sandbox::mojom::Sandbox::kPpapi:
+    case sandbox::policy::SandboxType::kPpapi:
+#if BUILDFLAG(ENABLE_PLUGINS)
       SetupPPAPISandboxParameters(client);
-      break;
 #endif
-    case sandbox::mojom::Sandbox::kNoSandbox:
+      break;
+    case sandbox::policy::SandboxType::kNoSandbox:
+    case sandbox::policy::SandboxType::kVideoCapture:
       CHECK(false) << "Unhandled parameters for sandbox_type "
                    << static_cast<int>(sandbox_type);
       break;
     // Setup parameters for sandbox types handled by embedders below.
-    case sandbox::mojom::Sandbox::kScreenAI:
-      AddDarwinDirs(client);
-      [[fallthrough]];
-    case sandbox::mojom::Sandbox::kSpeechRecognition:
+    case sandbox::policy::SandboxType::kSpeechRecognition:
       SetupCommonSandboxParameters(client);
       CHECK(GetContentClient()->browser()->SetupEmbedderSandboxParameters(
           sandbox_type, client));

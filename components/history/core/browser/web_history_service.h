@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -13,7 +13,7 @@
 #include <vector>
 
 #include "base/callback_forward.h"
-#include "base/memory/raw_ptr.h"
+#include "base/macros.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
@@ -101,10 +101,6 @@ class WebHistoryService : public KeyedService {
   WebHistoryService(
       signin::IdentityManager* identity_manager,
       scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory);
-
-  WebHistoryService(const WebHistoryService&) = delete;
-  WebHistoryService& operator=(const WebHistoryService&) = delete;
-
   ~WebHistoryService() override;
 
   void AddObserver(WebHistoryServiceObserver* observer);
@@ -226,7 +222,7 @@ class WebHistoryService : public KeyedService {
 
   // Stores pointer to IdentityManager instance. It must outlive the
   // WebHistoryService and can be null during tests.
-  raw_ptr<signin::IdentityManager> identity_manager_;
+  signin::IdentityManager* identity_manager_;
 
   // Request context getter to use.
   scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory_;
@@ -257,6 +253,8 @@ class WebHistoryService : public KeyedService {
   base::ObserverList<WebHistoryServiceObserver, true>::Unchecked observer_list_;
 
   base::WeakPtrFactory<WebHistoryService> weak_ptr_factory_{this};
+
+  DISALLOW_COPY_AND_ASSIGN(WebHistoryService);
 };
 
 }  // namespace history

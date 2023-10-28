@@ -1,4 +1,4 @@
-// Copyright 2020 The Chromium Authors
+// Copyright 2020 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -109,12 +109,12 @@ public class OptionalBrowsingModeButtonController {
     private void setCurrentOptionalButton(ButtonDataProvider provider, ButtonData buttonData) {
         mCurrentProvider = provider;
         mToolbarLayout.updateOptionalButton(buttonData);
-        // ToolbarPhone's optional button has animated transitions and it takes care of showing IPH
-        // on its own.
-        if (buttonData.getButtonSpec().getIPHCommandBuilder() != null
-                && !(mToolbarLayout instanceof ToolbarPhone)) {
+        if (buttonData.getButtonSpec().getIPHCommandBuilder() != null) {
             mUserEducationHelper.requestShowIPH(
-                    buttonData.getButtonSpec().getIPHCommandBuilder().build());
+                    buttonData.getButtonSpec()
+                            .getIPHCommandBuilder()
+                            .setAnchorView(mToolbarLayout.getOptionalButtonView())
+                            .build());
         }
     }
 

@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -12,14 +12,15 @@
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
+#include "base/macros.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/test_shortcut_win.h"
 #include "base/win/scoped_com_initializer.h"
 #include "chrome/browser/shell_integration.h"
-#include "chrome/browser/web_applications/os_integration/web_app_shortcut_win.h"
-#include "chrome/browser/web_applications/web_app_helpers.h"
+#include "chrome/browser/web_applications/components/web_app_helpers.h"
+#include "chrome/browser/web_applications/components/web_app_shortcut_win.h"
 #include "chrome/common/chrome_constants.h"
 #include "chrome/common/chrome_paths_internal.h"
 #include "chrome/install_static/install_util.h"
@@ -39,12 +40,6 @@ struct ShortcutTestObject {
 };
 
 class ShellIntegrationWinMigrateShortcutTest : public testing::Test {
- public:
-  ShellIntegrationWinMigrateShortcutTest(
-      const ShellIntegrationWinMigrateShortcutTest&) = delete;
-  ShellIntegrationWinMigrateShortcutTest& operator=(
-      const ShellIntegrationWinMigrateShortcutTest&) = delete;
-
  protected:
   ShellIntegrationWinMigrateShortcutTest() {}
 
@@ -99,7 +94,7 @@ class ShellIntegrationWinMigrateShortcutTest : public testing::Test {
     shortcuts_.push_back(shortcut_test_object);
     ASSERT_TRUE(base::win::CreateOrUpdateShortcutLink(
         shortcut_path, *shortcut_properties,
-        base::win::ShortcutOperation::kCreateAlways));
+        base::win::SHORTCUT_CREATE_ALWAYS));
     shortcut_properties->options = 0U;
   }
 
@@ -268,6 +263,9 @@ class ShellIntegrationWinMigrateShortcutTest : public testing::Test {
 
   // The app id of the example app for the non-default profile.
   std::wstring non_default_profile_extension_app_id_;
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(ShellIntegrationWinMigrateShortcutTest);
 };
 
 }  // namespace

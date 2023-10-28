@@ -12,7 +12,6 @@
 #include "base/threading/thread_checker.h"
 #include "base/timer/timer.h"
 #include "cc/metrics/frame_sequence_tracker_collection.h"
-#include "cc/metrics/frame_sorter.h"
 #include "cc/metrics/video_playback_roughness_reporter.h"
 #include "components/power_scheduler/power_mode_voter.h"
 #include "components/viz/client/shared_bitmap_reporter.h"
@@ -89,18 +88,11 @@ class PLATFORM_EXPORT VideoFrameSubmitter
 
  private:
   friend class VideoFrameSubmitterTest;
-  class FrameSinkBundleProxy;
 
   // Called during Initialize() and OnContextLost() after a new ContextGL is
   // requested.
   void OnReceivedContextProvider(
       bool use_gpu_compositing,
-      scoped_refptr<viz::RasterContextProvider> context_provider);
-
-  // Adopts `context_provider` if it's non-null and in a usable state. Returns
-  // true on success and false on failure, implying that a new ContextProvider
-  // should be requested.
-  bool MaybeAcceptContextProvider(
       scoped_refptr<viz::RasterContextProvider> context_provider);
 
   // Starts submission and calls UpdateSubmissionState(); which may submit.
@@ -146,22 +138,12 @@ class PLATFORM_EXPORT VideoFrameSubmitter
   cc::VideoFrameProvider* video_frame_provider_ = nullptr;
   bool is_media_stream_ = false;
   scoped_refptr<viz::RasterContextProvider> context_provider_;
-  mojo::Remote<viz::mojom::blink::CompositorFrameSink> remote_frame_sink_;
+  mojo::Remote<viz::mojom::blink::CompositorFrameSink> compositor_frame_sink_;
   mojo::Remote<mojom::blink::SurfaceEmbedder> surface_embedder_;
   mojo::Receiver<viz::mojom::blink::CompositorFrameSinkClient> receiver_{this};
   WebContextProviderCallback context_provider_callback_;
   std::unique_ptr<VideoFrameResourceProvider> resource_provider_;
   bool waiting_for_compositor_ack_ = false;
-
-  // When UseVideoFrameSinkBundle is enabled, this is initialized to a local
-  // implementation which batches outgoing Viz requests with those from other
-  // related VideoFrameSubmitters, rather than having each VideoFrameSubmitter
-  // submit their ad hoc requests directly to Viz.
-  std::unique_ptr<FrameSinkBundleProxy> bundle_proxy_;
-
-  // Points to either `remote_frame_sink_` or `bundle_proxy_` depending
-  // on whether UseVideoFrameSinkBundle is enabled.
-  viz::mojom::blink::CompositorFrameSink* compositor_frame_sink_ = nullptr;
 
   // Current rendering state. Set by StartRendering() and StopRendering().
   bool is_rendering_ = false;
@@ -206,15 +188,7 @@ class PLATFORM_EXPORT VideoFrameSubmitter
 
   absl::optional<int> last_frame_id_;
 
-  // We use cc::FrameSorter directly, rather than via
-  // cc::CompositorFrameReportingController because video frames do not progress
-  // through all of the pipeline stages that traditional CompositorFrames do.
-  // Instead they are a specialized variant of compositor-only frames, submitted
-  // via a batch. So track the mapping of FrameToken to viz::BeginFrameArgs in
-  // `pending_frames_`, and denote their completion directly to `frame_sorter_`.
-  base::flat_map<uint32_t, viz::BeginFrameArgs> pending_frames_;
   cc::FrameSequenceTrackerCollection frame_trackers_;
-  cc::FrameSorter frame_sorter_;
 
   // The BeginFrameArgs passed to the most recent call of OnBeginFrame().
   // Required for FrameSequenceTrackerCollection::NotifySubmitFrame

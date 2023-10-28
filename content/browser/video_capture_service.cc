@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium Authors
+// Copyright 2019 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -9,6 +9,7 @@
 #include "base/threading/sequence_local_storage_slot.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
+#include "content/browser/service_sandbox_type.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/service_process_host.h"
@@ -18,11 +19,10 @@
 #include "mojo/public/cpp/bindings/receiver_set.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "mojo/public/cpp/bindings/self_owned_receiver.h"
-#include "services/video_capture/public/mojom/video_capture_service.mojom.h"
 #include "services/video_capture/public/uma/video_capture_service_event.h"
 #include "services/video_capture/video_capture_service_impl.h"
 
-#if BUILDFLAG(IS_WIN)
+#if defined(OS_WIN)
 #define CREATE_IN_PROCESS_TASK_RUNNER base::ThreadPool::CreateCOMSTATaskRunner
 #else
 #define CREATE_IN_PROCESS_TASK_RUNNER \
@@ -110,7 +110,7 @@ video_capture::mojom::VideoCaptureService& GetVideoCaptureService() {
           std::move(receiver),
           ServiceProcessHost::Options()
               .WithDisplayName("Video Capture")
-#if BUILDFLAG(IS_MAC)
+#if defined(OS_MAC)
               // On Mac, the service requires a CFRunLoop which is provided by a
               // UI message loop. See https://crbug.com/834581.
               .WithExtraCommandLineSwitches({switches::kMessageLoopTypeUi})
@@ -123,13 +123,13 @@ video_capture::mojom::VideoCaptureService& GetVideoCaptureService() {
 #endif
               .Pass());
 
-#if !BUILDFLAG(IS_ANDROID)
+#if !defined(OS_ANDROID)
       // On Android, we do not use automatic service shutdown, because when
       // shutting down the service, we lose caching of the supported formats,
       // and re-querying these can take several seconds on certain Android
       // devices.
       remote.set_idle_handler(
-          base::Seconds(5),
+          base::TimeDelta::FromSeconds(5),
           base::BindRepeating(
               [](mojo::Remote<video_capture::mojom::VideoCaptureService>*
                      remote) {
@@ -139,7 +139,7 @@ video_capture::mojom::VideoCaptureService& GetVideoCaptureService() {
                 remote->reset();
               },
               &remote));
-#endif  // !BUILDFLAG(IS_ANDROID)
+#endif  // !defined(OS_ANDROID)
 
       // Make sure the Remote is also reset in case of e.g. service crash so we
       // can restart it as needed.

@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium Authors
+// Copyright 2019 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -69,7 +69,7 @@ class TabStripViewBinder {
                 button.getBackground().setAlpha(FAVICON_BACKGROUND_DEFAULT_ALPHA);
             }
         } else if (TabProperties.FAVICON == propertyKey) {
-            Drawable faviconDrawable = model.get(TabProperties.FAVICON).getDefaultDrawable();
+            Drawable faviconDrawable = model.get(TabProperties.FAVICON);
             ImageButton button = (ImageButton) view.fastFindViewById(R.id.tab_strip_item_button);
             button.setBackgroundResource(R.drawable.tabstrip_favicon_background);
             ViewCompat.setBackgroundTintList(button,

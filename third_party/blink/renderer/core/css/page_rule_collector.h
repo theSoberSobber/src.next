@@ -28,7 +28,6 @@
 
 namespace blink {
 
-class CascadeLayerMap;
 class StyleRulePage;
 
 class PageRuleCollector {
@@ -40,7 +39,7 @@ class PageRuleCollector {
                     const AtomicString& page_name,
                     MatchResult&);
 
-  void MatchPageRules(RuleSet* rules, const CascadeLayerMap* layer_map);
+  void MatchPageRules(RuleSet* rules);
   const MatchResult& MatchedResult() { return result_; }
 
  private:

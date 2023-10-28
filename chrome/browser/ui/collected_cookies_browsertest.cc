@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -22,9 +22,6 @@ class CollectedCookiesTest : public DialogBrowserTest {
  public:
   CollectedCookiesTest() {}
 
-  CollectedCookiesTest(const CollectedCookiesTest&) = delete;
-  CollectedCookiesTest& operator=(const CollectedCookiesTest&) = delete;
-
   // DialogBrowserTest:
   void ShowUi(const std::string& name) override {
     // Web modal dialogs' bounds may exceed the display's work area.
@@ -38,13 +35,16 @@ class CollectedCookiesTest : public DialogBrowserTest {
         ->SetDefaultCookieSetting(CONTENT_SETTING_BLOCK);
 
     // Load a page with cookies.
-    ASSERT_TRUE(ui_test_utils::NavigateToURL(
-        browser(), embedded_test_server()->GetURL("/cookie1.html")));
+    ui_test_utils::NavigateToURL(
+        browser(), embedded_test_server()->GetURL("/cookie1.html"));
 
     content::WebContents* web_contents =
         browser()->tab_strip_model()->GetActiveWebContents();
     TabDialogs::FromWebContents(web_contents)->ShowCollectedCookies();
   }
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(CollectedCookiesTest);
 };
 
 // Test that calls ShowUi("default").
@@ -67,6 +67,6 @@ IN_PROC_BROWSER_TEST_F(CollectedCookiesTest, NavigateAway) {
   ShowUi(std::string());
 
   // Navigate to another page.
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(
-      browser(), embedded_test_server()->GetURL("/cookie2.html")));
+  ui_test_utils::NavigateToURL(browser(),
+                               embedded_test_server()->GetURL("/cookie2.html"));
 }

@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium Authors
+// Copyright 2019 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -40,8 +40,7 @@ public class TabbedSheetDelegate implements NavigationSheet.Delegate {
         if (!isOffTheRecord || !ChromeFeatureList.isEnabled(INCOGNITO_HISTORY_ENTRIES_FLAG)) {
             history.addEntry(new NavigationEntry(FULL_HISTORY_ENTRY_INDEX,
                     new GURL(UrlConstants.HISTORY_URL), GURL.emptyGURL(), GURL.emptyGURL(),
-                    GURL.emptyGURL(), mFullHistoryMenu, null, 0, 0,
-                    /* isInitialEntry=*/false));
+                    GURL.emptyGURL(), mFullHistoryMenu, null, 0, 0));
         }
         return history;
     }

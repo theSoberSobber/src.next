@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,25 +7,20 @@
 
 #include <memory>
 
-#include "base/memory/raw_ptr.h"
+#include "base/macros.h"
 #include "base/memory/ref_counted.h"
 #include "net/base/net_export.h"
+#include "net/http/http_network_session.h"
 
 namespace net {
 
 class ClientSocketPoolManager;
 class HttpStreamFactory;
-class HttpNetworkSession;
-struct HttpNetworkSessionParams;
 
 class NET_EXPORT_PRIVATE HttpNetworkSessionPeer {
  public:
   // |session| should outlive the HttpNetworkSessionPeer.
   explicit HttpNetworkSessionPeer(HttpNetworkSession* session);
-
-  HttpNetworkSessionPeer(const HttpNetworkSessionPeer&) = delete;
-  HttpNetworkSessionPeer& operator=(const HttpNetworkSessionPeer&) = delete;
-
   ~HttpNetworkSessionPeer();
 
   void SetClientSocketPoolManager(
@@ -34,10 +29,12 @@ class NET_EXPORT_PRIVATE HttpNetworkSessionPeer {
   void SetHttpStreamFactory(
       std::unique_ptr<HttpStreamFactory> http_stream_factory);
 
-  HttpNetworkSessionParams* params();
+  HttpNetworkSession::Params* params();
 
  private:
-  const raw_ptr<HttpNetworkSession> session_;
+  HttpNetworkSession* const session_;
+
+  DISALLOW_COPY_AND_ASSIGN(HttpNetworkSessionPeer);
 };
 
 }  // namespace net

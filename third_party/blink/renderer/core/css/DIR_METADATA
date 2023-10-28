@@ -1,2 +1,5 @@
-mixins: "//third_party/blink/renderer/core/css/COMMON_METADATA"
+monorail {
+  component: "Blink>CSS"
+}
 
+team_email: "layout-dev@chromium.org"

@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -23,7 +23,6 @@
 #include "net/base/mime_util.h"
 #include "net/base/parse_number.h"
 #include "net/base/url_util.h"
-#include "net/http/http_response_headers.h"
 
 namespace net {
 
@@ -114,14 +113,14 @@ void HttpUtil::ParseContentType(const std::string& content_type_str,
     // Trim LWS from param value, ParseMimeType() leaves WS for quoted-string.
     // TODO(mmenke): Check that name has only valid characters.
     if (!type_has_charset &&
-        base::EqualsCaseInsensitiveASCII(param.first, "charset")) {
+        base::LowerCaseEqualsASCII(param.first, "charset")) {
       type_has_charset = true;
       charset_value = std::string(HttpUtil::TrimLWS(param.second));
       continue;
     }
 
     if (boundary && !type_has_boundary &&
-        base::EqualsCaseInsensitiveASCII(param.first, "boundary")) {
+        base::LowerCaseEqualsASCII(param.first, "boundary")) {
       type_has_boundary = true;
       *boundary = std::string(HttpUtil::TrimLWS(param.second));
       continue;
@@ -131,7 +130,7 @@ void HttpUtil::ParseContentType(const std::string& content_type_str,
   // If `mime_type_value` is the same as `mime_type`, then just update
   // `charset`. However, if `charset` is empty and `mime_type` hasn't changed,
   // then don't wipe-out an existing `charset`.
-  bool eq = base::EqualsCaseInsensitiveASCII(mime_type_value, *mime_type);
+  bool eq = base::LowerCaseEqualsASCII(mime_type->data(), mime_type_value);
   if (!eq) {
     *mime_type = base::ToLowerASCII(mime_type_value);
   }
@@ -154,7 +153,7 @@ bool HttpUtil::ParseRangeHeader(const std::string& ranges_specifier,
 
   // "bytes" unit identifier is not found.
   bytes_unit = TrimLWS(bytes_unit);
-  if (!base::EqualsCaseInsensitiveASCII(bytes_unit, "bytes")) {
+  if (!base::LowerCaseEqualsASCII(bytes_unit, "bytes")) {
     return false;
   }
 
@@ -227,7 +226,7 @@ bool HttpUtil::ParseContentRangeHeaderFor206(
     return false;
 
   // Invalid header if it doesn't contain "bytes-unit".
-  if (!base::EqualsCaseInsensitiveASCII(
+  if (!base::LowerCaseEqualsASCII(
           TrimLWS(content_range_spec.substr(0, space_position)), "bytes")) {
     return false;
   }
@@ -268,14 +267,14 @@ bool HttpUtil::ParseRetryAfterHeader(const std::string& retry_after_string,
   base::TimeDelta interval;
 
   if (net::ParseUint32(retry_after_string, &seconds)) {
-    interval = base::Seconds(seconds);
+    interval = base::TimeDelta::FromSeconds(seconds);
   } else if (base::Time::FromUTCString(retry_after_string.c_str(), &time)) {
     interval = time - now;
   } else {
     return false;
   }
 
-  if (interval < base::Seconds(0))
+  if (interval < base::TimeDelta::FromSeconds(0))
     return false;
 
   *retry_after = interval;
@@ -332,15 +331,9 @@ bool HttpUtil::IsSafeHeader(base::StringPiece name) {
     return false;
 
   for (const char* field : kForbiddenHeaderFields) {
-    if (base::EqualsCaseInsensitiveASCII(name, field))
+    if (base::LowerCaseEqualsASCII(name, field))
       return false;
   }
-
-  if (base::FeatureList::IsEnabled(features::kBlockSetCookieHeader) &&
-      base::EqualsCaseInsensitiveASCII(name, "set-cookie")) {
-    return false;
-  }
-
   return true;
 }
 
@@ -381,7 +374,7 @@ bool HttpUtil::IsNonCoalescingHeader(base::StringPiece name) {
   };
 
   for (const char* header : kNonCoalescingHeaders) {
-    if (base::EqualsCaseInsensitiveASCII(name, header)) {
+    if (base::LowerCaseEqualsASCII(name, header)) {
       return true;
     }
   }
@@ -423,6 +416,10 @@ bool HttpUtil::IsToken(base::StringPiece string) {
       return false;
   }
   return true;
+}
+
+bool HttpUtil::IsControlChar(char c) {
+  return (c >= 0x00 && c <= 0x1F) || c == 0x7F;
 }
 
 // See RFC 5987 Sec 3.2.1 for the definition of |parmname|.
@@ -524,8 +521,8 @@ size_t HttpUtil::LocateStartOfStatusLine(const char* buf, size_t buf_len) {
   if (buf_len >= http_len) {
     size_t i_max = std::min(buf_len - http_len, slop);
     for (size_t i = 0; i <= i_max; ++i) {
-      if (base::EqualsCaseInsensitiveASCII(base::StringPiece(buf + i, http_len),
-                                           "http"))
+      if (base::LowerCaseEqualsASCII(base::StringPiece(buf + i, http_len),
+                                     "http"))
         return i;
     }
   }
@@ -757,7 +754,7 @@ bool HttpUtil::HasStrongValidators(HttpVersion version,
     std::string::const_iterator i = etag_header.begin();
     std::string::const_iterator j = etag_header.begin() + slash;
     TrimLWS(&i, &j);
-    if (!base::EqualsCaseInsensitiveASCII(base::MakeStringPiece(i, j), "w"))
+    if (!base::LowerCaseEqualsASCII(base::MakeStringPiece(i, j), "w"))
       return true;
   }
 
@@ -876,7 +873,7 @@ bool HttpUtil::HeadersIterator::AdvanceTo(const char* name) {
       << "the header name must be in all lower case";
 
   while (GetNext()) {
-    if (base::EqualsCaseInsensitiveASCII(
+    if (base::LowerCaseEqualsASCII(
             base::MakeStringPiece(name_begin_, name_end_), name)) {
       return true;
     }
@@ -923,10 +920,12 @@ HttpUtil::NameValuePairsIterator::NameValuePairsIterator(
     Values optional_values,
     Quotes strict_quotes)
     : props_(begin, end, delimiter),
+      valid_(true),
       name_begin_(end),
       name_end_(end),
       value_begin_(end),
       value_end_(end),
+      value_is_quoted_(false),
       values_optional_(optional_values == Values::NOT_REQUIRED),
       strict_quotes_(strict_quotes == Quotes::STRICT_QUOTES) {}
 
@@ -1053,7 +1052,7 @@ bool HttpUtil::ParseAcceptEncoding(const std::string& accept_encoding,
       return false;
     base::StringPiece param_name = params.substr(0, equals_pos);
     param_name = TrimLWS(param_name);
-    if (!base::EqualsCaseInsensitiveASCII(param_name, "q"))
+    if (!base::LowerCaseEqualsASCII(param_name, "q"))
       return false;
     base::StringPiece qvalue = params.substr(equals_pos + 1);
     qvalue = TrimLWS(qvalue);
@@ -1125,23 +1124,6 @@ bool HttpUtil::ParseContentEncoding(const std::string& content_encoding,
     used_encodings->insert(base::ToLowerASCII(encoding));
   }
   return true;
-}
-
-bool HttpUtil::HeadersContainMultipleCopiesOfField(
-    const HttpResponseHeaders& headers,
-    const std::string& field_name) {
-  size_t it = 0;
-  std::string field_value;
-  if (!headers.EnumerateHeader(&it, field_name, &field_value))
-    return false;
-  // There's at least one `field_name` header.  Check if there are any more
-  // such headers, and if so, return true if they have different values.
-  std::string field_value2;
-  while (headers.EnumerateHeader(&it, field_name, &field_value2)) {
-    if (field_value != field_value2)
-      return true;
-  }
-  return false;
 }
 
 }  // namespace net

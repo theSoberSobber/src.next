@@ -5,20 +5,16 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_CORE_LAYOUT_LAYOUT_SHIFT_TRACKER_H_
 #define THIRD_PARTY_BLINK_RENDERER_CORE_LAYOUT_LAYOUT_SHIFT_TRACKER_H_
 
-#include "base/check_op.h"
-#include "base/time/time.h"
-#include "cc/base/region.h"
 #include "third_party/blink/public/platform/web_vector.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/layout/geometry/physical_rect.h"
 #include "third_party/blink/renderer/core/layout/layout_shift_region.h"
 #include "third_party/blink/renderer/core/scroll/scroll_types.h"
 #include "third_party/blink/renderer/core/timing/layout_shift.h"
+#include "third_party/blink/renderer/platform/geometry/region.h"
 #include "third_party/blink/renderer/platform/graphics/dom_node_id.h"
-#include "third_party/blink/renderer/platform/heap/collection_support/heap_hash_map.h"
 #include "third_party/blink/renderer/platform/timer.h"
 #include "third_party/blink/renderer/platform/wtf/allocator/allocator.h"
-#include "ui/gfx/geometry/rect.h"
 
 namespace blink {
 
@@ -61,9 +57,9 @@ class CORE_EXPORT LayoutShiftTracker final
                          const PhysicalRect& old_rect,
                          const PhysicalRect& new_rect,
                          const PhysicalOffset& old_paint_offset,
-                         const gfx::Vector2dF& translation_delta,
-                         const gfx::Vector2dF& scroll_delta,
-                         const gfx::Vector2dF& scroll_anchor_adjustment,
+                         const FloatSize& translation_delta,
+                         const FloatSize& scroll_delta,
+                         const FloatSize& scroll_anchor_adjustment,
                          const PhysicalOffset& new_paint_offset);
 
   void NotifyTextPrePaint(const LayoutText& text,
@@ -71,9 +67,9 @@ class CORE_EXPORT LayoutShiftTracker final
                           const LogicalOffset& old_starting_point,
                           const LogicalOffset& new_starting_point,
                           const PhysicalOffset& old_paint_offset,
-                          const gfx::Vector2dF& translation_delta,
-                          const gfx::Vector2dF& scroll_delta,
-                          const gfx::Vector2dF& scroll_anchor_adjustment,
+                          const FloatSize& translation_delta,
+                          const FloatSize& scroll_delta,
+                          const FloatSize& scroll_anchor_adjustment,
                           const PhysicalOffset& new_paint_offset,
                           const LayoutUnit logical_height);
 
@@ -84,7 +80,6 @@ class CORE_EXPORT LayoutShiftTracker final
   void NotifyFindInPageInput();
   void NotifyChangeEvent();
   void NotifyZoomLevelChanged();
-  void NotifyBrowserInitiatedSameDocumentNavigation();
   bool IsActive() const { return is_active_; }
   double Score() const { return score_; }
   double WeightedScore() const { return weighted_score_; }
@@ -165,11 +160,11 @@ class CORE_EXPORT LayoutShiftTracker final
                      const PropertyTreeStateOrAlias&,
                      const PhysicalRect& old_rect,
                      const PhysicalRect& new_rect,
-                     const gfx::PointF& old_starting_point,
-                     const gfx::Vector2dF& translation_delta,
-                     const gfx::Vector2dF& scroll_offset_delta,
-                     const gfx::Vector2dF& scroll_anchor_adjustment,
-                     const gfx::PointF& new_starting_point);
+                     const FloatPoint& old_starting_point,
+                     const FloatSize& translation_delta,
+                     const FloatSize& scroll_offset_delta,
+                     const FloatSize& scroll_anchor_adjustment,
+                     const FloatPoint& new_starting_point);
 
   void ReportShift(double score_delta, double weighted_score_delta);
   void TimerFired(TimerBase*) {}
@@ -182,7 +177,7 @@ class CORE_EXPORT LayoutShiftTracker final
   // Sends layout shift rects to the heads-up display (HUD) layer, if
   // visualization is enabled (by --show-layout-shift-regions or devtools
   // "Layout Shift Regions" option).
-  void SendLayoutShiftRectsToHud(const Vector<gfx::Rect>& rects);
+  void SendLayoutShiftRectsToHud(const Vector<IntRect>& int_rects);
 
   void UpdateInputTimestamp(base::TimeTicks timestamp);
   LayoutShift::AttributionList CreateAttributionList() const;
@@ -248,14 +243,19 @@ class CORE_EXPORT LayoutShiftTracker final
   bool most_recent_input_timestamp_initialized_;
 
   struct Attribution {
-    DOMNodeId node_id = kInvalidDOMNodeId;
-    gfx::Rect old_visual_rect;
-    gfx::Rect new_visual_rect;
+    DOMNodeId node_id;
+    IntRect old_visual_rect;
+    IntRect new_visual_rect;
+
+    Attribution();
+    Attribution(DOMNodeId node_id,
+                IntRect old_visual_rect,
+                IntRect new_visual_rect);
 
     explicit operator bool() const;
     bool Encloses(const Attribution&) const;
     bool MoreImpactfulThan(const Attribution&) const;
-    uint64_t Area() const;
+    int Area() const;
   };
 
   void MaybeRecordAttribution(const Attribution&);

@@ -1,10 +1,11 @@
-// Copyright 2014 The Chromium Authors
+// Copyright 2014 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef COMPONENTS_HISTORY_CORE_BROWSER_HISTORY_SERVICE_OBSERVER_H_
 #define COMPONENTS_HISTORY_CORE_BROWSER_HISTORY_SERVICE_OBSERVER_H_
 
+#include "base/macros.h"
 #include "components/history/core/browser/history_types.h"
 #include "components/history/core/browser/keyword_id.h"
 
@@ -12,43 +13,25 @@ namespace history {
 
 class HistoryService;
 
-// Used by components external to History to observe `HistoryService` and
-// process tasks on the main thread.
-//
-// The notifications roughly correspond to the ones in `HistoryBackendObserver`,
-// although there are some differences.
 class HistoryServiceObserver {
  public:
-  HistoryServiceObserver() = default;
+  HistoryServiceObserver() {}
+  virtual ~HistoryServiceObserver() {}
 
-  HistoryServiceObserver(const HistoryServiceObserver&) = delete;
-  HistoryServiceObserver& operator=(const HistoryServiceObserver&) = delete;
-
-  virtual ~HistoryServiceObserver() = default;
-
-  // Called when a `new_visit` is added to History. This happens in two
-  // scenarios:
-  //  1. User makes a new visit on the local device.
-  //  2. Sync brings a visit from a different device onto the local device.
-  //     Notably, this is called for each visit brought over.
+  // Called when user visits an URL.
   //
-  // The values in `url_row` and `new_visit` are set to what is currently in the
-  // history database.
+  // The `row` ID will be set to the value that is currently in effect in the
+  // main history database. `redirects` is the list of redirects leading up to
+  // the URL. If we have a redirect chain A -> B -> C and user is visiting C,
+  // then `redirects[0]=B` and `redirects[1]=A`. If there are no redirects,
+  // `redirects` is an empty vector.
   virtual void OnURLVisited(HistoryService* history_service,
-                            const URLRow& url_row,
-                            const VisitRow& new_visit) {}
+                            ui::PageTransition transition,
+                            const URLRow& row,
+                            const RedirectList& redirects,
+                            base::Time visit_time) {}
 
-  // Called when a URL has a metadata-only update. In situations where a URL has
-  // a metadata-only update AND new visits, both `OnURLsModified` and
-  // `OnURLVisited` will be called. Therefore observers that only care about new
-  // visits should only override `OnURLVisited`.
-  //
-  // These metadata-only updates happen in these scenarios:
-  //  1. When the Page Title is updated shortly after the page loads.
-  //  2. When `TypedURLSyncBridge` updates the `URLRow` data. This often happens
-  //     in addition to adding new visits, so `OnURLVisited` will be called too.
-  //  3. When History expiration expires some, but not all visits related to
-  //     a URL. In that case, the URL's metadata is updated.
+  // Called when a URL has been added or modified.
   //
   // `changed_urls` lists the information for each of the URLs affected. The
   // rows will have the IDs that are currently in effect in the main history
@@ -82,12 +65,8 @@ class HistoryServiceObserver {
   virtual void OnKeywordSearchTermDeleted(HistoryService* history_service,
                                           URLID url_id) {}
 
-  // Called when content model annotation is modified for a url.
-  // `url_id` is the id of the url row.
-  virtual void OnContentModelAnnotationModified(
-      HistoryService* history_service,
-      const URLRow& row,
-      const VisitContentModelAnnotations& model_annotations) {}
+ private:
+  DISALLOW_COPY_AND_ASSIGN(HistoryServiceObserver);
 };
 
 }  // namespace history

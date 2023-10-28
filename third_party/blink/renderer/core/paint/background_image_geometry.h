@@ -12,18 +12,16 @@
 
 namespace blink {
 
-class ComputedStyle;
-class Document;
 class FillLayer;
-class ImageResourceObserver;
 class LayoutBox;
 class LayoutBoxModelObject;
-class LayoutNGTableCell;
 class LayoutObject;
 class LayoutTableCell;
 class LayoutView;
-class NGPhysicalBoxFragment;
-struct PaintInfo;
+class Document;
+class ComputedStyle;
+class ImageResourceObserver;
+class LayoutNGTableCell;
 
 class BackgroundImageGeometry {
   STACK_ALLOCATED();
@@ -40,7 +38,7 @@ class BackgroundImageGeometry {
                           const LayoutObject* background_object);
 
   // Generic constructor for all other elements.
-  explicit BackgroundImageGeometry(const LayoutBoxModelObject&);
+  BackgroundImageGeometry(const LayoutBoxModelObject&);
 
   // Constructor for TablesNG table parts.
   BackgroundImageGeometry(const LayoutNGTableCell& cell,
@@ -48,12 +46,8 @@ class BackgroundImageGeometry {
                           const LayoutBox& table_part,
                           PhysicalSize table_part_size);
 
-  explicit BackgroundImageGeometry(const NGPhysicalBoxFragment&);
-
-  // Calculates data members. This must be called before any of the following
-  // getters is called. The document lifecycle phase must be at least
-  // PrePaintClean.
-  void Calculate(const PaintInfo& paint_info,
+  void Calculate(const LayoutBoxModelObject* container,
+                 PaintPhase,
                  const FillLayer&,
                  const PhysicalRect& paint_rect);
 
@@ -62,7 +56,7 @@ class BackgroundImageGeometry {
   // also defines the subset of the image to be drawn. Both border-snapped
   // and unsnapped rectangles are available. The snapped rectangle matches the
   // inner border of the box when such information is available. This may
-  // may differ from the ToPixelSnappedRect of the unsnapped rectangle
+  // may differ from the PixelSnappedIntRect of the unsnapped rectangle
   // because both border widths and border locations are snapped. The
   // unsnapped rectangle is the size and location intended by the content
   // author, and is needed to correctly subset images when no background-size
@@ -89,6 +83,10 @@ class BackgroundImageGeometry {
   // the image if used as a pattern with background-repeat: space.
   const PhysicalSize& SpaceSize() const { return repeat_spacing_; }
 
+  // Has background-attachment: fixed. Implies that we can't always cheaply
+  // compute the destination rects.
+  bool HasNonLocalGeometry() const { return has_non_local_geometry_; }
+
   // Whether the background needs to be positioned relative to a container
   // element. Only used for tables.
   bool CellUsingContainerBackground() const {
@@ -101,10 +99,7 @@ class BackgroundImageGeometry {
   InterpolationQuality ImageInterpolationQuality() const;
 
  private:
-  BackgroundImageGeometry(const LayoutBoxModelObject* box,
-                          const LayoutBoxModelObject* positioning_box);
-
-  bool ShouldUseFixedAttachment(const FillLayer&) const;
+  static bool ShouldUseFixedAttachment(const FillLayer&);
 
   void SetSpaceSize(const PhysicalSize& repeat_spacing) {
     repeat_spacing_ = repeat_spacing;
@@ -128,6 +123,7 @@ class BackgroundImageGeometry {
   void SetSpaceY(LayoutUnit space, LayoutUnit extra_offset);
 
   void UseFixedAttachment(const PhysicalOffset& attachment_point);
+  void SetHasNonLocalGeometry() { has_non_local_geometry_ = true; }
   PhysicalOffset GetPositioningOffsetForCell(const LayoutTableCell&,
                                              const LayoutBox&);
   PhysicalSize GetBackgroundObjectDimensions(const LayoutTableCell&,
@@ -152,7 +148,8 @@ class BackgroundImageGeometry {
                                          LayoutRectOutsets&,
                                          LayoutRectOutsets&) const;
 
-  void ComputePositioningArea(const PaintInfo&,
+  void ComputePositioningArea(const LayoutBoxModelObject*,
+                              PaintPhase,
                               const FillLayer&,
                               const PhysicalRect&,
                               PhysicalRect&,
@@ -182,8 +179,7 @@ class BackgroundImageGeometry {
   PhysicalSize positioning_size_override_;
 
   // The background image offset from within the background positioning area for
-  // non-fixed background attachment. Used for table cells and the view, and
-  // also when an element is block-fragmented.
+  // non-fixed background attachment. Used for table cells and the view.
   PhysicalOffset element_positioning_area_offset_;
 
   PhysicalRect unsnapped_dest_rect_;
@@ -191,11 +187,10 @@ class BackgroundImageGeometry {
   PhysicalOffset phase_;
   PhysicalSize tile_size_;
   PhysicalSize repeat_spacing_;
-  bool has_background_fixed_to_viewport_ = false;
+  bool has_non_local_geometry_ = false;
   bool painting_view_ = false;
   bool painting_table_cell_ = false;
   bool cell_using_container_background_ = false;
-  bool box_has_multiple_fragments_ = false;
 };
 
 }  // namespace blink

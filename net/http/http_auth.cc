@@ -1,4 +1,4 @@
-// Copyright 2011 The Chromium Authors
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -6,6 +6,7 @@
 
 #include <algorithm>
 
+#include "base/cxx17_backports.h"
 #include "base/strings/string_tokenizer.h"
 #include "base/strings/string_util.h"
 #include "base/values.h"
@@ -29,7 +30,7 @@ const char* const kSchemeNames[] = {kBasicAuthScheme,     kDigestAuthScheme,
                                     kSpdyProxyAuthScheme, kMockAuthScheme};
 }  // namespace
 
-HttpAuth::Identity::Identity() = default;
+HttpAuth::Identity::Identity() : source(IDENT_SRC_NONE), invalid(true) {}
 
 // static
 void HttpAuth::ChooseBestChallenge(
@@ -38,7 +39,7 @@ void HttpAuth::ChooseBestChallenge(
     const SSLInfo& ssl_info,
     const NetworkIsolationKey& network_isolation_key,
     Target target,
-    const url::SchemeHostPort& scheme_host_port,
+    const GURL& origin,
     const std::set<Scheme>& disabled_schemes,
     const NetLogWithSource& net_log,
     HostResolver* host_resolver,
@@ -54,8 +55,8 @@ void HttpAuth::ChooseBestChallenge(
   while (response_headers.EnumerateHeader(&iter, header_name, &cur_challenge)) {
     std::unique_ptr<HttpAuthHandler> cur;
     int rv = http_auth_handler_factory->CreateAuthHandlerFromString(
-        cur_challenge, target, ssl_info, network_isolation_key,
-        scheme_host_port, net_log, host_resolver, &cur);
+        cur_challenge, target, ssl_info, network_isolation_key, origin, net_log,
+        host_resolver, &cur);
     if (rv != OK) {
       VLOG(1) << "Unable to create AuthHandler. Status: "
               << ErrorToString(rv) << " Challenge: " << cur_challenge;
@@ -144,7 +145,7 @@ std::string HttpAuth::GetAuthTargetString(Target target) {
 
 // static
 const char* HttpAuth::SchemeToString(Scheme scheme) {
-  static_assert(std::size(kSchemeNames) == AUTH_SCHEME_MAX,
+  static_assert(base::size(kSchemeNames) == AUTH_SCHEME_MAX,
                 "http auth scheme names incorrect size");
   if (scheme < AUTH_SCHEME_BASIC || scheme >= AUTH_SCHEME_MAX) {
     NOTREACHED();
@@ -155,7 +156,7 @@ const char* HttpAuth::SchemeToString(Scheme scheme) {
 
 // static
 HttpAuth::Scheme HttpAuth::StringToScheme(const std::string& str) {
-  for (uint8_t i = 0; i < std::size(kSchemeNames); i++) {
+  for (uint8_t i = 0; i < base::size(kSchemeNames); i++) {
     if (str == kSchemeNames[i])
       return static_cast<Scheme>(i);
   }

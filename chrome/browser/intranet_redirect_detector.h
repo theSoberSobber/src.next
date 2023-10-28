@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 
+#include "base/macros.h"
 #include "base/memory/weak_ptr.h"
 #include "build/build_config.h"
 #include "components/pref_registry/pref_registry_syncable.h"
@@ -26,8 +27,8 @@ class SimpleURLLoader;
 
 class PrefRegistrySimple;
 
-#if !(BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX) || \
-      BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_FUCHSIA))
+#if !(defined(OS_MAC) || defined(OS_WIN) || defined(OS_LINUX) || \
+      defined(OS_CHROMEOS))
 #error "IntranetRedirectDetector should only be built on Desktop platforms."
 #endif
 
@@ -58,10 +59,6 @@ class IntranetRedirectDetector
   // since there aren't useful public functions on this object for consumers to
   // access anyway).
   IntranetRedirectDetector();
-
-  IntranetRedirectDetector(const IntranetRedirectDetector&) = delete;
-  IntranetRedirectDetector& operator=(const IntranetRedirectDetector&) = delete;
-
   ~IntranetRedirectDetector() override;
 
   // Returns the current redirect origin.  This will be empty if no redirection
@@ -92,8 +89,8 @@ class IntranetRedirectDetector
   void SetupDnsConfigClient();
   void OnDnsConfigClientConnectionError();
 
-  // Whether the IntranetRedirectDetector is enabled by policy. Disabled by
-  // default.
+  // Whether the IntranetRedirectDetector is enabled, or, through policy,
+  // disabled.
   bool IsEnabledByPolicy();
 
   GURL redirect_origin_;
@@ -107,6 +104,8 @@ class IntranetRedirectDetector
   mojo::Receiver<network::mojom::DnsConfigChangeManagerClient>
       dns_config_client_receiver_{this};
   base::WeakPtrFactory<IntranetRedirectDetector> weak_ptr_factory_{this};
+
+  DISALLOW_COPY_AND_ASSIGN(IntranetRedirectDetector);
 };
 
 #endif  // CHROME_BROWSER_INTRANET_REDIRECT_DETECTOR_H_

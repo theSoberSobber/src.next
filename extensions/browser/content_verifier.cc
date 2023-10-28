@@ -1,4 +1,4 @@
-// Copyright 2014 The Chromium Authors
+// Copyright 2014 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -12,7 +12,6 @@
 #include "base/callback_helpers.h"
 #include "base/containers/contains.h"
 #include "base/files/file_path.h"
-#include "base/memory/raw_ptr.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/metrics/histogram_macros.h"
@@ -50,7 +49,8 @@ base::FilePath NormalizeRelativePath(const base::FilePath& path) {
   if (path.ReferencesParent())
     return base::FilePath();
 
-  std::vector<base::FilePath::StringType> parts = path.GetComponents();
+  std::vector<base::FilePath::StringType> parts;
+  path.GetComponents(&parts);
   if (parts.empty())
     return base::FilePath();
 
@@ -139,6 +139,17 @@ std::unique_ptr<ContentVerifierIOData::ExtensionData> CreateIOData(
       std::move(image_paths), std::move(background_or_content_paths),
       std::move(indexed_ruleset_paths), extension->version(), source_type);
 }
+
+// Returns all locales.
+std::set<std::string> GetAllLocaleCandidates() {
+  std::set<std::string> all_locales;
+  // TODO(asargent) - see if we can cache this list longer to avoid
+  // having to fetch it more than once for a given run of the
+  // browser. Maybe it can never change at runtime? (Or if it can, maybe
+  // there is an event we can listen for to know to drop our cache).
+  extension_l10n_util::GetAllLocales(&all_locales);
+  return all_locales;
+}
 }  // namespace
 
 struct ContentVerifier::CacheKey {
@@ -179,10 +190,6 @@ class ContentVerifier::HashHelper {
  public:
   explicit HashHelper(ContentVerifier* content_verifier)
       : content_verifier_(content_verifier) {}
-
-  HashHelper(const HashHelper&) = delete;
-  HashHelper& operator=(const HashHelper&) = delete;
-
   ~HashHelper() {
     DCHECK_CURRENTLY_ON(content::BrowserThread::IO);
     // TODO(lazyboy): Do we need to Cancel() the callacks?
@@ -244,9 +251,6 @@ class ContentVerifier::HashHelper {
    public:
     IsCancelledChecker() {}
 
-    IsCancelledChecker(const IsCancelledChecker&) = delete;
-    IsCancelledChecker& operator=(const IsCancelledChecker&) = delete;
-
     // Safe to call from any thread.
     void Cancel() {
       base::AutoLock autolock(cancelled_lock_);
@@ -269,6 +273,8 @@ class ContentVerifier::HashHelper {
 
     // A lock for synchronizing access to |cancelled_|.
     base::Lock cancelled_lock_;
+
+    DISALLOW_COPY_AND_ASSIGN(IsCancelledChecker);
   };
 
   // Holds information about each call to HashHelper::GetContentHash(), for a
@@ -403,9 +409,11 @@ class ContentVerifier::HashHelper {
   // List of pending callbacks of GetContentHash().
   std::map<CallbackKey, CallbackInfo> callback_infos_;
 
-  const raw_ptr<ContentVerifier> content_verifier_ = nullptr;
+  ContentVerifier* const content_verifier_ = nullptr;
 
   base::WeakPtrFactory<HashHelper> weak_factory_{this};
+
+  DISALLOW_COPY_AND_ASSIGN(HashHelper);
 };
 
 // static
@@ -493,8 +501,8 @@ void ContentVerifier::GetContentHash(
     // pointer to fix this. Also add unit test to exercise this code path
     // explicitly.
     content::GetIOThreadTaskRunner({})->PostTask(
-        FROM_HERE,
-        base::BindOnce([](ContentHashCallback) {}, std::move(callback)));
+        FROM_HERE, base::BindOnce(base::DoNothing::Once<ContentHashCallback>(),
+                                  std::move(callback)));
     return;
   }
 
@@ -714,7 +722,7 @@ bool ContentVerifier::ShouldVerifyAnyPaths(
   const std::set<CanonicalRelativePath>& indexed_ruleset_paths =
       *(data->canonical_indexed_ruleset_paths);
 
-  std::set<std::string> all_locale_candidates;
+  absl::optional<std::set<std::string>> all_locale_candidates;
 
   const CanonicalRelativePath manifest_file =
       content_verifier_utils::CanonicalizeRelativePath(
@@ -751,14 +759,8 @@ bool ContentVerifier::ShouldVerifyAnyPaths(
 
     const base::FilePath canonical_path(canonical_path_value.value());
     if (locales_relative_dir.IsParent(canonical_path)) {
-      // TODO(asargent) - see if we can cache this list longer to avoid
-      // having to fetch it more than once for a given run of the
-      // browser. Maybe it can never change at runtime? (Or if it can, maybe
-      // there is an event we can listen for to know to drop our cache).
-      if (all_locale_candidates.empty()) {
-        extension_l10n_util::GetAllLocales(&all_locale_candidates);
-        DCHECK(!all_locale_candidates.empty());
-      }
+      if (!all_locale_candidates)
+        all_locale_candidates = GetAllLocaleCandidates();
 
       // Since message catalogs get transcoded during installation, we want
       // to skip those paths. See if this path looks like
@@ -766,7 +768,7 @@ bool ContentVerifier::ShouldVerifyAnyPaths(
       if (canonical_path.BaseName() == messages_file &&
           canonical_path.DirName().DirName() == locales_relative_dir &&
           ContainsStringIgnoreCaseASCII(
-              all_locale_candidates,
+              *all_locale_candidates,
               canonical_path.DirName().BaseName().MaybeAsASCII())) {
         continue;
       }

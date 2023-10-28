@@ -23,8 +23,8 @@
 
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/platform/graphics/color.h"
-#include "third_party/blink/renderer/platform/heap/collection_support/heap_vector.h"
-#include "third_party/blink/renderer/platform/heap/garbage_collected.h"
+#include "third_party/blink/renderer/platform/heap/handle.h"
+#include "third_party/blink/renderer/platform/weborigin/security_origin.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
 #include "third_party/blink/renderer/platform/wtf/vector.h"
 
@@ -36,10 +36,7 @@ class CORE_EXPORT MimeClassInfo final : public GarbageCollected<MimeClassInfo> {
  public:
   void Trace(Visitor*) const;
 
-  MimeClassInfo(const String& type,
-                const String& description,
-                PluginInfo& plugin,
-                const Vector<String> extensions);
+  MimeClassInfo(const String& type, const String& desc, PluginInfo&);
 
   const String& Type() const { return type_; }
   const String& Description() const { return description_; }
@@ -100,7 +97,8 @@ class CORE_EXPORT PluginData final : public GarbageCollected<PluginData> {
 
   const HeapVector<Member<PluginInfo>>& Plugins() const { return plugins_; }
   const HeapVector<Member<MimeClassInfo>>& Mimes() const { return mimes_; }
-  void UpdatePluginList();
+  const SecurityOrigin* Origin() const { return main_frame_origin_.get(); }
+  void UpdatePluginList(const SecurityOrigin* main_frame_origin);
   void ResetPluginData();
 
   bool SupportsMimeType(const String& mime_type) const;
@@ -114,7 +112,7 @@ class CORE_EXPORT PluginData final : public GarbageCollected<PluginData> {
  private:
   HeapVector<Member<PluginInfo>> plugins_;
   HeapVector<Member<MimeClassInfo>> mimes_;
-  bool updated_ = false;
+  scoped_refptr<const SecurityOrigin> main_frame_origin_;
 };
 
 }  // namespace blink

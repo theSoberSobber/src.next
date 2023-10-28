@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -21,13 +21,12 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/path_service.h"
 #include "base/rand_util.h"
-#include "base/strings/escape.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_piece.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
-#include "base/task/task_runner_util.h"
+#include "base/task/post_task.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
 #include "chrome/browser/chrome_notification_types.h"
@@ -64,6 +63,7 @@
 #include "extensions/common/extension_urls.h"
 #include "extensions/common/manifest_constants.h"
 #include "extensions/common/manifest_handlers/shared_module_info.h"
+#include "net/base/escape.h"
 #include "net/traffic_annotation/network_traffic_annotation.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "url/gurl.h"
@@ -97,7 +97,8 @@ const char kAppLauncherInstallSource[] = "applauncher";
 // See http://crbug.com/371398.
 const char kAuthUserQueryKey[] = "authuser";
 
-constexpr base::TimeDelta kTimeRemainingThreshold = base::Seconds(1);
+constexpr base::TimeDelta kTimeRemainingThreshold =
+    base::TimeDelta::FromSeconds(1);
 
 // Folder for downloading crx files from the webstore. This is used so that the
 // crx files don't go via the usual downloads folder.
@@ -153,8 +154,9 @@ void MaybeAppendAuthUserParameter(const std::string& authuser, GURL* url) {
   // TODO(rockot): Share this duplicated code with the extension updater.
   // See http://crbug.com/371398.
   std::string new_query_string = old_query + authuser_param;
-  GURL::Replacements replacements;
-  replacements.SetQueryStr(new_query_string);
+  url::Component new_query(0, new_query_string.length());
+  url::Replacements<char> replacements;
+  replacements.SetQuery(new_query_string.c_str(), new_query);
   *url = url->ReplaceComponents(replacements);
 }
 
@@ -206,11 +208,11 @@ GURL WebstoreInstaller::GetWebstoreInstallURL(
   params.push_back("uc");
   std::string url_string = extension_urls::GetWebstoreUpdateUrl().spec();
 
-  GURL url(
-      url_string + "?response=redirect&" +
-      update_client::UpdateQueryParams::Get(
-          update_client::UpdateQueryParams::CRX) +
-      "&x=" + base::EscapeQueryParamValue(base::JoinString(params, "&"), true));
+  GURL url(url_string + "?response=redirect&" +
+           update_client::UpdateQueryParams::Get(
+               update_client::UpdateQueryParams::CRX) +
+           "&x=" + net::EscapeQueryParamValue(base::JoinString(params, "&"),
+                                              true));
   DCHECK(url.is_valid());
 
   return url;
@@ -274,7 +276,7 @@ WebstoreInstaller::WebstoreInstaller(Profile* profile,
                                      const std::string& id,
                                      std::unique_ptr<Approval> approval,
                                      InstallSource source)
-    : web_contents_(web_contents->GetWeakPtr()),
+    : content::WebContentsObserver(web_contents),
       profile_(profile),
       delegate_(delegate),
       id_(id),
@@ -321,16 +323,18 @@ void WebstoreInstaller::Start() {
   }
   InstallVerifier::Get(profile_)->AddProvisional(ids);
 
-  const std::string* name =
-      approval_->manifest->available_values().GetDict().FindString(
-          manifest_keys::kName);
-  if (!name) {
+  std::string name;
+  if (!approval_->manifest->available_values().GetString(manifest_keys::kName,
+                                                         &name)) {
     NOTREACHED();
   }
   extensions::InstallTracker* tracker =
       extensions::InstallTrackerFactory::GetForBrowserContext(profile_);
   extensions::InstallObserver::ExtensionInstallParams params(
-      id_, *name, approval_->installing_icon, approval_->manifest->is_app(),
+      id_,
+      name,
+      approval_->installing_icon,
+      approval_->manifest->is_app(),
       approval_->manifest->is_platform_app());
   tracker->OnBeginExtensionInstall(params);
 
@@ -591,22 +595,21 @@ void WebstoreInstaller::StartDownload(const std::string& extension_id,
     return;
   }
 
-  if (!web_contents_) {
+  content::WebContents* contents = web_contents();
+  if (!contents) {
     ReportFailure(kDownloadDirectoryError, FAILURE_REASON_OTHER);
     return;
   }
-  if (!web_contents_->GetPrimaryMainFrame()->GetRenderViewHost()) {
+  if (!contents->GetMainFrame()->GetRenderViewHost()) {
     ReportFailure(kDownloadDirectoryError, FAILURE_REASON_OTHER);
     return;
   }
-  if (!web_contents_->GetPrimaryMainFrame()
-           ->GetRenderViewHost()
-           ->GetProcess()) {
+  if (!contents->GetMainFrame()->GetRenderViewHost()->GetProcess()) {
     ReportFailure(kDownloadDirectoryError, FAILURE_REASON_OTHER);
     return;
   }
 
-  content::NavigationController& controller = web_contents_->GetController();
+  content::NavigationController& controller = contents->GetController();
   if (!controller.GetBrowserContext()) {
     ReportFailure(kDownloadDirectoryError, FAILURE_REASON_OTHER);
     return;
@@ -619,13 +622,10 @@ void WebstoreInstaller::StartDownload(const std::string& extension_id,
   // The download url for the given extension is contained in |download_url_|.
   // We will navigate the current tab to this url to start the download. The
   // download system will then pass the crx to the CrxInstaller.
-  int render_process_host_id = web_contents_->GetPrimaryMainFrame()
-                                   ->GetRenderViewHost()
-                                   ->GetProcess()
-                                   ->GetID();
+  int render_process_host_id =
+      contents->GetMainFrame()->GetRenderViewHost()->GetProcess()->GetID();
 
-  content::RenderFrameHost* render_frame_host =
-      web_contents_->GetPrimaryMainFrame();
+  content::RenderFrameHost* render_frame_host = contents->GetMainFrame();
   net::NetworkTrafficAnnotationTag traffic_annotation =
       net::DefineNetworkTrafficAnnotation("webstore_installer", R"(
         semantics {

@@ -1,4 +1,4 @@
-// Copyright 2016 The Chromium Authors
+// Copyright 2016 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,7 +7,7 @@
 
 #include <string>
 
-#include "base/memory/raw_ptr.h"
+#include "base/macros.h"
 #include "chrome/browser/ui/app_icon_loader_delegate.h"
 
 class Profile;
@@ -17,9 +17,6 @@ class Profile;
 // and ArcAppIconLoader.
 class AppIconLoader {
  public:
-  AppIconLoader(const AppIconLoader&) = delete;
-  AppIconLoader& operator=(const AppIconLoader&) = delete;
-
   virtual ~AppIconLoader();
 
   // Returns true is this AppIconLoader is able to load an image for the
@@ -49,11 +46,13 @@ class AppIconLoader {
   AppIconLoaderDelegate* delegate() { return delegate_; }
 
  private:
-  const raw_ptr<Profile> profile_ = nullptr;
+  Profile* const profile_ = nullptr;
   const int icon_size_in_dip_ = 0;
 
   // The delegate object which receives the icon images. No ownership.
-  const raw_ptr<AppIconLoaderDelegate> delegate_ = nullptr;
+  AppIconLoaderDelegate* const delegate_ = nullptr;
+
+  DISALLOW_COPY_AND_ASSIGN(AppIconLoader);
 };
 
 #endif  // CHROME_BROWSER_UI_APP_ICON_LOADER_H_

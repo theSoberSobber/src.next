@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium Authors
+// Copyright 2019 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -14,20 +14,11 @@
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
 #include "chrome/common/buildflags.h"
-#include "extensions/buildflags/buildflags.h"
 
 namespace features {
 
 // All features in alphabetical order. The features should be documented
 // alongside the definition of their values in the .cc file.
-
-// TODO(https://crbug.com/896640): Remove this when the tab dragging
-// interactive_ui_tests pass on Wayland.
-extern const base::Feature kAllowWindowDragUsingSystemDragDrop;
-
-#if !BUILDFLAG(IS_CHROMEOS) && !BUILDFLAG(IS_ANDROID)
-extern const base::Feature kDesktopPWAsAppHomePage;
-#endif  // !BUILDFLAG(IS_CHROMEOS) && !BUILDFLAG(IS_ANDROID)
 
 extern const base::Feature kChromeLabs;
 
@@ -43,95 +34,79 @@ extern const base::Feature kChromeWhatsNewUI;
 extern const base::Feature kChromeWhatsNewInMainMenuNewBadge;
 #endif
 
-#if !defined(ANDROID)
-extern const base::Feature kAccessCodeCastUI;
-#endif
+extern const base::Feature kCommander;
 
-extern const base::Feature kDisplayOpenLinkAsProfile;
+#if BUILDFLAG(IS_CHROMEOS_ASH) || BUILDFLAG(IS_CHROMEOS_LACROS)
+extern const base::Feature kEnterpriseCastingUI;
+#endif
 
 extern const base::Feature kEvDetailsInPageInfo;
 
-#if BUILDFLAG(ENABLE_EXTENSIONS)
-extern const base::Feature kLightweightExtensionOverrideConfirmations;
-#endif
+extern const base::Feature kExtensionsSidePanel;
+
+// The extension id of the extension hosted in the left aligned side panel.
+extern const base::FeatureParam<std::string> kExtensionsSidePanelId;
 
 extern const base::Feature kForceSignInReauth;
 
+extern const base::Feature kNewTabstripAnimation;
+
 extern const base::Feature kProminentDarkModeActiveTabTitle;
 
-extern const base::Feature kQuickCommands;
+extern const base::Feature kReadLaterNewBadgePromo;
+
+extern const base::Feature kReadLaterAddFromDialog;
 
 extern const base::Feature kScrollableTabStrip;
 extern const char kMinimumTabWidthFeatureParameterName[];
 
-extern const base::Feature kSplitTabStrip;
+extern const base::Feature kScrollableTabStripButtons;
+
+#if !defined(ANDROID)
+extern const base::Feature kSettingsLandingPageRedesign;
+#endif
 
 // TODO(pbos): Once kReadLater is cleaned up on Desktop, move definition into
 // ui_features.cc. This is currently temporarily in reading_list_switches.h.
-extern const base::Feature kSidePanelImprovedClobbering;
+extern const base::Feature kSidePanel;
 
-extern const base::Feature kSidePanelWebView;
+extern const base::Feature kSyncConfirmationUpdatedText;
 
-extern const base::Feature kSidePanelJourneys;
-extern const base::FeatureParam<bool> kSidePanelJourneysOpensFromOmnibox;
+extern const base::Feature kSignInProfileCreation;
 
-extern const base::Feature kSideSearch;
-extern const base::Feature kSideSearchFeedback;
-extern const base::Feature kSideSearchDSESupport;
-extern const base::Feature kSearchWebInSidePanel;
-extern const base::Feature kClobberAllSideSearchSidePanels;
+extern const base::Feature kSignInProfileCreationEnterprise;
 
-extern const base::Feature kSideSearchAutoTriggering;
-extern const base::FeatureParam<int> kSideSearchAutoTriggeringReturnCount;
+extern const base::Feature kTabGroupsAutoCreate;
+
+extern const base::Feature kTabGroupsCollapseFreezing;
+
+extern const base::Feature kTabGroupsFeedback;
 
 extern const base::Feature kTabGroupsNewBadgePromo;
 
 extern const base::Feature kTabGroupsSave;
 
 extern const base::Feature kTabHoverCardImages;
-
-// These parameters control how long the hover card system waits before
-// requesting a preview image from a tab where no preview image is available.
-// Values are in ms.
 extern const char kTabHoverCardImagesNotReadyDelayParameterName[];
 extern const char kTabHoverCardImagesLoadingDelayParameterName[];
 extern const char kTabHoverCardImagesLoadedDelayParameterName[];
-
-// Determines how long to wait during a hover card slide transition before a
-// placeholder image is displayed via crossfade.
-// -1: disable crossfade entirely
-//  0: show placeholder immediately
-//  1: show placeholder when the card lands on the new tab
-//  between 0 and 1: show at a percentage of transition
-//
-// Note: crossfade is automatically disabled if animations are disabled at the
-// OS level (e.g. for accessibility).
 extern const char kTabHoverCardImagesCrossfadePreviewAtParameterName[];
-
-// Adds an amount of time (in ms) to the show delay when tabs are max width -
-// typically when there are less than 5 or 6 tabs in a browser window.
-extern const char kTabHoverCardAdditionalMaxWidthDelay[];
-
-// When set to 1, reverses the order of elements in the hover card, so that
-// the title and site are on bottom and the tab status and preview image are
-// on top. 0 is the default layout.
-extern const char kTabHoverCardAlternateFormat[];
 
 extern const base::Feature kTabOutlinesInLowContrastThemes;
 
-extern const base::Feature kTabSearchChevronIcon;
+extern const base::Feature kTabRestoreSubMenus;
 
-extern const base::Feature kTabSearchFeedback;
+extern const base::Feature kTabSearchChevronIcon;
 
 extern const base::Feature kTabSearchFuzzySearch;
 
-extern const char kTabSearchSearchThresholdName[];
+extern const base::Feature kTabSearchFeedback;
+
+extern const base::Feature kTabSearchRecentlyClosed;
 
 // Setting this to true will ignore the distance parameter when finding matches.
 // This means that it will not matter where in the string the pattern occurs.
 extern const base::FeatureParam<bool> kTabSearchSearchIgnoreLocation;
-
-extern const char kTabSearchAlsoShowMediaTabsinOpenTabsSectionParameterName[];
 
 // Determines how close the match must be to the beginning of the string. Eg a
 // distance of 100 and threshold of 0.8 would require a perfect match to be
@@ -163,8 +138,6 @@ extern const base::FeatureParam<double> kTabSearchGroupTitleWeight;
 // Whether to move the active tab to the bottom of the list.
 extern const base::FeatureParam<bool> kTabSearchMoveActiveTabToBottom;
 
-extern const base::Feature kTabSearchRecentlyClosed;
-
 // Default number of recently closed entries to display by default when no
 // search text is provided.
 extern const base::FeatureParam<int>
@@ -175,30 +148,30 @@ extern const base::FeatureParam<int>
 // count have been met.
 extern const base::FeatureParam<int> kTabSearchRecentlyClosedTabCountThreshold;
 
-extern const base::Feature kTabSearchUseMetricsReporter;
-
 // Determines how screenshots of the toolbar uses Software or Hardware drawing.
 // Works on Android 10+.
 extern const base::Feature kToolbarUseHardwareBitmapDraw;
 
-extern const base::Feature kTopChromeWebUIUsesSpareRenderer;
-
-extern const base::Feature kUnifiedSidePanel;
+// Whether to label the update menu item as "Relaunch to update Chrome", rather
+// than "Update Google Chrome".
+extern const base::Feature kUseRelaunchToUpdateString;
 
 extern const base::Feature kWebUIBubblePerProfilePersistence;
 
-extern const base::Feature kWebUITabStrip;
-
-// Controls whether the context menu is shown on a touch press or a touch
-// tap gesture on the WebUI Tab Strip.
-extern const base::Feature kWebUITabStripContextMenuAfterTap;
-
-#if BUILDFLAG(IS_CHROMEOS)
-extern const base::Feature kChromeOSTabSearchCaptionButton;
+#if !defined(ANDROID)
+extern const base::Feature kWebUIBrandingUpdate;
 #endif
 
+extern const base::Feature kWebUIDownloadShelf;
+
+extern const base::Feature kWebUITabStrip;
+
+extern const base::Feature kWebUITabStripNewTabButtonInTabStrip;
+
+extern const base::Feature kWebUIFeedback;
+
 // Cocoa to views migration.
-#if BUILDFLAG(IS_MAC)
+#if defined(OS_MAC)
 extern const base::Feature kLocationPermissionsExperiment;
 
 extern const base::Feature kViewsFirstRunDialog;
@@ -209,7 +182,7 @@ int GetLocationPermissionsExperimentBubblePromptLimit();
 int GetLocationPermissionsExperimentLabelPromptLimit();
 #endif
 
-#if BUILDFLAG(IS_WIN)
+#if defined(OS_WIN)
 extern const base::Feature kWin10TabSearchCaptionButton;
 #endif
 

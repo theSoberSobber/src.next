@@ -1,4 +1,4 @@
-// Copyright 2013 The Chromium Authors
+// Copyright 2013 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,7 +7,7 @@
 
 #include <string>
 
-#include "base/memory/raw_ptr.h"
+#include "base/macros.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
 
 namespace base {
@@ -48,14 +48,11 @@ class FeatureSwitch {
   class ScopedOverride {
    public:
     ScopedOverride(FeatureSwitch* feature, bool override_value);
-
-    ScopedOverride(const ScopedOverride&) = delete;
-    ScopedOverride& operator=(const ScopedOverride&) = delete;
-
     ~ScopedOverride();
    private:
-    raw_ptr<FeatureSwitch> feature_;
+    FeatureSwitch* feature_;
     FeatureSwitch::OverrideValue previous_value_;
+    DISALLOW_COPY_AND_ASSIGN(ScopedOverride);
   };
 
   // |switch_name| can be null, in which case the feature is controlled solely
@@ -65,11 +62,6 @@ class FeatureSwitch {
   FeatureSwitch(const base::CommandLine* command_line,
                 const char* switch_name,
                 DefaultValue default_value);
-
-  FeatureSwitch(const FeatureSwitch&) = delete;
-  FeatureSwitch& operator=(const FeatureSwitch&) = delete;
-
-  ~FeatureSwitch();
 
   // Consider using ScopedOverride instead.
   void SetOverrideValue(OverrideValue value);
@@ -83,11 +75,13 @@ class FeatureSwitch {
   std::string GetLegacyDisableFlag() const;
   bool ComputeValue() const;
 
-  raw_ptr<const base::CommandLine> command_line_;
+  const base::CommandLine* command_line_;
   const char* switch_name_;
   bool default_value_;
   OverrideValue override_value_;
   mutable absl::optional<bool> cached_value_;
+
+  DISALLOW_COPY_AND_ASSIGN(FeatureSwitch);
 };
 
 }  // namespace extensions

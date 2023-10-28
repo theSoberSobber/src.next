@@ -1,4 +1,4 @@
-// Copyright 2013 The Chromium Authors
+// Copyright (c) 2013 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,7 +7,7 @@
 
 #include <stddef.h>
 
-#include "base/memory/raw_ptr.h"
+#include "base/macros.h"
 #include "chrome/browser/extensions/extension_message_bubble_controller.h"
 
 namespace extensions {
@@ -16,12 +16,6 @@ class SuspiciousExtensionBubbleDelegate
     : public ExtensionMessageBubbleController::Delegate {
  public:
   explicit SuspiciousExtensionBubbleDelegate(Profile* profile);
-
-  SuspiciousExtensionBubbleDelegate(const SuspiciousExtensionBubbleDelegate&) =
-      delete;
-  SuspiciousExtensionBubbleDelegate& operator=(
-      const SuspiciousExtensionBubbleDelegate&) = delete;
-
   ~SuspiciousExtensionBubbleDelegate() override;
 
   // ExtensionMessageBubbleController::Delegate methods.
@@ -48,7 +42,9 @@ class SuspiciousExtensionBubbleDelegate
   bool SupportsPolicyIndicator() override;
 
  private:
-  raw_ptr<Profile> profile_;
+  Profile* profile_;
+
+  DISALLOW_COPY_AND_ASSIGN(SuspiciousExtensionBubbleDelegate);
 };
 
 }  // namespace extensions

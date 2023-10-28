@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -6,14 +6,13 @@
 
 #include <ostream>
 
-#include "base/check_op.h"
 #include "base/containers/contains.h"
 #include "base/containers/span.h"
 #include "base/files/file_path.h"
 #include "base/logging.h"
 #include "base/notreached.h"
-#include "base/numerics/checked_math.h"
 #include "base/ranges/algorithm.h"
+#include "base/stl_util.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_piece.h"
 #include "base/strings/string_split.h"
@@ -22,12 +21,12 @@
 #include "base/strings/utf_string_conversions.h"
 #include "build/build_config.h"
 
-#if BUILDFLAG(IS_WIN)
+#if defined(OS_WIN)
 #include <windows.h>
 #include <shellapi.h>
 
 #include "base/strings/string_util_win.h"
-#endif  // BUILDFLAG(IS_WIN)
+#endif  // defined(OS_WIN)
 
 namespace base {
 
@@ -35,26 +34,24 @@ CommandLine* CommandLine::current_process_commandline_ = nullptr;
 
 namespace {
 
-DuplicateSwitchHandler* g_duplicate_switch_handler = nullptr;
-
 constexpr CommandLine::CharType kSwitchTerminator[] = FILE_PATH_LITERAL("--");
 constexpr CommandLine::CharType kSwitchValueSeparator[] =
     FILE_PATH_LITERAL("=");
 
 // Since we use a lazy match, make sure that longer versions (like "--") are
 // listed before shorter versions (like "-") of similar prefixes.
-#if BUILDFLAG(IS_WIN)
+#if defined(OS_WIN)
 // By putting slash last, we can control whether it is treaded as a switch
 // value by changing the value of switch_prefix_count to be one less than
 // the array size.
 constexpr CommandLine::StringPieceType kSwitchPrefixes[] = {L"--", L"-", L"/"};
-#elif BUILDFLAG(IS_POSIX) || BUILDFLAG(IS_FUCHSIA)
+#elif defined(OS_POSIX) || defined(OS_FUCHSIA)
 // Unixes don't use slash as a switch.
 constexpr CommandLine::StringPieceType kSwitchPrefixes[] = {"--", "-"};
 #endif
-size_t switch_prefix_count = std::size(kSwitchPrefixes);
+size_t switch_prefix_count = base::size(kSwitchPrefixes);
 
-#if BUILDFLAG(IS_WIN)
+#if defined(OS_WIN)
 // Switch string that specifies the single argument to the command line.
 // If present, everything after this switch is interpreted as a single
 // argument regardless of whitespace, quotes, etc. Used for launches from the
@@ -63,7 +60,7 @@ size_t switch_prefix_count = std::size(kSwitchPrefixes);
 // (https://crbug.com/937179).
 constexpr CommandLine::CharType kSingleArgument[] =
     FILE_PATH_LITERAL("single-argument");
-#endif  // BUILDFLAG(IS_WIN)
+#endif  // defined(OS_WIN)
 
 size_t GetSwitchPrefixLength(CommandLine::StringPieceType string) {
   for (size_t i = 0; i < switch_prefix_count; ++i) {
@@ -105,7 +102,7 @@ bool IsSwitchWithKey(CommandLine::StringPieceType string,
          switch_key_without_prefix;
 }
 
-#if BUILDFLAG(IS_WIN)
+#if defined(OS_WIN)
 // Quote a string as necessary for CommandLineToArgvW compatibility *on
 // Windows*.
 std::wstring QuoteForCommandLineToArgvW(const std::wstring& arg,
@@ -156,18 +153,14 @@ std::wstring QuoteForCommandLineToArgvW(const std::wstring& arg,
 
   return out;
 }
-#endif  // BUILDFLAG(IS_WIN)
+#endif  // defined(OS_WIN)
 
 }  // namespace
 
-// static
-void CommandLine::SetDuplicateSwitchHandler(
-    std::unique_ptr<DuplicateSwitchHandler> new_duplicate_switch_handler) {
-  delete g_duplicate_switch_handler;
-  g_duplicate_switch_handler = new_duplicate_switch_handler.release();
+CommandLine::CommandLine(NoProgram no_program)
+    : argv_(1),
+      begin_args_(1) {
 }
-
-CommandLine::CommandLine(NoProgram no_program) : argv_(1), begin_args_(1) {}
 
 CommandLine::CommandLine(const FilePath& program)
     : argv_(1),
@@ -176,7 +169,8 @@ CommandLine::CommandLine(const FilePath& program)
 }
 
 CommandLine::CommandLine(int argc, const CommandLine::CharType* const* argv)
-    : argv_(1), begin_args_(1) {
+    : argv_(1),
+      begin_args_(1) {
   InitFromArgv(argc, argv);
 }
 
@@ -192,13 +186,13 @@ CommandLine& CommandLine::operator=(const CommandLine& other) = default;
 
 CommandLine::~CommandLine() = default;
 
-#if BUILDFLAG(IS_WIN)
+#if defined(OS_WIN)
 // static
 void CommandLine::set_slash_is_not_a_switch() {
   // The last switch prefix should be slash, so adjust the size to skip it.
   static_assert(base::make_span(kSwitchPrefixes).back() == L"/",
                 "Error: Last switch prefix is not a slash.");
-  switch_prefix_count = std::size(kSwitchPrefixes) - 1;
+  switch_prefix_count = base::size(kSwitchPrefixes) - 1;
 }
 
 // static
@@ -211,7 +205,7 @@ void CommandLine::InitUsingArgvForTesting(int argc, const char* const* argv) {
     argv_vector.push_back(UTF8ToWide(argv[i]));
   current_process_commandline_->InitFromArgv(argv_vector);
 }
-#endif  // BUILDFLAG(IS_WIN)
+#endif  // defined(OS_WIN)
 
 // static
 bool CommandLine::Init(int argc, const char* const* argv) {
@@ -223,9 +217,9 @@ bool CommandLine::Init(int argc, const char* const* argv) {
   }
 
   current_process_commandline_ = new CommandLine(NO_PROGRAM);
-#if BUILDFLAG(IS_WIN)
+#if defined(OS_WIN)
   current_process_commandline_->ParseFromString(::GetCommandLineW());
-#elif BUILDFLAG(IS_POSIX) || BUILDFLAG(IS_FUCHSIA)
+#elif defined(OS_POSIX) || defined(OS_FUCHSIA)
   current_process_commandline_->InitFromArgv(argc, argv);
 #else
 #error Unsupported platform
@@ -252,14 +246,14 @@ bool CommandLine::InitializedForCurrentProcess() {
   return !!current_process_commandline_;
 }
 
-#if BUILDFLAG(IS_WIN)
+#if defined(OS_WIN)
 // static
 CommandLine CommandLine::FromString(StringPieceType command_line) {
   CommandLine cmd(NO_PROGRAM);
   cmd.ParseFromString(command_line);
   return cmd;
 }
-#endif  // BUILDFLAG(IS_WIN)
+#endif  // defined(OS_WIN)
 
 void CommandLine::InitFromArgv(int argc,
                                const CommandLine::CharType* const* argv) {
@@ -282,9 +276,9 @@ FilePath CommandLine::GetProgram() const {
 }
 
 void CommandLine::SetProgram(const FilePath& program) {
-#if BUILDFLAG(IS_WIN)
+#if defined(OS_WIN)
   argv_[0] = StringType(TrimWhitespace(program.value(), TRIM_ALL));
-#elif BUILDFLAG(IS_POSIX) || BUILDFLAG(IS_FUCHSIA)
+#elif defined(OS_POSIX) || defined(OS_FUCHSIA)
   TrimWhitespaceASCII(program.value(), TRIM_ALL, &argv_[0]);
 #else
 #error Unsupported platform
@@ -302,17 +296,17 @@ bool CommandLine::HasSwitch(const char switch_constant[]) const {
 
 std::string CommandLine::GetSwitchValueASCII(StringPiece switch_string) const {
   StringType value = GetSwitchValueNative(switch_string);
-#if BUILDFLAG(IS_WIN)
+#if defined(OS_WIN)
   if (!IsStringASCII(base::AsStringPiece16(value))) {
-#elif BUILDFLAG(IS_POSIX) || BUILDFLAG(IS_FUCHSIA)
+#elif defined(OS_POSIX) || defined(OS_FUCHSIA)
   if (!IsStringASCII(value)) {
 #endif
     DLOG(WARNING) << "Value of switch (" << switch_string << ") must be ASCII.";
     return std::string();
   }
-#if BUILDFLAG(IS_WIN)
+#if defined(OS_WIN)
   return WideToUTF8(value);
-#elif BUILDFLAG(IS_POSIX) || BUILDFLAG(IS_FUCHSIA)
+#elif defined(OS_POSIX) || defined(OS_FUCHSIA)
   return value;
 #endif
 }
@@ -339,22 +333,16 @@ void CommandLine::AppendSwitchPath(StringPiece switch_string,
 
 void CommandLine::AppendSwitchNative(StringPiece switch_string,
                                      CommandLine::StringPieceType value) {
-#if BUILDFLAG(IS_WIN)
+#if defined(OS_WIN)
   const std::string switch_key = ToLowerASCII(switch_string);
   StringType combined_switch_string(UTF8ToWide(switch_key));
-#elif BUILDFLAG(IS_POSIX) || BUILDFLAG(IS_FUCHSIA)
+#elif defined(OS_POSIX) || defined(OS_FUCHSIA)
   StringPiece switch_key = switch_string;
   StringType combined_switch_string(switch_key);
 #endif
   size_t prefix_length = GetSwitchPrefixLength(combined_switch_string);
-  auto key = switch_key.substr(prefix_length);
-  if (g_duplicate_switch_handler) {
-    g_duplicate_switch_handler->ResolveDuplicate(key, value,
-                                                 switches_[std::string(key)]);
-  } else {
-    switches_[std::string(key)] = StringType(value);
-  }
-
+  base::InsertOrAssign(switches_, std::string(switch_key.substr(prefix_length)),
+                       StringType(value));
   // Preserve existing switch prefixes in |argv_|; only append one if necessary.
   if (prefix_length == 0) {
     combined_switch_string.insert(0, kSwitchPrefixes[0].data(),
@@ -363,15 +351,14 @@ void CommandLine::AppendSwitchNative(StringPiece switch_string,
   if (!value.empty())
     base::StrAppend(&combined_switch_string, {kSwitchValueSeparator, value});
   // Append the switch and update the switches/arguments divider |begin_args_|.
-  argv_.insert(argv_.begin() + begin_args_, combined_switch_string);
-  begin_args_ = (CheckedNumeric(begin_args_) + 1).ValueOrDie();
+  argv_.insert(argv_.begin() + begin_args_++, combined_switch_string);
 }
 
 void CommandLine::AppendSwitchASCII(StringPiece switch_string,
                                     StringPiece value_string) {
-#if BUILDFLAG(IS_WIN)
+#if defined(OS_WIN)
   AppendSwitchNative(switch_string, UTF8ToWide(value_string));
-#elif BUILDFLAG(IS_POSIX) || BUILDFLAG(IS_FUCHSIA)
+#elif defined(OS_POSIX) || defined(OS_FUCHSIA)
   AppendSwitchNative(switch_string, value_string);
 #else
 #error Unsupported platform
@@ -379,9 +366,9 @@ void CommandLine::AppendSwitchASCII(StringPiece switch_string,
 }
 
 void CommandLine::RemoveSwitch(base::StringPiece switch_key_without_prefix) {
-#if BUILDFLAG(IS_WIN)
+#if defined(OS_WIN)
   StringType switch_key_native = UTF8ToWide(switch_key_without_prefix);
-#elif BUILDFLAG(IS_POSIX) || BUILDFLAG(IS_FUCHSIA)
+#elif defined(OS_POSIX) || defined(OS_FUCHSIA)
   StringType switch_key_native(switch_key_without_prefix);
 #endif
 
@@ -430,10 +417,10 @@ CommandLine::StringVector CommandLine::GetArgs() const {
 }
 
 void CommandLine::AppendArg(StringPiece value) {
-#if BUILDFLAG(IS_WIN)
+#if defined(OS_WIN)
   DCHECK(IsStringUTF8(value));
   AppendArgNative(UTF8ToWide(value));
-#elif BUILDFLAG(IS_POSIX) || BUILDFLAG(IS_FUCHSIA)
+#elif defined(OS_POSIX) || defined(OS_FUCHSIA)
   AppendArgNative(value);
 #else
 #error Unsupported platform
@@ -474,7 +461,7 @@ void CommandLine::PrependWrapper(StringPieceType wrapper) {
   begin_args_ += wrapper_argv.size();
 }
 
-#if BUILDFLAG(IS_WIN)
+#if defined(OS_WIN)
 void CommandLine::ParseFromString(StringPieceType command_line) {
   command_line = TrimWhitespace(command_line, TRIM_ALL);
   if (command_line.empty())
@@ -510,19 +497,19 @@ void CommandLine::ParseFromString(StringPieceType command_line) {
   if (downlevel_shell32_dll)
     ::FreeLibrary(downlevel_shell32_dll);
 }
-#endif  // BUILDFLAG(IS_WIN)
+#endif  // defined(OS_WIN)
 
 void CommandLine::AppendSwitchesAndArguments(
     const CommandLine::StringVector& argv) {
   bool parse_switches = true;
-#if BUILDFLAG(IS_WIN)
+#if defined(OS_WIN)
   const bool is_parsed_from_string = !raw_command_line_string_.empty();
 #endif
   for (size_t i = 1; i < argv.size(); ++i) {
     CommandLine::StringType arg = argv[i];
-#if BUILDFLAG(IS_WIN)
+#if defined(OS_WIN)
     arg = CommandLine::StringType(TrimWhitespace(arg, TRIM_ALL));
-#elif BUILDFLAG(IS_POSIX) || BUILDFLAG(IS_FUCHSIA)
+#elif defined(OS_POSIX) || defined(OS_FUCHSIA)
     TrimWhitespaceASCII(arg, TRIM_ALL, &arg);
 #endif
 
@@ -530,14 +517,14 @@ void CommandLine::AppendSwitchesAndArguments(
     CommandLine::StringType switch_value;
     parse_switches &= (arg != kSwitchTerminator);
     if (parse_switches && IsSwitch(arg, &switch_string, &switch_value)) {
-#if BUILDFLAG(IS_WIN)
+#if defined(OS_WIN)
       if (is_parsed_from_string &&
           IsSwitchWithKey(switch_string, kSingleArgument)) {
         ParseAsSingleArgument(switch_string);
         return;
       }
       AppendSwitchNative(WideToUTF8(switch_string), switch_value);
-#elif BUILDFLAG(IS_POSIX) || BUILDFLAG(IS_FUCHSIA)
+#elif defined(OS_POSIX) || defined(OS_FUCHSIA)
       AppendSwitchNative(switch_string, switch_value);
 #else
 #error Unsupported platform
@@ -563,14 +550,14 @@ CommandLine::StringType CommandLine::GetArgumentsStringInternal(
     if (parse_switches && IsSwitch(arg, &switch_string, &switch_value)) {
       params.append(switch_string);
       if (!switch_value.empty()) {
-#if BUILDFLAG(IS_WIN)
+#if defined(OS_WIN)
         switch_value = QuoteForCommandLineToArgvW(
             switch_value, allow_unsafe_insert_sequences);
 #endif
         params.append(kSwitchValueSeparator + switch_value);
       }
     } else {
-#if BUILDFLAG(IS_WIN)
+#if defined(OS_WIN)
       arg = QuoteForCommandLineToArgvW(arg, allow_unsafe_insert_sequences);
 #endif
       params.append(arg);
@@ -581,7 +568,7 @@ CommandLine::StringType CommandLine::GetArgumentsStringInternal(
 
 CommandLine::StringType CommandLine::GetCommandLineString() const {
   StringType string(argv_[0]);
-#if BUILDFLAG(IS_WIN)
+#if defined(OS_WIN)
   string = QuoteForCommandLineToArgvW(string,
                                       /*allow_unsafe_insert_sequences=*/false);
 #endif
@@ -593,7 +580,7 @@ CommandLine::StringType CommandLine::GetCommandLineString() const {
   return string;
 }
 
-#if BUILDFLAG(IS_WIN)
+#if defined(OS_WIN)
 // NOTE: this function is used to set Chrome's open command in the registry
 // during update. Any change to the syntax must be compatible with the prior
 // version (i.e., any new syntax must be understood by older browsers expecting
@@ -622,19 +609,19 @@ CommandLine::GetCommandLineStringWithUnsafeInsertSequences() const {
   }
   return string;
 }
-#endif  // BUILDFLAG(IS_WIN)
+#endif  // defined(OS_WIN)
 
 CommandLine::StringType CommandLine::GetArgumentsString() const {
   return GetArgumentsStringInternal(/*allow_unsafe_insert_sequences=*/false);
 }
 
-#if BUILDFLAG(IS_WIN)
+#if defined(OS_WIN)
 void CommandLine::ParseAsSingleArgument(
     const CommandLine::StringType& single_arg_switch) {
   DCHECK(!raw_command_line_string_.empty());
 
   // Remove any previously parsed arguments.
-  argv_.resize(static_cast<size_t>(begin_args_));
+  argv_.resize(begin_args_);
 
   // Locate "--single-argument" in the process's raw command line. Results are
   // unpredictable if "--single-argument" appears as part of a previous
@@ -655,6 +642,6 @@ void CommandLine::ParseAsSingleArgument(
     AppendArgNative(arg);
   }
 }
-#endif  // BUILDFLAG(IS_WIN)
+#endif  // defined(OS_WIN)
 
 }  // namespace base

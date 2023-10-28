@@ -1,4 +1,4 @@
-// Copyright 2011 The Chromium Authors
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -8,7 +8,7 @@
 #include <tuple>
 
 #include "base/bind.h"
-#include "base/task/task_runner.h"
+#include "base/task_runner.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "third_party/skia/include/core/SkCanvas.h"
 
@@ -25,26 +25,24 @@ void RunCallbackIfNotCanceled(
 
 }  // namespace
 
-IconManager::IconManager() = default;
+IconManager::IconManager() {}
 
-IconManager::~IconManager() = default;
+IconManager::~IconManager() {
+}
 
 gfx::Image* IconManager::LookupIconFromFilepath(const base::FilePath& file_path,
                                                 IconLoader::IconSize size,
                                                 float scale) {
-  // Since loading the icon is synchronous on Chrome OS (and doesn't require
-  // disk access), if it hasn't already been loaded, load immediately.
-#if BUILDFLAG(IS_CHROMEOS)
-  gfx::Image* image = DoLookupIconFromFilepath(file_path, size, scale);
-  if (image)
-    return image;
+  auto group_it = group_cache_.find(file_path);
+  if (group_it == group_cache_.end())
+    return nullptr;
 
-  IconLoader::LoadIcon(
-      file_path, size, scale,
-      base::BindOnce(&IconManager::OnIconLoaded, weak_factory_.GetWeakPtr(),
-                     base::DoNothing(), file_path, size, scale));
-#endif
-  return DoLookupIconFromFilepath(file_path, size, scale);
+  CacheKey key(group_it->second, size, scale);
+  auto icon_it = icon_cache_.find(key);
+  if (icon_it == icon_cache_.end())
+    return nullptr;
+
+  return &icon_it->second;
 }
 
 base::CancelableTaskTracker::TaskId IconManager::LoadIcon(
@@ -59,28 +57,13 @@ base::CancelableTaskTracker::TaskId IconManager::LoadIcon(
   IconRequestCallback callback_runner = base::BindOnce(
       &RunCallbackIfNotCanceled, is_canceled, std::move(callback));
 
-  IconLoader::LoadIcon(
+  IconLoader* loader = IconLoader::Create(
       file_path, size, scale,
       base::BindOnce(&IconManager::OnIconLoaded, weak_factory_.GetWeakPtr(),
                      std::move(callback_runner), file_path, size, scale));
+  loader->Start();
 
   return id;
-}
-
-gfx::Image* IconManager::DoLookupIconFromFilepath(
-    const base::FilePath& file_path,
-    IconLoader::IconSize size,
-    float scale) {
-  auto group_it = group_cache_.find(file_path);
-  if (group_it == group_cache_.end())
-    return nullptr;
-
-  CacheKey key(group_it->second, size, scale);
-  auto icon_it = icon_cache_.find(key);
-  if (icon_it == icon_cache_.end())
-    return nullptr;
-
-  return &icon_it->second;
 }
 
 void IconManager::OnIconLoaded(IconRequestCallback callback,

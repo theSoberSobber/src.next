@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium Authors
+// Copyright 2019 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -37,8 +37,8 @@ public class SelectableTabGridView extends SelectableItemView<Integer> {
 
         if (actionButton != null) {
             InsetDrawable drawable = new InsetDrawable(selectionListIcon,
-                    (int) getContext().getResources().getDimension(
-                            R.dimen.selection_tab_grid_toggle_button_inset));
+                    (int) TabUiThemeProvider.getTabGridCardSelectButtonInsectDimension(
+                            getContext()));
             actionButton.setBackground(drawable);
             // Remove the original content from SelectableItemView since we are not using them.
             removeView(mContentView);

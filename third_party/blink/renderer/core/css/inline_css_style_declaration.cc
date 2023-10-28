@@ -26,7 +26,6 @@
 #include "third_party/blink/renderer/core/css/style_change_reason.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/element.h"
-#include "third_party/blink/renderer/core/dom/node_computed_style.h"
 
 namespace blink {
 
@@ -43,12 +42,7 @@ void InlineCSSStyleDeclaration::DidMutate(MutationType type) {
 
   parent_element_->NotifyInlineStyleMutation();
   parent_element_->ClearMutableInlineStyleIfEmpty();
-
-  const bool only_changed_independent_properties =
-      (type == kIndependentPropertyChanged);
-  parent_element_->InvalidateStyleAttribute(
-      only_changed_independent_properties);
-
+  parent_element_->InvalidateStyleAttribute();
   StyleAttributeMutationScope(this).DidInvalidateStyleAttr();
 }
 

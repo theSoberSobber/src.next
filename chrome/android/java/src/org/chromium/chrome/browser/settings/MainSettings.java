@@ -1,22 +1,15 @@
-// Copyright 2015 The Chromium Authors
+// Copyright 2015 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 package org.chromium.chrome.browser.settings;
 
-import static org.chromium.chrome.browser.password_manager.PasswordManagerHelper.hasChosenToSyncPasswords;
-import static org.chromium.chrome.browser.password_manager.PasswordManagerHelper.usesUnifiedPasswordManagerUI;
-
 import android.content.Context;
 import android.content.Intent;
-import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.provider.Settings;
-import android.text.style.ForegroundColorSpan;
-import android.text.style.RelativeSizeSpan;
-import android.text.style.SuperscriptSpan;
 import android.view.View;
 
 import androidx.annotation.Nullable;
@@ -25,18 +18,15 @@ import androidx.preference.Preference;
 import androidx.preference.PreferenceFragmentCompat;
 
 import org.chromium.base.ContextUtils;
-import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.chrome.R;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.datareduction.settings.DataReductionPreferenceFragment;
 import org.chromium.chrome.browser.homepage.HomepageManager;
-import org.chromium.chrome.browser.night_mode.NightModeMetrics.ThemeSettingsEntry;
+import org.chromium.chrome.browser.net.spdyproxy.DataReductionProxySettings;
 import org.chromium.chrome.browser.night_mode.NightModeUtils;
-import org.chromium.chrome.browser.night_mode.settings.ThemeSettingsFragment;
 import org.chromium.chrome.browser.password_check.PasswordCheck;
 import org.chromium.chrome.browser.password_check.PasswordCheckFactory;
 import org.chromium.chrome.browser.password_manager.ManagePasswordsReferrer;
 import org.chromium.chrome.browser.password_manager.PasswordManagerLauncher;
-import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
 import org.chromium.chrome.browser.signin.SyncConsentActivityLauncherImpl;
@@ -48,9 +38,9 @@ import org.chromium.chrome.browser.sync.settings.SignInPreference;
 import org.chromium.chrome.browser.sync.settings.SyncPromoPreference;
 import org.chromium.chrome.browser.sync.settings.SyncPromoPreference.State;
 import org.chromium.chrome.browser.sync.settings.SyncSettingsUtils;
+import org.chromium.chrome.browser.toolbar.adaptive.AdaptiveToolbarFeatures;
 import org.chromium.chrome.browser.toolbar.adaptive.AdaptiveToolbarStatePredictor;
 import org.chromium.chrome.browser.tracing.settings.DeveloperSettings;
-import org.chromium.chrome.browser.ui.signin.TangibleSyncCoordinator;
 import org.chromium.components.browser_ui.settings.ChromeBasePreference;
 import org.chromium.components.browser_ui.settings.ManagedPreferenceDelegate;
 import org.chromium.components.browser_ui.settings.SettingsLauncher;
@@ -60,10 +50,6 @@ import org.chromium.components.search_engines.TemplateUrlService;
 import org.chromium.components.signin.base.CoreAccountInfo;
 import org.chromium.components.signin.identitymanager.ConsentLevel;
 import org.chromium.components.signin.metrics.SigninAccessPoint;
-import org.chromium.components.user_prefs.UserPrefs;
-import org.chromium.ui.modaldialog.ModalDialogManager;
-import org.chromium.ui.text.SpanApplier;
-import org.chromium.ui.text.SpanApplier.SpanInfo;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -87,6 +73,7 @@ public class MainSettings extends PreferenceFragmentCompat
     public static final String PREF_UI_THEME = "ui_theme";
     public static final String PREF_PRIVACY = "privacy";
     public static final String PREF_SAFETY_CHECK = "safety_check";
+    public static final String PREF_DATA_REDUCTION = "data_reduction";
     public static final String PREF_NOTIFICATIONS = "notifications";
     public static final String PREF_DOWNLOADS = "downloads";
     public static final String PREF_DEVELOPER = "developer";
@@ -101,7 +88,6 @@ public class MainSettings extends PreferenceFragmentCompat
     private SignInPreference mSignInPreference;
     private ChromeBasePreference mManageSync;
     private @Nullable PasswordCheck mPasswordCheck;
-    private ObservableSupplier<ModalDialogManager> mModalDialogManagerSupplier;
 
     public MainSettings() {
         setHasOptionsMenu(true);
@@ -131,6 +117,7 @@ public class MainSettings extends PreferenceFragmentCompat
     @Override
     public void onDestroy() {
         super.onDestroy();
+        mSyncPromoPreference.onPreferenceFragmentDestroyed();
         // The component should only be destroyed when the activity has been closed by the user
         // (e.g. by pressing on the back button) and not when the activity is temporarily destroyed
         // by the system.
@@ -180,30 +167,22 @@ public class MainSettings extends PreferenceFragmentCompat
 
         updatePasswordsPreference();
 
-        if (usesUnifiedPasswordManagerUI()) {
-            setManagedPreferenceDelegateForPreference(PREF_PASSWORDS);
-        }
-
         setManagedPreferenceDelegateForPreference(PREF_SEARCH_ENGINE);
+        setManagedPreferenceDelegateForPreference(PREF_DATA_REDUCTION);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             // If we are on Android O+ the Notifications preference should lead to the Android
             // Settings notifications page.
-            Intent intent = new Intent();
-            intent.setAction(Settings.ACTION_APP_NOTIFICATION_SETTINGS);
-            intent.putExtra(Settings.EXTRA_APP_PACKAGE,
-                    ContextUtils.getApplicationContext().getPackageName());
-            PackageManager pm = getActivity().getPackageManager();
-            if (intent.resolveActivity(pm) != null) {
-                Preference notifications = findPreference(PREF_NOTIFICATIONS);
-                notifications.setOnPreferenceClickListener(preference -> {
-                    startActivity(intent);
-                    // We handle the click so the default action isn't triggered.
-                    return true;
-                });
-            } else {
-                removePreferenceIfPresent(PREF_NOTIFICATIONS);
-            }
+            Preference notifications = findPreference(PREF_NOTIFICATIONS);
+            notifications.setOnPreferenceClickListener(preference -> {
+                Intent intent = new Intent();
+                intent.setAction(Settings.ACTION_APP_NOTIFICATION_SETTINGS);
+                intent.putExtra(Settings.EXTRA_APP_PACKAGE,
+                        ContextUtils.getApplicationContext().getPackageName());
+                startActivity(intent);
+                // We handle the click so the default action isn't triggered.
+                return true;
+            });
         } else {
             // The per-website notification settings page can be accessed from Site
             // Settings, so we don't need to show this here.
@@ -215,9 +194,11 @@ public class MainSettings extends PreferenceFragmentCompat
             TemplateUrlServiceFactory.get().load();
         }
 
-        new AdaptiveToolbarStatePredictor(null).recomputeUiState(uiState -> {
+        new AdaptiveToolbarStatePredictor().recomputeUiState(uiState -> {
             // We don't show the toolbar shortcut settings page if disabled from finch.
-            if (uiState.canShowUi) return;
+            // Note, we can still have the old data collection experiment running for which
+            // |canShowUi| might be true. In that case, just hide the settings page.
+            if (uiState.canShowUi && !AdaptiveToolbarFeatures.isSingleVariantModeEnabled()) return;
             getPreferenceScreen().removePreference(findPreference(PREF_TOOLBAR_SHORTCUT));
         });
     }
@@ -253,16 +234,12 @@ public class MainSettings extends PreferenceFragmentCompat
 
         updateManageSyncPreference();
         updateSearchEnginePreference();
-        updatePasswordsPreference();
 
         Preference homepagePref = addPreferenceIfAbsent(PREF_HOMEPAGE);
         setOnOffSummary(homepagePref, HomepageManager.isHomepageEnabled());
 
         if (NightModeUtils.isNightModeSupported()) {
-            addPreferenceIfAbsent(PREF_UI_THEME)
-                    .getExtras()
-                    .putInt(ThemeSettingsFragment.KEY_THEME_SETTINGS_ENTRY,
-                            ThemeSettingsEntry.SETTINGS);
+            addPreferenceIfAbsent(PREF_UI_THEME);
         } else {
             removePreferenceIfPresent(PREF_UI_THEME);
         }
@@ -272,6 +249,10 @@ public class MainSettings extends PreferenceFragmentCompat
         } else {
             removePreferenceIfPresent(PREF_DEVELOPER);
         }
+
+        ChromeBasePreference dataReduction =
+                (ChromeBasePreference) findPreference(PREF_DATA_REDUCTION);
+        dataReduction.setSummary(DataReductionPreferenceFragment.generateSummary(getResources()));
     }
 
     private Preference addPreferenceIfAbsent(String key) {
@@ -308,13 +289,9 @@ public class MainSettings extends PreferenceFragmentCompat
             } else if (isSyncConsentAvailable) {
                 SettingsLauncher settingsLauncher = new SettingsLauncherImpl();
                 settingsLauncher.launchSettingsActivity(context, ManageSyncSettings.class);
-            } else if (ChromeFeatureList.isEnabled(ChromeFeatureList.TANGIBLE_SYNC)) {
-                TangibleSyncCoordinator.start(requireContext(), mModalDialogManagerSupplier.get(),
-                        SyncConsentActivityLauncherImpl.get(),
-                        SigninAccessPoint.SETTINGS_SYNC_OFF_ROW);
             } else {
                 SyncConsentActivityLauncherImpl.get().launchActivityForPromoDefaultFlow(
-                        context, SigninAccessPoint.SETTINGS_SYNC_OFF_ROW, primaryAccountName);
+                        context, SigninAccessPoint.SETTINGS, primaryAccountName);
             }
             return true;
         });
@@ -340,49 +317,11 @@ public class MainSettings extends PreferenceFragmentCompat
 
     private void updatePasswordsPreference() {
         Preference passwordsPreference = findPreference(PREF_PASSWORDS);
-        if (usesUnifiedPasswordManagerUI()) {
-            // TODO(crbug.com/1217070): Move this to the layout xml once the feature is rolled out
-            passwordsPreference.setTitle(getPasswordsPreferenceElementTitle());
-        }
         passwordsPreference.setOnPreferenceClickListener(preference -> {
-            if (shouldShowNewLabelForPasswordsPreference()) {
-                UserPrefs.get(Profile.getLastUsedRegularProfile())
-                        .setBoolean(Pref.PASSWORDS_PREF_WITH_NEW_LABEL_USED, true);
-            }
-            PasswordManagerLauncher.showPasswordSettings(getActivity(),
-                    ManagePasswordsReferrer.CHROME_SETTINGS, mModalDialogManagerSupplier);
+            PasswordManagerLauncher.showPasswordSettings(
+                    getActivity(), ManagePasswordsReferrer.CHROME_SETTINGS);
             return true;
         });
-    }
-
-    private boolean shouldShowNewLabelForPasswordsPreference() {
-        return usesUnifiedPasswordManagerUI() && hasChosenToSyncPasswords(SyncService.get())
-                && !UserPrefs.get(Profile.getLastUsedRegularProfile())
-                            .getBoolean(Pref.PASSWORDS_PREF_WITH_NEW_LABEL_USED);
-    }
-
-    // TODO(crbug.com/1217070): remove this method once UPM feature is rolled out.
-    // String should be defined in the layout XML.
-    private CharSequence getPasswordsPreferenceElementTitle() {
-        Context context = getContext();
-        if (shouldShowNewLabelForPasswordsPreference()) {
-            // Show the styled "New" text if the user did not accessed the new Password Manager
-            // settings.
-            return SpanApplier.applySpans(context.getString(R.string.password_settings_title_gpm),
-                    new SpanInfo("<new>", "</new>", new SuperscriptSpan(),
-                            new RelativeSizeSpan(0.75f),
-                            new ForegroundColorSpan(
-                                    context.getColor(R.color.default_text_color_blue_baseline))));
-        } else {
-            // Remove the "NEW" text and the trailing whitespace.
-            return (CharSequence) (SpanApplier
-                                           .removeSpanText(
-                                                   context.getString(
-                                                           R.string.password_settings_title_gpm),
-                                                   new SpanInfo("<new>", "</new>"))
-                                           .toString()
-                                           .trim());
-        }
     }
 
     private void setOnOffSummary(Preference pref, boolean isOn) {
@@ -403,21 +342,12 @@ public class MainSettings extends PreferenceFragmentCompat
     }
 
     private void onSyncPromoPreferenceStateChanged() {
-        if (ChromeFeatureList.isEnabled(ChromeFeatureList.SYNC_ANDROID_PROMOS_WITH_ILLUSTRATION)
-                || ChromeFeatureList.isEnabled(
-                        ChromeFeatureList.SYNC_ANDROID_PROMOS_WITH_SINGLE_BUTTON)
-                || ChromeFeatureList.isEnabled(ChromeFeatureList.SYNC_ANDROID_PROMOS_WITH_TITLE)) {
-            // For promo experiments, we want to have mSignInPreference and
-            // PREF_ACCOUNT_AND_GOOGLE_SERVICES_SECTION visible even if the personalized promo is
-            // shown, so skip setting the visibility.
-            return;
-        }
         // Remove "Account" section header if the personalized sign-in promo is shown.
         boolean isShowingPersonalizedSigninPromo =
                 mSyncPromoPreference.getState() == State.PERSONALIZED_SIGNIN_PROMO;
         findPreference(PREF_ACCOUNT_AND_GOOGLE_SERVICES_SECTION)
                 .setVisible(!isShowingPersonalizedSigninPromo);
-        mSignInPreference.setIsShowingPersonalizedSigninPromo(isShowingPersonalizedSigninPromo);
+        mSignInPreference.setVisible(!isShowingPersonalizedSigninPromo);
     }
 
     // TemplateUrlService.LoadListener implementation.
@@ -430,7 +360,6 @@ public class MainSettings extends PreferenceFragmentCompat
     @Override
     public void syncStateChanged() {
         updateManageSyncPreference();
-        updatePasswordsPreference();
     }
 
     @VisibleForTesting
@@ -442,32 +371,28 @@ public class MainSettings extends PreferenceFragmentCompat
         return new ChromeManagedPreferenceDelegate() {
             @Override
             public boolean isPreferenceControlledByPolicy(Preference preference) {
+                if (PREF_DATA_REDUCTION.equals(preference.getKey())) {
+                    return DataReductionProxySettings.getInstance().isDataReductionProxyManaged();
+                }
                 if (PREF_SEARCH_ENGINE.equals(preference.getKey())) {
                     return TemplateUrlServiceFactory.get().isDefaultSearchManaged();
-                }
-                if (usesUnifiedPasswordManagerUI() && PREF_PASSWORDS.equals(preference.getKey())) {
-                    return UserPrefs.get(Profile.getLastUsedRegularProfile())
-                            .isManagedPreference(Pref.CREDENTIALS_ENABLE_SERVICE);
                 }
                 return false;
             }
 
             @Override
             public boolean isPreferenceClickDisabledByPolicy(Preference preference) {
+                if (PREF_DATA_REDUCTION.equals(preference.getKey())) {
+                    DataReductionProxySettings settings = DataReductionProxySettings.getInstance();
+                    return settings.isDataReductionProxyManaged()
+                            && !settings.isDataReductionProxyEnabled();
+                }
                 if (PREF_SEARCH_ENGINE.equals(preference.getKey())) {
                     return TemplateUrlServiceFactory.get().isDefaultSearchManaged();
-                }
-                if (usesUnifiedPasswordManagerUI() && PREF_PASSWORDS.equals(preference.getKey())) {
-                    return false;
                 }
                 return isPreferenceControlledByPolicy(preference)
                         || isPreferenceControlledByCustodian(preference);
             }
         };
-    }
-
-    public void setModalDialogManagerSupplier(
-            ObservableSupplier<ModalDialogManager> modalDialogManagerSupplier) {
-        mModalDialogManagerSupplier = modalDialogManagerSupplier;
     }
 }

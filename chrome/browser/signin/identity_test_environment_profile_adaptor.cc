@@ -1,4 +1,4 @@
-// Copyright 2018 The Chromium Authors
+// Copyright 2018 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -10,10 +10,9 @@
 #include "chrome/browser/signin/identity_manager_factory.h"
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
+#include "ash/components/account_manager/account_manager_factory.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/browser_process_platform_part.h"
-#include "chromeos/ash/components/account_manager/account_manager_factory.h"
-#include "components/account_manager_core/chromeos/account_manager_facade_factory.h"
 #endif
 
 // static
@@ -52,10 +51,8 @@ IdentityTestEnvironmentProfileAdaptor::CreateProfileForIdentityTestEnvironment(
 // static
 void IdentityTestEnvironmentProfileAdaptor::
     SetIdentityTestEnvironmentFactoriesOnBrowserContext(
-        content::BrowserContext* context,
-        signin::AccountConsistencyMethod account_consistency) {
-  for (const auto& factory_pair :
-       GetIdentityTestEnvironmentFactories(account_consistency)) {
+        content::BrowserContext* context) {
+  for (const auto& factory_pair : GetIdentityTestEnvironmentFactories()) {
     factory_pair.first->SetTestingFactory(context, factory_pair.second);
   }
 }
@@ -90,8 +87,7 @@ IdentityTestEnvironmentProfileAdaptor::BuildIdentityManagerForTests(
   return signin::IdentityTestEnvironment::BuildIdentityManagerForTests(
       ChromeSigninClientFactory::GetForProfile(profile), profile->GetPrefs(),
       profile->GetPath(),
-      g_browser_process->platform_part()->GetAccountManagerFactory(),
-      GetAccountManagerFacade(profile->GetPath().value()));
+      g_browser_process->platform_part()->GetAccountManagerFactory());
 #else
   return signin::IdentityTestEnvironment::BuildIdentityManagerForTests(
       ChromeSigninClientFactory::GetForProfile(profile), profile->GetPrefs(),

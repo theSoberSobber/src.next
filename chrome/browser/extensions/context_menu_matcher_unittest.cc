@@ -1,10 +1,9 @@
-// Copyright 2020 The Chromium Authors
+// Copyright 2020 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include "chrome/browser/extensions/context_menu_matcher.h"
 
-#include "base/memory/raw_ptr.h"
 #include "chrome/browser/extensions/menu_manager.h"
 #include "chrome/browser/extensions/menu_manager_factory.h"
 #include "chrome/browser/extensions/test_extension_prefs.h"
@@ -28,9 +27,6 @@ class ContextMenuMatcherTest : public testing::Test {
       : profile_(std::make_unique<TestingProfile>()),
         manager_(CreateMenuManager()),
         prefs_(base::ThreadTaskRunnerHandle::Get()) {}
-
-  ContextMenuMatcherTest(const ContextMenuMatcherTest&) = delete;
-  ContextMenuMatcherTest& operator=(const ContextMenuMatcherTest&) = delete;
 
   // Returns a test item with the given string ID.
   std::unique_ptr<MenuItem> CreateTestItem(Extension* extension,
@@ -65,9 +61,12 @@ class ContextMenuMatcherTest : public testing::Test {
   content::BrowserTaskEnvironment task_environment_;
   std::unique_ptr<TestingProfile> profile_;
 
-  raw_ptr<MenuManager> manager_;
+  MenuManager* manager_;
   ExtensionList extensions_;
   TestExtensionPrefs prefs_;
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(ContextMenuMatcherTest);
 };
 
 // Tests appending an extension item with an invisible submenu.

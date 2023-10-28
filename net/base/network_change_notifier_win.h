@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -141,8 +141,7 @@ class NET_EXPORT_PRIVATE NetworkChangeNotifierWin
   mutable base::Lock last_computed_connection_type_lock_;
   ConnectionType last_computed_connection_type_;
 
-  std::atomic<ConnectionCost> last_computed_connection_cost_ =
-      ConnectionCost::CONNECTION_COST_UNKNOWN;
+  std::atomic<ConnectionCost> last_computed_connection_cost_;
 
   // Result of IsOffline() when NotifyObserversOfConnectionTypeChange()
   // was last called.

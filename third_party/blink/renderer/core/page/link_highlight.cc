@@ -7,8 +7,6 @@
 #include <memory>
 
 #include "cc/animation/animation_host.h"
-#include "cc/animation/animation_id_provider.h"
-#include "cc/animation/animation_timeline.h"
 #include "cc/layers/picture_layer.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/renderer/core/dom/node.h"
@@ -17,6 +15,7 @@
 #include "third_party/blink/renderer/core/page/chrome_client.h"
 #include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/core/paint/link_highlight_impl.h"
+#include "third_party/blink/renderer/platform/animation/compositor_animation_timeline.h"
 
 namespace blink {
 
@@ -34,9 +33,8 @@ void LinkHighlight::RemoveHighlight() {
   if (!impl_)
     return;
 
-  if (timeline_ && impl_->GetCompositorAnimation())
-    timeline_->DetachAnimation(impl_->GetCompositorAnimation()->CcAnimation());
-
+  if (timeline_)
+    timeline_->AnimationDestroyed(*impl_);
   impl_.reset();
 }
 
@@ -65,8 +63,8 @@ void LinkHighlight::SetTapHighlight(Node* node) {
     return;
 
   impl_ = std::make_unique<LinkHighlightImpl>(node);
-  if (timeline_ && impl_->GetCompositorAnimation())
-    timeline_->AttachAnimation(impl_->GetCompositorAnimation()->CcAnimation());
+  if (timeline_)
+    timeline_->AnimationAttached(*impl_);
 }
 
 LocalFrame* LinkHighlight::MainFrame() const {
@@ -75,9 +73,9 @@ LocalFrame* LinkHighlight::MainFrame() const {
              : nullptr;
 }
 
-void LinkHighlight::UpdateOpacityAndRequestAnimation() {
+void LinkHighlight::StartHighlightAnimationIfNeeded() {
   if (impl_)
-    impl_->UpdateOpacityAndRequestAnimation();
+    impl_->StartHighlightAnimationIfNeeded();
 
   if (auto* local_frame = MainFrame())
     GetPage().GetChromeClient().ScheduleAnimation(local_frame->View());
@@ -87,16 +85,15 @@ void LinkHighlight::AnimationHostInitialized(
     cc::AnimationHost& animation_host) {
   animation_host_ = &animation_host;
   if (Platform::Current()->IsThreadedAnimationEnabled()) {
-    timeline_ = cc::AnimationTimeline::Create(
-        cc::AnimationIdProvider::NextTimelineId());
-    animation_host_->AddAnimationTimeline(timeline_.get());
+    timeline_ = std::make_unique<CompositorAnimationTimeline>();
+    animation_host_->AddAnimationTimeline(timeline_->GetAnimationTimeline());
   }
 }
 
 void LinkHighlight::WillCloseAnimationHost() {
   RemoveHighlight();
   if (timeline_) {
-    animation_host_->RemoveAnimationTimeline(timeline_.get());
+    animation_host_->RemoveAnimationTimeline(timeline_->GetAnimationTimeline());
     timeline_.reset();
   }
   animation_host_ = nullptr;
@@ -120,12 +117,6 @@ void LinkHighlight::UpdateAfterPrePaint() {
 void LinkHighlight::Paint(GraphicsContext& context) const {
   if (impl_)
     impl_->Paint(context);
-}
-
-void LinkHighlight::UpdateAfterPaint(
-    const PaintArtifactCompositor* paint_artifact_compositor) {
-  if (impl_)
-    impl_->UpdateAfterPaint(paint_artifact_compositor);
 }
 
 }  // namespace blink

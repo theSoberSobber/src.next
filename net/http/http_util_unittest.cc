@@ -1,14 +1,13 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
-
-#include "net/http/http_util.h"
 
 #include <algorithm>
 #include <limits>
 
+#include "base/cxx17_backports.h"
 #include "base/strings/string_util.h"
-#include "base/time/time.h"
+#include "net/http/http_util.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace net {
@@ -38,7 +37,6 @@ TEST(HttpUtilTest, IsSafeHeader) {
       "keep-alive",
       "origin",
       "referer",
-      "set-cookie",
       "te",
       "trailer",
       "transfer-encoding",
@@ -46,10 +44,11 @@ TEST(HttpUtilTest, IsSafeHeader) {
       "user-agent",
       "via",
   };
-  for (const auto* unsafe_header : unsafe_headers) {
-    EXPECT_FALSE(HttpUtil::IsSafeHeader(unsafe_header)) << unsafe_header;
-    EXPECT_FALSE(HttpUtil::IsSafeHeader(base::ToUpperASCII(unsafe_header)))
-        << unsafe_header;
+  for (size_t i = 0; i < base::size(unsafe_headers); ++i) {
+    EXPECT_FALSE(HttpUtil::IsSafeHeader(unsafe_headers[i]))
+      << unsafe_headers[i];
+    EXPECT_FALSE(HttpUtil::IsSafeHeader(base::ToUpperASCII(unsafe_headers[i])))
+        << unsafe_headers[i];
   }
   static const char* const safe_headers[] = {
       "foo",
@@ -92,10 +91,10 @@ TEST(HttpUtilTest, IsSafeHeader) {
       "user_agent",
       "viaa",
   };
-  for (const auto* safe_header : safe_headers) {
-    EXPECT_TRUE(HttpUtil::IsSafeHeader(safe_header)) << safe_header;
-    EXPECT_TRUE(HttpUtil::IsSafeHeader(base::ToUpperASCII(safe_header)))
-        << safe_header;
+  for (size_t i = 0; i < base::size(safe_headers); ++i) {
+    EXPECT_TRUE(HttpUtil::IsSafeHeader(safe_headers[i])) << safe_headers[i];
+    EXPECT_TRUE(HttpUtil::IsSafeHeader(base::ToUpperASCII(safe_headers[i])))
+        << safe_headers[i];
   }
 }
 
@@ -339,10 +338,10 @@ TEST(HttpUtilTest, LocateEndOfHeaders) {
       {"foo\nbar\n\r\njunk", 10},
       {"foo\nbar\r\n\njunk", 10},
   };
-  for (const auto& test : tests) {
-    size_t input_len = strlen(test.input);
-    size_t eoh = HttpUtil::LocateEndOfHeaders(test.input, input_len);
-    EXPECT_EQ(test.expected_result, eoh);
+  for (size_t i = 0; i < base::size(tests); ++i) {
+    size_t input_len = strlen(tests[i].input);
+    size_t eoh = HttpUtil::LocateEndOfHeaders(tests[i].input, input_len);
+    EXPECT_EQ(tests[i].expected_result, eoh);
   }
 }
 
@@ -363,10 +362,11 @@ TEST(HttpUtilTest, LocateEndOfAdditionalHeaders) {
       {"foo\nbar\n\r\njunk", 10},
       {"foo\nbar\r\n\njunk", 10},
   };
-  for (const auto& test : tests) {
-    size_t input_len = strlen(test.input);
-    size_t eoh = HttpUtil::LocateEndOfAdditionalHeaders(test.input, input_len);
-    EXPECT_EQ(test.expected_result, eoh);
+  for (size_t i = 0; i < base::size(tests); ++i) {
+    size_t input_len = strlen(tests[i].input);
+    size_t eoh =
+        HttpUtil::LocateEndOfAdditionalHeaders(tests[i].input, input_len);
+    EXPECT_EQ(tests[i].expected_result, eoh);
   }
 }
 TEST(HttpUtilTest, AssembleRawHeaders) {
@@ -685,12 +685,12 @@ TEST(HttpUtilTest, AssembleRawHeaders) {
     },
   };
   // clang-format on
-  for (const auto& test : tests) {
-    std::string input = test.input;
+  for (size_t i = 0; i < base::size(tests); ++i) {
+    std::string input = tests[i].input;
     std::replace(input.begin(), input.end(), '|', '\0');
     std::string raw = HttpUtil::AssembleRawHeaders(input);
     std::replace(raw.begin(), raw.end(), '\0', '|');
-    EXPECT_EQ(test.expected_result, raw);
+    EXPECT_EQ(tests[i].expected_result, raw);
   }
 }
 
@@ -725,7 +725,7 @@ TEST(HttpUtilTest, RequestUrlSanitize) {
       "wss://www.google.com:78/foobar?query=1",
     }
   };
-  for (size_t i = 0; i < std::size(tests); ++i) {
+  for (size_t i = 0; i < base::size(tests); ++i) {
     SCOPED_TRACE(i);
 
     GURL url(GURL(tests[i].url));
@@ -986,63 +986,25 @@ TEST(HttpUtilTest, ParseContentType) {
     { "*/*", "", "", false, "" },
     { "*/*; charset=utf-8", "*/*", "utf-8", true, "" },
     { "*/* ", "*/*", "", false, "" },
-    // Regression test for https://crbug.com/1326529
-    { "teXT/html", "text/html", "", false, ""},
     // TODO(abarth): Add more interesting test cases.
   };
   // clang-format on
-  for (const auto& test : tests) {
+  for (size_t i = 0; i < base::size(tests); ++i) {
     std::string mime_type;
     std::string charset;
     bool had_charset = false;
     std::string boundary;
-    HttpUtil::ParseContentType(test.content_type, &mime_type, &charset,
+    HttpUtil::ParseContentType(tests[i].content_type, &mime_type, &charset,
                                &had_charset, &boundary);
-    EXPECT_EQ(test.expected_mime_type, mime_type)
-        << "content_type=" << test.content_type;
-    EXPECT_EQ(test.expected_charset, charset)
-        << "content_type=" << test.content_type;
-    EXPECT_EQ(test.expected_had_charset, had_charset)
-        << "content_type=" << test.content_type;
-    EXPECT_EQ(test.expected_boundary, boundary)
-        << "content_type=" << test.content_type;
+    EXPECT_EQ(tests[i].expected_mime_type, mime_type)
+        << "content_type=" << tests[i].content_type;
+    EXPECT_EQ(tests[i].expected_charset, charset)
+        << "content_type=" << tests[i].content_type;
+    EXPECT_EQ(tests[i].expected_had_charset, had_charset)
+        << "content_type=" << tests[i].content_type;
+    EXPECT_EQ(tests[i].expected_boundary, boundary)
+        << "content_type=" << tests[i].content_type;
   }
-}
-
-TEST(HttpUtilTest, ParseContentResetCharset) {
-  std::string mime_type;
-  std::string charset;
-  bool had_charset = false;
-  std::string boundary;
-
-  // Set mime (capitalization should be ignored), but not charset.
-  HttpUtil::ParseContentType("Text/Html", &mime_type, &charset, &had_charset,
-                             &boundary);
-  EXPECT_EQ("text/html", mime_type);
-  EXPECT_EQ("", charset);
-  EXPECT_FALSE(had_charset);
-
-  // The same mime, add charset.
-  HttpUtil::ParseContentType("tExt/hTml;charset=utf-8", &mime_type, &charset,
-                             &had_charset, &boundary);
-  EXPECT_EQ("text/html", mime_type);
-  EXPECT_EQ("utf-8", charset);
-  EXPECT_TRUE(had_charset);
-
-  // The same mime (different capitalization), but no charset - should not clear
-  // charset.
-  HttpUtil::ParseContentType("teXt/htMl", &mime_type, &charset, &had_charset,
-                             &boundary);
-  EXPECT_EQ("text/html", mime_type);
-  EXPECT_EQ("utf-8", charset);
-  EXPECT_TRUE(had_charset);
-
-  // A different mime will clear charset.
-  HttpUtil::ParseContentType("texT/plaiN", &mime_type, &charset, &had_charset,
-                             &boundary);
-  EXPECT_EQ("text/plain", mime_type);
-  EXPECT_EQ("", charset);
-  EXPECT_TRUE(had_charset);
 }
 
 TEST(HttpUtilTest, ParseContentRangeHeader) {
@@ -1125,17 +1087,17 @@ TEST(HttpUtilTest, ParseRetryAfterHeader) {
                {"-1", false, base::TimeDelta()},
                {"+0", false, base::TimeDelta()},
                {"+1", false, base::TimeDelta()},
-               {"0", true, base::Seconds(0)},
-               {"1", true, base::Seconds(1)},
-               {"2", true, base::Seconds(2)},
-               {"3", true, base::Seconds(3)},
-               {"60", true, base::Seconds(60)},
-               {"3600", true, base::Seconds(3600)},
-               {"86400", true, base::Seconds(86400)},
+               {"0", true, base::TimeDelta::FromSeconds(0)},
+               {"1", true, base::TimeDelta::FromSeconds(1)},
+               {"2", true, base::TimeDelta::FromSeconds(2)},
+               {"3", true, base::TimeDelta::FromSeconds(3)},
+               {"60", true, base::TimeDelta::FromSeconds(60)},
+               {"3600", true, base::TimeDelta::FromSeconds(3600)},
+               {"86400", true, base::TimeDelta::FromSeconds(86400)},
                {"Thu, 1 Jan 2015 12:34:56 GMT", true, later - now},
                {"Mon, 1 Jan 1900 12:34:56 GMT", false, base::TimeDelta()}};
 
-  for (size_t i = 0; i < std::size(tests); ++i) {
+  for (size_t i = 0; i < base::size(tests); ++i) {
     base::TimeDelta retry_after;
     bool return_value = HttpUtil::ParseRetryAfterHeader(
         tests[i].retry_after_string, now, &retry_after);
@@ -1631,8 +1593,8 @@ TEST(HttpUtilTest, ParseAcceptEncoding) {
       {"foo,\"bar\"", "INVALID"},
   };
 
-  for (const auto& test : tests) {
-    std::string value(test.value);
+  for (size_t i = 0; i < base::size(tests); ++i) {
+    std::string value(tests[i].value);
     std::string reformatted;
     std::set<std::string> allowed_encodings;
     if (!HttpUtil::ParseAcceptEncoding(value, &allowed_encodings)) {
@@ -1643,7 +1605,7 @@ TEST(HttpUtilTest, ParseAcceptEncoding) {
         encodings_list.push_back(encoding);
       reformatted = base::JoinString(encodings_list, "|");
     }
-    EXPECT_STREQ(test.expected, reformatted.c_str())
+    EXPECT_STREQ(tests[i].expected, reformatted.c_str())
         << "value=\"" << value << "\"";
   }
 }
@@ -1661,8 +1623,8 @@ TEST(HttpUtilTest, ParseContentEncoding) {
       {"foo,\"bar\"", "INVALID"},
   };
 
-  for (const auto& test : tests) {
-    std::string value(test.value);
+  for (size_t i = 0; i < base::size(tests); ++i) {
+    std::string value(tests[i].value);
     std::string reformatted;
     std::set<std::string> used_encodings;
     if (!HttpUtil::ParseContentEncoding(value, &used_encodings)) {
@@ -1673,7 +1635,7 @@ TEST(HttpUtilTest, ParseContentEncoding) {
         encodings_list.push_back(encoding);
       reformatted = base::JoinString(encodings_list, "|");
     }
-    EXPECT_STREQ(test.expected, reformatted.c_str())
+    EXPECT_STREQ(tests[i].expected, reformatted.c_str())
         << "value=\"" << value << "\"";
   }
 }

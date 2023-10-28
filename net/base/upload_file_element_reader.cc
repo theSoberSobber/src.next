@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -9,7 +9,8 @@
 #include "base/bind.h"
 #include "base/files/file_util.h"
 #include "base/location.h"
-#include "base/task/task_runner.h"
+#include "base/task_runner.h"
+#include "base/task_runner_util.h"
 #include "net/base/file_stream.h"
 #include "net/base/io_buffer.h"
 #include "net/base/net_errors.h"
@@ -35,7 +36,11 @@ UploadFileElementReader::UploadFileElementReader(
       path_(path),
       range_offset_(range_offset),
       range_length_(range_length),
-      expected_modification_time_(expected_modification_time) {
+      expected_modification_time_(expected_modification_time),
+      content_length_(0),
+      bytes_remaining_(0),
+      next_state_(State::IDLE),
+      init_called_while_operation_pending_(false) {
   DCHECK(file.IsValid());
   DCHECK(task_runner_.get());
   file_stream_ = std::make_unique<FileStream>(std::move(file), task_runner);
@@ -51,7 +56,11 @@ UploadFileElementReader::UploadFileElementReader(
       path_(path),
       range_offset_(range_offset),
       range_length_(range_length),
-      expected_modification_time_(expected_modification_time) {
+      expected_modification_time_(expected_modification_time),
+      content_length_(0),
+      bytes_remaining_(0),
+      next_state_(State::IDLE),
+      init_called_while_operation_pending_(false) {
   DCHECK(task_runner_.get());
 }
 
@@ -237,19 +246,18 @@ int UploadFileElementReader::DoGetFileInfo(int result) {
 
   next_state_ = State::GET_FILE_INFO_COMPLETE;
 
-  auto file_info = std::make_unique<base::File::Info>();
-  auto* file_info_ptr = file_info.get();
+  base::File::Info* owned_file_info = new base::File::Info;
   result = file_stream_->GetFileInfo(
-      file_info_ptr,
+      owned_file_info,
       base::BindOnce(
           [](base::WeakPtr<UploadFileElementReader> weak_this,
-             std::unique_ptr<base::File::Info> file_info, int result) {
+             base::File::Info* file_info, int result) {
             if (!weak_this)
               return;
             weak_this->file_info_ = *file_info;
             weak_this->OnIOComplete(result);
           },
-          weak_ptr_factory_.GetWeakPtr(), std::move(file_info)));
+          weak_ptr_factory_.GetWeakPtr(), base::Owned(owned_file_info)));
   // GetFileInfo() can't succeed synchronously.
   DCHECK_NE(result, OK);
   return result;

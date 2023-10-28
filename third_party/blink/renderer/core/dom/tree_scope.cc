@@ -54,45 +54,25 @@
 #include "third_party/blink/renderer/core/svg/svg_tree_scope_resources.h"
 #include "third_party/blink/renderer/platform/bindings/script_forbidden_scope.h"
 #include "third_party/blink/renderer/platform/wtf/vector.h"
-#include "ui/gfx/geometry/point_conversions.h"
 
 namespace blink {
 
-TreeScope::TreeScope(ContainerNode& root_node,
-                     Document& document,
-                     V8ObservableArrayCSSStyleSheet::SetAlgorithmCallback
-                         adopted_style_sheets_set_callback,
-                     V8ObservableArrayCSSStyleSheet::DeleteAlgorithmCallback
-                         adopted_style_sheets_delete_callback)
+TreeScope::TreeScope(ContainerNode& root_node, Document& document)
     : root_node_(&root_node),
       document_(&document),
       parent_tree_scope_(&document),
       id_target_observer_registry_(
-          MakeGarbageCollected<IdTargetObserverRegistry>()),
-      adopted_style_sheets_(
-          MakeGarbageCollected<V8ObservableArrayCSSStyleSheet>(
-              &root_node,
-              adopted_style_sheets_set_callback,
-              adopted_style_sheets_delete_callback)) {
+          MakeGarbageCollected<IdTargetObserverRegistry>()) {
   DCHECK_NE(root_node, document);
   root_node_->SetTreeScope(this);
 }
 
-TreeScope::TreeScope(Document& document,
-                     V8ObservableArrayCSSStyleSheet::SetAlgorithmCallback
-                         adopted_style_sheets_set_callback,
-                     V8ObservableArrayCSSStyleSheet::DeleteAlgorithmCallback
-                         adopted_style_sheets_delete_callback)
+TreeScope::TreeScope(Document& document)
     : root_node_(document),
       document_(&document),
       parent_tree_scope_(nullptr),
       id_target_observer_registry_(
-          MakeGarbageCollected<IdTargetObserverRegistry>()),
-      adopted_style_sheets_(
-          MakeGarbageCollected<V8ObservableArrayCSSStyleSheet>(
-              &document,
-              adopted_style_sheets_set_callback,
-              adopted_style_sheets_delete_callback)) {
+          MakeGarbageCollected<IdTargetObserverRegistry>()) {
   root_node_->SetTreeScope(this);
 }
 
@@ -214,7 +194,7 @@ HTMLMapElement* TreeScope::GetImageMap(const String& url) const {
 // If the point is not in the viewport, returns false. Otherwise, adjusts the
 // point to account for the frame's zoom and scroll.
 static bool PointInFrameContentIfVisible(Document& document,
-                                         gfx::PointF& point_in_frame) {
+                                         DoublePoint& point_in_frame) {
   LocalFrame* frame = document.GetFrame();
   if (!frame)
     return false;
@@ -226,13 +206,13 @@ static bool PointInFrameContentIfVisible(Document& document,
   document.UpdateStyleAndLayout(DocumentUpdateReason::kHitTest);
 
   auto* scrollable_area = frame_view->LayoutViewport();
-  gfx::Rect visible_frame_rect(scrollable_area->VisibleContentRect().size());
-  visible_frame_rect =
-      gfx::ScaleToRoundedRect(visible_frame_rect, 1 / frame->PageZoomFactor());
-  if (!visible_frame_rect.Contains(gfx::ToRoundedPoint(point_in_frame)))
+  IntRect visible_frame_rect(IntPoint(),
+                             scrollable_area->VisibleContentRect().Size());
+  visible_frame_rect.Scale(1 / frame->PageZoomFactor());
+  if (!visible_frame_rect.Contains(RoundedIntPoint(point_in_frame)))
     return false;
 
-  point_in_frame.Scale(frame->PageZoomFactor());
+  point_in_frame.Scale(frame->PageZoomFactor(), frame->PageZoomFactor());
   return true;
 }
 
@@ -243,7 +223,7 @@ HitTestResult HitTestInDocument(Document* document,
   if (!document->IsActive())
     return HitTestResult();
 
-  gfx::PointF hit_point(x, y);
+  DoublePoint hit_point(x, y);
   if (!PointInFrameContentIfVisible(*document, hit_point))
     return HitTestResult();
 
@@ -330,7 +310,7 @@ HeapVector<Member<Element>> TreeScope::ElementsFromHitTestResult(
 HeapVector<Member<Element>> TreeScope::ElementsFromPoint(double x,
                                                          double y) const {
   Document& document = RootNode().GetDocument();
-  gfx::PointF hit_point(x, y);
+  DoublePoint hit_point(x, y);
   if (!PointInFrameContentIfVisible(document, hit_point))
     return HeapVector<Member<Element>>();
 
@@ -353,66 +333,39 @@ SVGTreeScopeResources& TreeScope::EnsureSVGTreeScopedResources() {
 }
 
 bool TreeScope::HasAdoptedStyleSheets() const {
-  return adopted_style_sheets_->size();
+  return adopted_style_sheets_.size() > 0;
 }
 
-void TreeScope::StyleSheetWasAdded(CSSStyleSheet* sheet) {
-  GetDocument().GetStyleEngine().AdoptedStyleSheetAdded(*this, sheet);
+const HeapVector<Member<CSSStyleSheet>>& TreeScope::AdoptedStyleSheets() {
+  return adopted_style_sheets_;
 }
 
-void TreeScope::StyleSheetWasRemoved(CSSStyleSheet* sheet) {
-  GetDocument().GetStyleEngine().AdoptedStyleSheetRemoved(*this, sheet);
-}
-
-void TreeScope::OnAdoptedStyleSheetSet(
-    ScriptState* script_state,
-    V8ObservableArrayCSSStyleSheet& observable_array,
-    uint32_t index,
-    Member<CSSStyleSheet>& sheet,
+void TreeScope::SetAdoptedStyleSheets(
+    HeapVector<Member<CSSStyleSheet>>& adopted_style_sheets,
     ExceptionState& exception_state) {
-  if (!sheet->IsConstructed()) {
-    exception_state.ThrowDOMException(
-        DOMExceptionCode::kNotAllowedError,
-        "Can't adopt non-constructed stylesheets.");
-    return;
+  for (CSSStyleSheet* sheet : adopted_style_sheets) {
+    if (!sheet->IsConstructed()) {
+      exception_state.ThrowDOMException(
+          DOMExceptionCode::kNotAllowedError,
+          "Can't adopt non-constructed stylesheets.");
+      return;
+    }
+    Document* document = sheet->ConstructorDocument();
+    if (document && *document != GetDocument()) {
+      exception_state.ThrowDOMException(DOMExceptionCode::kNotAllowedError,
+                                        "Sharing constructed stylesheets in "
+                                        "multiple documents is not allowed");
+      return;
+    }
   }
-  Document* document = sheet->ConstructorDocument();
-  if (document && *document != GetDocument()) {
-    exception_state.ThrowDOMException(DOMExceptionCode::kNotAllowedError,
-                                      "Sharing constructed stylesheets in "
-                                      "multiple documents is not allowed");
-    return;
-  }
-  StyleSheetWasAdded(sheet.Get());
+  SetAdoptedStyleSheets(adopted_style_sheets);
 }
 
-void TreeScope::OnAdoptedStyleSheetDelete(
-    ScriptState* script_state,
-    V8ObservableArrayCSSStyleSheet& observable_array,
-    uint32_t index,
-    ExceptionState& exception_state) {
-  StyleSheetWasRemoved(adopted_style_sheets_->at(index));
-}
-
-void TreeScope::ClearAdoptedStyleSheets() {
-  HeapVector<Member<CSSStyleSheet>> removed;
-  removed.AppendRange(adopted_style_sheets_->begin(),
-                      adopted_style_sheets_->end());
-  adopted_style_sheets_->clear();
-  for (auto sheet : removed) {
-    StyleSheetWasRemoved(sheet);
-  }
-}
-
-void TreeScope::SetAdoptedStyleSheetsForTesting(
+void TreeScope::SetAdoptedStyleSheets(
     HeapVector<Member<CSSStyleSheet>>& adopted_style_sheets) {
-  ClearAdoptedStyleSheets();
-  for (auto sheet : adopted_style_sheets) {
-    DCHECK(sheet->IsConstructed());
-    DCHECK_EQ(sheet->ConstructorDocument(), GetDocument());
-    adopted_style_sheets_->push_back(sheet);
-    StyleSheetWasAdded(sheet);
-  }
+  GetDocument().GetStyleEngine().AdoptedStyleSheetsWillChange(
+      *this, adopted_style_sheets_, adopted_style_sheets);
+  adopted_style_sheets_ = adopted_style_sheets;
 }
 
 DOMSelection* TreeScope::GetSelection() const {
@@ -671,6 +624,20 @@ Element* TreeScope::GetElementByAccessKey(const String& key) const {
     }
   }
   return result;
+}
+
+void TreeScope::SetNeedsStyleRecalcForViewportUnits() {
+  for (Element* element = ElementTraversal::FirstWithin(RootNode()); element;
+       element = ElementTraversal::NextIncludingPseudo(*element)) {
+    if (ShadowRoot* root = element->GetShadowRoot())
+      root->SetNeedsStyleRecalcForViewportUnits();
+    const ComputedStyle* style = element->GetComputedStyle();
+    if (style && style->HasViewportUnits()) {
+      element->SetNeedsStyleRecalc(kLocalStyleChange,
+                                   StyleChangeReasonForTracing::Create(
+                                       style_change_reason::kViewportUnits));
+    }
+  }
 }
 
 void TreeScope::Trace(Visitor* visitor) const {

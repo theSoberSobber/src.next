@@ -5,7 +5,6 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_CORE_CSS_CSS_COLOR_H_
 #define THIRD_PARTY_BLINK_RENDERER_CORE_CSS_CSS_COLOR_H_
 
-#include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/css/css_value.h"
 #include "third_party/blink/renderer/platform/graphics/color.h"
 #include "third_party/blink/renderer/platform/wtf/casting.h"
@@ -20,7 +19,8 @@ namespace cssvalue {
 // Represents the non-keyword subset of <color>.
 class CORE_EXPORT CSSColor : public CSSValue {
  public:
-  static CSSColor* Create(const Color& color);
+  // TODO(sashab): Make this create() method take a Color instead.
+  static CSSColor* Create(RGBA32 color);
 
   CSSColor(Color color) : CSSValue(kColorClass), color_(color) {}
 

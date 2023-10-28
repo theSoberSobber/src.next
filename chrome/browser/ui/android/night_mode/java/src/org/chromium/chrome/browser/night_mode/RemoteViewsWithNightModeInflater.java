@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium Authors
+// Copyright 2019 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -8,6 +8,7 @@ import android.content.Context;
 import android.content.ContextWrapper;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
+import android.view.InflateException;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -55,9 +56,7 @@ public class RemoteViewsWithNightModeInflater {
     private static View inflateNormally(RemoteViews remoteViews, ViewGroup parent) {
         try {
             return remoteViews.apply(ContextUtils.getApplicationContext(), parent);
-        } catch (RuntimeException e) {
-            // Catching a general RuntimeException is ugly, but RemoteViews are passed in by the
-            // client app, so can contain all sorts of problems, eg. b/205503898.
+        } catch (RemoteViews.ActionException | InflateException | Resources.NotFoundException e) {
             Log.e(TAG, "Failed to inflate the RemoteViews", e);
             return null;
         }
@@ -92,9 +91,8 @@ public class RemoteViewsWithNightModeInflater {
 
             remoteViews.reapply(appContext, view);
             return view;
-        } catch (PackageManager.NameNotFoundException | RuntimeException e) {
-            // Catching a general RuntimeException is ugly, but RemoteViews are passed in by the
-            // client app, so can contain all sorts of problems, eg b/205503898.
+        } catch (RemoteViews.ActionException | InflateException | Resources.NotFoundException
+                | PackageManager.NameNotFoundException e) {
             Log.e(TAG, "Failed to inflate the RemoteViews", e);
             return null;
         }

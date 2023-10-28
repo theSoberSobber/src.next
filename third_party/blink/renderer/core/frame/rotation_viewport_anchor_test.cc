@@ -61,8 +61,8 @@ TEST_F(RotationViewportAnchorTest, SimpleAbsolutePosition) {
   WebView().MainFrameViewWidget()->Resize(gfx::Size(600, 400));
   Compositor().BeginFrame();
 
-  EXPECT_EQ(3050 - 200, layout_viewport->GetScrollOffset().x());
-  EXPECT_EQ(4050, layout_viewport->GetScrollOffset().y());
+  EXPECT_EQ(3050 - 200, layout_viewport->GetScrollOffset().Width());
+  EXPECT_EQ(4050, layout_viewport->GetScrollOffset().Height());
 }
 
 TEST_F(RotationViewportAnchorTest, PositionRelativeToViewportSize) {
@@ -93,32 +93,32 @@ TEST_F(RotationViewportAnchorTest, PositionRelativeToViewportSize) {
   Document& document = GetDocument();
   ScrollableArea* layout_viewport = document.View()->LayoutViewport();
 
-  gfx::Point target_position(
+  IntPoint target_position(
       5 * WebView().MainFrameViewWidget()->Size().width(),
       5 * WebView().MainFrameViewWidget()->Size().height());
 
   // Place the target at the top-center of the viewport. This is where the
   // rotation anchor finds the node to anchor to.
   layout_viewport->SetScrollOffset(
-      ScrollOffset(target_position.x() -
+      ScrollOffset(target_position.X() -
                        WebView().MainFrameViewWidget()->Size().width() / 2 + 25,
-                   target_position.y()),
+                   target_position.Y()),
       mojom::blink::ScrollType::kProgrammatic);
 
   WebView().MainFrameViewWidget()->Resize(gfx::Size(600, 100));
   Compositor().BeginFrame();
 
   target_position =
-      gfx::Point(5 * WebView().MainFrameViewWidget()->Size().width(),
-                 5 * WebView().MainFrameViewWidget()->Size().height());
+      IntPoint(5 * WebView().MainFrameViewWidget()->Size().width(),
+               5 * WebView().MainFrameViewWidget()->Size().height());
 
-  gfx::Point expected_offset(
-      target_position.x() -
+  IntPoint expected_offset(
+      target_position.X() -
           WebView().MainFrameViewWidget()->Size().width() / 2 + 25,
-      target_position.y());
+      target_position.Y());
 
-  EXPECT_EQ(expected_offset.x(), layout_viewport->GetScrollOffset().x());
-  EXPECT_EQ(expected_offset.y(), layout_viewport->GetScrollOffset().y());
+  EXPECT_EQ(expected_offset.X(), layout_viewport->GetScrollOffset().Width());
+  EXPECT_EQ(expected_offset.Y(), layout_viewport->GetScrollOffset().Height());
 }
 
 }  // namespace

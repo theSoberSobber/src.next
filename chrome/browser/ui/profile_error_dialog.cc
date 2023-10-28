@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -18,7 +18,7 @@
 
 namespace {
 
-#if !BUILDFLAG(IS_ANDROID) && BUILDFLAG(GOOGLE_CHROME_BRANDING)
+#if !defined(OS_ANDROID) && BUILDFLAG(GOOGLE_CHROME_BRANDING)
 constexpr char kProfileErrorFeedbackCategory[] = "FEEDBACK_PROFILE_ERROR";
 
 bool g_is_showing_profile_error_dialog = false;
@@ -38,16 +38,16 @@ void OnProfileErrorDialogDismissed(const std::string& diagnostics,
                            std::string() /* description_placeholder_text */,
                            kProfileErrorFeedbackCategory, diagnostics);
 }
-#endif  // !BUILDFLAG(IS_ANDROID) && BUILDFLAG(GOOGLE_CHROME_BRANDING)
+#endif  // !defined(OS_ANDROID) && BUILDFLAG(GOOGLE_CHROME_BRANDING)
 
 }  // namespace
 
 void ShowProfileErrorDialog(ProfileErrorType type,
                             int message_id,
                             const std::string& diagnostics) {
-#if BUILDFLAG(IS_ANDROID)
+#if defined(OS_ANDROID)
   NOTIMPLEMENTED();
-#else  // BUILDFLAG(IS_ANDROID)
+#else  // defined(OS_ANDROID)
   if (base::CommandLine::ForCurrentProcess()->HasSwitch(
           switches::kNoErrorDialogs)) {
     return;
@@ -69,5 +69,5 @@ void ShowProfileErrorDialog(ProfileErrorType type,
       l10n_util::GetStringUTF16(message_id));
 #endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
 
-#endif  // BUILDFLAG(IS_ANDROID)
+#endif  // !defined(OS_ANDROID)
 }

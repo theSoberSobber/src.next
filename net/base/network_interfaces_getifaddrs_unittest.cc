@@ -1,4 +1,4 @@
-// Copyright 2017 The Chromium Authors
+// Copyright 2017 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -19,7 +19,7 @@ namespace {
 
 class IPAttributesGetterTest : public internal::IPAttributesGetter {
  public:
-  IPAttributesGetterTest() = default;
+  IPAttributesGetterTest() {}
 
   // internal::IPAttributesGetter interface.
   bool IsInitialized() const override { return true; }

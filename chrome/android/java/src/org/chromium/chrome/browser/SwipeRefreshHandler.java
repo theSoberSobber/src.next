@@ -1,4 +1,4 @@
-// Copyright 2015 The Chromium Authors
+// Copyright 2015 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -9,7 +9,6 @@ import android.content.Context;
 import android.view.ViewGroup;
 import android.view.ViewGroup.LayoutParams;
 
-import androidx.annotation.ColorInt;
 import androidx.annotation.Nullable;
 
 import org.chromium.base.ThreadUtils;
@@ -17,13 +16,10 @@ import org.chromium.base.TraceEvent;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.base.task.PostTask;
 import org.chromium.chrome.R;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.gesturenav.HistoryNavigationCoordinator;
 import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabWebContentsUserData;
-import org.chromium.components.browser_ui.styles.ChromeColors;
-import org.chromium.components.browser_ui.styles.SemanticColorUtils;
 import org.chromium.content_public.browser.UiThreadTaskTraits;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.third_party.android.swiperefresh.SwipeRefreshLayout;
@@ -119,15 +115,9 @@ public class SwipeRefreshHandler
         mSwipeRefreshLayout = new SwipeRefreshLayout(context);
         mSwipeRefreshLayout.setLayoutParams(
                 new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
-        final boolean incognito = mTab.isIncognito();
-        final @ColorInt int backgroundColor = incognito
-                ? context.getColor(R.color.default_bg_color_dark_elev_2_baseline)
-                : ChromeColors.getSurfaceColor(context, R.dimen.default_elevation_2);
-        mSwipeRefreshLayout.setProgressBackgroundColorSchemeColor(backgroundColor);
-        final @ColorInt int iconColor = incognito
-                ? context.getColor(R.color.default_icon_color_blue_light)
-                : SemanticColorUtils.getDefaultIconColorAccent1(context);
-        mSwipeRefreshLayout.setColorSchemeColors(iconColor);
+        mSwipeRefreshLayout.setProgressBackgroundColorSchemeResource(
+                R.color.default_bg_color_elev_2);
+        mSwipeRefreshLayout.setColorSchemeResources(R.color.default_control_color_active);
         if (mContainerView != null) mSwipeRefreshLayout.setEnabled(true);
 
         mSwipeRefreshLayout.setOnRefreshListener(() -> {
@@ -196,8 +186,7 @@ public class SwipeRefreshHandler
         if (type == OverscrollAction.PULL_TO_REFRESH) {
             if (mSwipeRefreshLayout == null) initSwipeRefreshLayout(mTab.getContext());
             attachSwipeRefreshLayoutIfNecessary();
-            return mSwipeRefreshLayout.start(ChromeFeatureList.isEnabled(
-                    ChromeFeatureList.OPTIMIZE_LAYOUTS_FOR_PULL_REFRESH));
+            return mSwipeRefreshLayout.start();
         } else if (type == OverscrollAction.HISTORY_NAVIGATION) {
             if (mNavigationCoordinator != null) {
                 mNavigationCoordinator.startGesture();

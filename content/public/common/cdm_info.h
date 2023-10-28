@@ -1,4 +1,4 @@
-// Copyright 2016 The Chromium Authors
+// Copyright 2016 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -9,23 +9,16 @@
 #include <vector>
 
 #include "base/files/file_path.h"
+#include "base/token.h"
 #include "base/version.h"
-#include "build/build_config.h"
 #include "content/common/content_export.h"
 #include "media/base/content_decryption_module.h"
 #include "media/base/encryption_scheme.h"
 #include "media/base/video_codecs.h"
 #include "media/cdm/cdm_capability.h"
-#include "media/cdm/cdm_type.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
 
 namespace content {
-
-#if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(USE_CHROMEOS_PROTECTED_MEDIA)
-// CdmType for Chrome OS.
-const CONTENT_EXPORT media::CdmType kChromeOsCdmType{0xa6ecd3fc63b3ded2ull,
-                                                     0x9306d3270227ce5full};
-#endif  // BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(USE_CHROMEOS_PROTECTED_MEDIA)
 
 // Represents a Content Decryption Module implementation and its capabilities.
 struct CONTENT_EXPORT CdmInfo {
@@ -34,35 +27,18 @@ struct CONTENT_EXPORT CdmInfo {
     kSoftwareSecure,
   };
 
-  // Status of the `capability`. These values are persisted to logs. Entries
-  // should not be renumbered and numeric values should never be reused.
-  enum class Status {
-    kUninitialized,  // Uninitialized; `capability` must be nullopt.
-    kEnabled,  // Initialized and enabled; if `capability` is nullopt, then no
-               // capability is supported.
-    kCommandLineOverridden,  // Overridden from command line and enabled
-    kHardwareSecureDecryptionDisabled,  // kHardwareSecureDecryption disabled
-    kAcceleratedVideoDecodeDisabled,    // kDisableAcceleratedVideoDecode
-    kGpuFeatureDisabled,      // gpu::DISABLE_MEDIA_FOUNDATION_HARDWARE_SECURITY
-    kGpuCompositionDisabled,  // GPU (direct) composition disabled
-    kDisabledByPref,  // Disabled due to previous errors (stored in Local State)
-    kDisabledOnError,  // Disabled after errors or crashes
-    kMaxValue = kDisabledOnError,
-  };
-
-  // If `capability` is nullopt, the `capability` will be lazy initialized.
   CdmInfo(const std::string& key_system,
           Robustness robustness,
           absl::optional<media::CdmCapability> capability,
           bool supports_sub_key_systems,
           const std::string& name,
-          const media::CdmType& type,
+          const base::Token& guid,
           const base::Version& version,
-          const base::FilePath& path);
+          const base::FilePath& path,
+          const std::string& file_system_id);
   CdmInfo(const std::string& key_system,
           Robustness robustness,
-          absl::optional<media::CdmCapability> capability,
-          const media::CdmType& type);
+          absl::optional<media::CdmCapability> capability);
   CdmInfo(const CdmInfo& other);
   ~CdmInfo();
 
@@ -77,10 +53,9 @@ struct CONTENT_EXPORT CdmInfo {
   Robustness robustness;
 
   // CDM capability, e.g. video codecs, encryption schemes and session types.
+  // Optional to allow lazy initialization, i.e. to populate the capability
+  // after registration.
   absl::optional<media::CdmCapability> capability;
-
-  // Whether the CdmInfo is enabled etc. This only affects capability query.
-  Status status = Status::kEnabled;
 
   // Whether we also support sub key systems of the `key_system`.
   // A sub key system to a key system is like a sub domain to a domain.
@@ -91,10 +66,8 @@ struct CONTENT_EXPORT CdmInfo {
   // Display name of the CDM (e.g. Widevine Content Decryption Module).
   std::string name;
 
-  // An object to uniquely identify the type of the CDM. Used for per-CDM-type
-  // isolation, e.g. for running different CDMs in different child processes,
-  // and per-CDM-type storage.
-  media::CdmType type;
+  // A token to uniquely identify this type of CDM.
+  base::Token guid;
 
   // Version of the CDM. May be empty if the version is not known.
   base::Version version;
@@ -102,6 +75,11 @@ struct CONTENT_EXPORT CdmInfo {
   // Path to the library implementing the CDM. May be empty if the
   // CDM is not a separate library (e.g. Widevine on Android).
   base::FilePath path;
+
+  // Identifier used by the PluginPrivateFileSystem to identify the files
+  // stored by this CDM. Valid identifiers only contain letters (A-Za-z),
+  // digits(0-9), or "._-".
+  std::string file_system_id;
 };
 
 }  // namespace content

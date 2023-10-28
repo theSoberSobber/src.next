@@ -1,4 +1,4 @@
-// Copyright 2020 The Chromium Authors
+// Copyright 2020 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,6 +7,10 @@
 
 #include "content/public/browser/web_contents_observer.h"
 #include "content/public/browser/web_contents_user_data.h"
+
+namespace content {
+class NavigationHandle;
+}
 
 // Tab helper used for logout tabs. Monitors if the logout tab loaded correctly
 // and fallbacks to local signout in case of failure.
@@ -28,7 +32,8 @@ class LogoutTabHelper : public content::WebContentsUserData<LogoutTabHelper>,
   explicit LogoutTabHelper(content::WebContents* web_contents);
 
   // content::WebContentsObserver:
-  void PrimaryPageChanged(content::Page& page) override;
+  void DidFinishNavigation(
+      content::NavigationHandle* navigation_handle) override;
 
   WEB_CONTENTS_USER_DATA_KEY_DECL();
 };

@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -9,13 +9,14 @@
 #include <set>
 #include <string>
 
-#include "base/memory/raw_ptr.h"
+#include "base/macros.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
 #include "chrome/browser/extensions/active_tab_permission_granter.h"
 #include "chrome/common/extensions/webstore_install_result.h"
 #include "content/public/browser/web_contents_observer.h"
+#include "content/public/browser/web_contents_receiver_set.h"
 #include "content/public/browser/web_contents_user_data.h"
 #include "extensions/browser/api/declarative_net_request/web_contents_helper.h"
 #include "extensions/browser/extension_function_dispatcher.h"
@@ -38,17 +39,12 @@ namespace extensions {
 class ExtensionActionRunner;
 class Extension;
 
-extern const char kIsPrerender2DisabledKey[];
-
 // Per-tab extension helper. Also handles non-extension apps.
 class TabHelper : public content::WebContentsObserver,
                   public ExtensionFunctionDispatcher::Delegate,
                   public ExtensionRegistryObserver,
                   public content::WebContentsUserData<TabHelper> {
  public:
-  TabHelper(const TabHelper&) = delete;
-  TabHelper& operator=(const TabHelper&) = delete;
-
   ~TabHelper() override;
 
   // Sets the extension denoting this as an app. If |extension| is non-null this
@@ -143,11 +139,11 @@ class TabHelper : public content::WebContentsObserver,
   // Sends our tab ID to |render_frame_host|.
   void SetTabId(content::RenderFrameHost* render_frame_host);
 
-  raw_ptr<Profile> profile_;
+  Profile* profile_;
 
   // If non-null this tab is an app tab and this is the extension the tab was
   // created for.
-  raw_ptr<const Extension> extension_app_;
+  const Extension* extension_app_;
 
   // Icon for extension_app_ (if non-null) or a manually-set icon for
   // non-extension apps.
@@ -171,6 +167,8 @@ class TabHelper : public content::WebContentsObserver,
   base::WeakPtrFactory<TabHelper> weak_ptr_factory_{this};
 
   WEB_CONTENTS_USER_DATA_KEY_DECL();
+
+  DISALLOW_COPY_AND_ASSIGN(TabHelper);
 };
 
 }  // namespace extensions

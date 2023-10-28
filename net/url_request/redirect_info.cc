@@ -1,4 +1,4 @@
-// Copyright 2014 The Chromium Authors
+// Copyright 2014 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -45,6 +45,9 @@ ReferrerPolicy ProcessReferrerPolicyHeaderOnRedirect(
                                            base::TRIM_WHITESPACE,
                                            base::SPLIT_WANT_NONEMPTY);
   }
+
+  UMA_HISTOGRAM_BOOLEAN("Net.URLRequest.ReferrerPolicyHeaderPresentOnRedirect",
+                        !policy_tokens.empty());
 
   // Per https://w3c.github.io/webappsec-referrer-policy/#unknown-policy-values,
   // use the last recognized policy value, and ignore unknown policies.
@@ -99,7 +102,12 @@ ReferrerPolicy ProcessReferrerPolicyHeaderOnRedirect(
 
 }  // namespace
 
-RedirectInfo::RedirectInfo() = default;
+RedirectInfo::RedirectInfo()
+    : status_code(-1),
+      insecure_scheme_was_upgraded(false),
+      is_signed_exchange_fallback_redirect(false),
+      new_referrer_policy(
+          ReferrerPolicy::CLEAR_ON_TRANSITION_FROM_SECURE_TO_INSECURE) {}
 
 RedirectInfo::RedirectInfo(const RedirectInfo& other) = default;
 
@@ -133,7 +141,8 @@ RedirectInfo RedirectInfo::ComputeRedirectInfo(
     GURL::Replacements replacements;
     // Reference the |ref| directly out of the original URL to avoid a
     // malloc.
-    replacements.SetRefStr(original_url.ref_piece());
+    replacements.SetRef(original_url.spec().data(),
+                        original_url.parsed_for_possibly_invalid_spec().ref);
     redirect_info.new_url = new_location.ReplaceComponents(replacements);
   } else {
     redirect_info.new_url = new_location;

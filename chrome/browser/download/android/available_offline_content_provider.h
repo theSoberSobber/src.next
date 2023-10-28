@@ -1,4 +1,4 @@
-// Copyright 2018 The Chromium Authors
+// Copyright 2018 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -8,10 +8,10 @@
 #include <string>
 #include <vector>
 
+#include "base/macros.h"
 #include "base/memory/weak_ptr.h"
 #include "chrome/common/available_offline_content.mojom.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
-#include "mojo/public/cpp/bindings/self_owned_receiver.h"
 
 class Profile;
 
@@ -27,13 +27,7 @@ class AvailableOfflineContentProvider
     : public chrome::mojom::AvailableOfflineContentProvider {
  public:
   // Public for testing.
-  explicit AvailableOfflineContentProvider(int render_process_host_id);
-
-  AvailableOfflineContentProvider(const AvailableOfflineContentProvider&) =
-      delete;
-  AvailableOfflineContentProvider& operator=(
-      const AvailableOfflineContentProvider&) = delete;
-
+  explicit AvailableOfflineContentProvider(Profile* profile);
   ~AvailableOfflineContentProvider() override;
 
   // chrome::mojom::AvailableOfflineContentProvider methods.
@@ -44,7 +38,7 @@ class AvailableOfflineContentProvider
   void ListVisibilityChanged(bool is_visible) override;
 
   static void Create(
-      int render_process_host_id,
+      Profile* profile,
       mojo::PendingReceiver<chrome::mojom::AvailableOfflineContentProvider>
           receiver);
 
@@ -54,18 +48,11 @@ class AvailableOfflineContentProvider
       offline_items_collection::OfflineContentAggregator* aggregator,
       const std::vector<offline_items_collection::OfflineItem>& all_items);
 
-  Profile* GetProfile();
-
-  void SetSelfOwnedReceiver(const mojo::SelfOwnedReceiverRef<
-                            chrome::mojom::AvailableOfflineContentProvider>&
-                                provider_self_owned_receiver);
-  void CloseSelfOwnedReceiverIfNeeded();
-
-  const int render_process_host_id_;
-  mojo::SelfOwnedReceiverRef<chrome::mojom::AvailableOfflineContentProvider>
-      provider_self_owned_receiver_;
+  Profile* profile_;
 
   base::WeakPtrFactory<AvailableOfflineContentProvider> weak_ptr_factory_{this};
+
+  DISALLOW_COPY_AND_ASSIGN(AvailableOfflineContentProvider);
 };
 
 }  // namespace android

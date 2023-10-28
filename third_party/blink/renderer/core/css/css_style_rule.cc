@@ -26,12 +26,10 @@
 #include "third_party/blink/renderer/core/css/css_style_sheet.h"
 #include "third_party/blink/renderer/core/css/cssom/declared_style_property_map.h"
 #include "third_party/blink/renderer/core/css/parser/css_parser.h"
-#include "third_party/blink/renderer/core/css/parser/css_selector_parser.h"
 #include "third_party/blink/renderer/core/css/style_rule.h"
 #include "third_party/blink/renderer/core/css/style_rule_css_style_declaration.h"
-#include "third_party/blink/renderer/core/css/style_sheet_contents.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
-#include "third_party/blink/renderer/platform/heap/garbage_collected.h"
+#include "third_party/blink/renderer/platform/heap/heap.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_builder.h"
 
 namespace blink {
@@ -44,13 +42,10 @@ static SelectorTextCache& GetSelectorTextCache() {
   return *cache;
 }
 
-CSSStyleRule::CSSStyleRule(StyleRule* style_rule,
-                           CSSStyleSheet* parent,
-                           wtf_size_t position_hint)
+CSSStyleRule::CSSStyleRule(StyleRule* style_rule, CSSStyleSheet* parent)
     : CSSRule(parent),
       style_rule_(style_rule),
-      style_map_(MakeGarbageCollected<DeclaredStylePropertyMap>(this)),
-      position_hint_(position_hint) {}
+      style_map_(MakeGarbageCollected<DeclaredStylePropertyMap>(this)) {}
 
 CSSStyleRule::~CSSStyleRule() = default;
 
@@ -70,7 +65,7 @@ String CSSStyleRule::selectorText() const {
   }
 
   DCHECK(!GetSelectorTextCache().Contains(this));
-  String text = style_rule_->SelectorsText();
+  String text = style_rule_->SelectorList().SelectorsText();
   GetSelectorTextCache().Set(this, text);
   SetHasCachedSelectorText(true);
   return text;
@@ -78,26 +73,17 @@ String CSSStyleRule::selectorText() const {
 
 void CSSStyleRule::setSelectorText(const ExecutionContext* execution_context,
                                    const String& selector_text) {
-  CSSStyleSheet::RuleMutationScope mutation_scope(this);
-
   const auto* context = MakeGarbageCollected<CSSParserContext>(
       ParserContext(execution_context->GetSecureContextMode()));
-  StyleSheetContents* parent_contents =
-      parentStyleSheet() ? parentStyleSheet()->Contents() : nullptr;
-  Arena arena;
-  CSSSelectorVector</*UseArena=*/true> selector_vector =
-      CSSParser::ParseSelector</*UseArena=*/true>(context, parent_contents,
-                                                  selector_text, arena);
-  if (selector_vector.IsEmpty())
+  CSSSelectorList selector_list = CSSParser::ParseSelector(
+      context, parentStyleSheet() ? parentStyleSheet()->Contents() : nullptr,
+      selector_text);
+  if (!selector_list.IsValid())
     return;
 
-  Member<StyleRule> new_style_rule = StyleRule::Create</*UseArena=*/true>(
-      selector_vector, std::move(*style_rule_));
-  if (parent_contents) {
-    position_hint_ = parent_contents->ReplaceRuleIfExists(
-        style_rule_, new_style_rule, position_hint_);
-  }
-  style_rule_ = new_style_rule;
+  CSSStyleSheet::RuleMutationScope mutation_scope(this);
+
+  style_rule_->WrapperAdoptSelectorList(std::move(selector_list));
 
   if (HasCachedSelectorText()) {
     GetSelectorTextCache().erase(this);
@@ -114,7 +100,7 @@ String CSSStyleRule::cssText() const {
   if (!decls.IsEmpty())
     result.Append(' ');
   result.Append('}');
-  return result.ReleaseString();
+  return result.ToString();
 }
 
 void CSSStyleRule::Reattach(StyleRuleBase* rule) {

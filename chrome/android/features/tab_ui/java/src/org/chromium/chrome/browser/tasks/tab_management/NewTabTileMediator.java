@@ -13,7 +13,6 @@ import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorObserver;
-import org.chromium.chrome.browser.tasks.ReturnToChromeExperimentsUtil;
 import org.chromium.ui.modelutil.PropertyModel;
 
 /**
@@ -37,9 +36,6 @@ public class NewTabTileMediator {
         model.set(NewTabTileViewProperties.ON_CLICK_LISTENER, view -> {
             tabCreatorManager.getTabCreator(tabModelSelector.isIncognitoSelected()).launchNTP();
             RecordUserAction.record("MobileNewTabOpened.NewTabTile");
-            if (!tabModelSelector.isIncognitoSelected()) {
-                ReturnToChromeExperimentsUtil.onNewTabOpened();
-            }
         });
 
         mTabModelSelectorObserver = new TabModelSelectorObserver() {

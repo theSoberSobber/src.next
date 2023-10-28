@@ -1,4 +1,4 @@
-// Copyright 2017 The Chromium Authors
+// Copyright 2017 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -29,23 +29,20 @@
  * Clients should either use the existing shared styling in
  * shared_styles_css.html, '#cr-container-shadow-[top/bottom]' and
  * '#cr-container-shadow-[top/bottom].has-shadow', or define their own styles.
- *
- * NOTE: This file is deprecated in favor of cr_container_shadow_mixin.js. Don't
- * use it in any new code.
  */
 
 // clang-format off
-import {assert} from '../js/assert.m.js';
+// #import {assert} from '../js/assert.m.js'
 // clang-format on
 
 /** @enum {string} */
-export const CrContainerShadowSide = {
+/* #export */ const CrContainerShadowSide = {
   TOP: 'top',
   BOTTOM: 'bottom',
 };
 
 /** @polymerBehavior */
-export const CrContainerShadowBehavior = {
+/* #export */ const CrContainerShadowBehavior = {
   /** @private {?IntersectionObserver} */
   intersectionObserver_: null,
 
@@ -169,13 +166,3 @@ export const CrContainerShadowBehavior = {
     }
   },
 };
-
-/** @interface */
-export class CrContainerShadowBehaviorInterface {
-  /**
-   * @param {boolean} enable
-   */
-  enableShadowBehavior(enable) {}
-
-  showDropShadows() {}
-}

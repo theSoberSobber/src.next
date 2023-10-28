@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -56,7 +56,7 @@ class NET_EXPORT_PRIVATE PrioritizedDispatcher {
   class Job {
    public:
     // Note: PrioritizedDispatcher will never delete a Job.
-    virtual ~Job() = default;
+    virtual ~Job() {}
     // Called when the dispatcher starts the job. Once the job finishes, it must
     // call OnJobFinished.
     virtual void Start() = 0;

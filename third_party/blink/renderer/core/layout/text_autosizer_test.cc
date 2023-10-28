@@ -12,8 +12,8 @@
 #include "third_party/blink/renderer/core/testing/core_unit_test_helper.h"
 #include "third_party/blink/renderer/core/testing/sim/sim_request.h"
 #include "third_party/blink/renderer/core/testing/sim/sim_test.h"
+#include "third_party/blink/renderer/platform/geometry/int_rect.h"
 #include "third_party/blink/renderer/platform/testing/unit_test_helpers.h"
-#include "ui/gfx/geometry/rect.h"
 
 namespace blink {
 class TextAutosizerClient : public RenderingTestChromeClient {
@@ -21,11 +21,12 @@ class TextAutosizerClient : public RenderingTestChromeClient {
   float WindowToViewportScalar(LocalFrame*, const float value) const override {
     return value * device_scale_factor_;
   }
-  gfx::Rect ViewportToScreen(const gfx::Rect& rect,
-                             const LocalFrameView*) const override {
-    return gfx::ScaleToRoundedRect(rect, 1 / device_scale_factor_);
+  IntRect ViewportToScreen(const IntRect& rect,
+                           const LocalFrameView*) const override {
+    IntRect scaled_rect(rect);
+    scaled_rect.Scale(1 / device_scale_factor_);
+    return scaled_rect;
   }
-
   void set_device_scale_factor(float device_scale_factor) {
     device_scale_factor_ = device_scale_factor;
   }
@@ -58,7 +59,7 @@ class TextAutosizerTest : public RenderingTest {
     RenderingTest::SetUp();
     GetDocument().GetSettings()->SetTextAutosizingEnabled(true);
     GetDocument().GetSettings()->SetTextAutosizingWindowSizeOverride(
-        gfx::Size(320, 480));
+        IntSize(320, 480));
   }
 };
 
@@ -497,7 +498,7 @@ TEST_F(TextAutosizerTest, TextSizeAdjustDoesNotDisableAccessibility) {
 // https://crbug.com/646237
 TEST_F(TextAutosizerTest, DISABLED_TextSizeAdjustWithoutNeedingAutosizing) {
   GetDocument().GetSettings()->SetTextAutosizingWindowSizeOverride(
-      gfx::Size(800, 600));
+      IntSize(800, 600));
   SetBodyInnerHTML(R"HTML(
     <style>
       html { font-size: 16px; }
@@ -799,7 +800,7 @@ TEST_F(TextAutosizerTest, AutosizeInnerContentOfRuby) {
 
 TEST_F(TextAutosizerTest, ResizeAndGlyphOverflowChanged) {
   GetDocument().GetSettings()->SetTextAutosizingWindowSizeOverride(
-      gfx::Size(360, 640));
+      IntSize(360, 640));
   Element* html = GetDocument().body()->parentElement();
   html->setInnerHTML(
       "<head>"
@@ -831,11 +832,11 @@ TEST_F(TextAutosizerTest, ResizeAndGlyphOverflowChanged) {
   UpdateAllLifecyclePhasesForTest();
 
   GetDocument().GetSettings()->SetTextAutosizingWindowSizeOverride(
-      gfx::Size(640, 360));
+      IntSize(640, 360));
   UpdateAllLifecyclePhasesForTest();
 
   GetDocument().GetSettings()->SetTextAutosizingWindowSizeOverride(
-      gfx::Size(360, 640));
+      IntSize(360, 640));
   UpdateAllLifecyclePhasesForTest();
 }
 
@@ -950,52 +951,6 @@ TEST_F(TextAutosizerTest, MultiColumns) {
                   target->GetLayoutObject()->StyleRef().ComputedFontSize());
 }
 
-TEST_F(TextAutosizerTest, MultiColumns2) {
-  Element* html = GetDocument().body()->parentElement();
-  html->setInnerHTML(
-      "<head>"
-      "  <meta name='viewport' content='width=800'>"
-      "  <style>"
-      "    html { font-size:16px;}"
-      "    #mc {columns: 3; column-gap: 0;}"
-      "  </style>"
-      "</head>"
-      "<body>"
-      "  <div id='mc'>"
-      "    <div id='target1'>"
-      "      Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed "
-      "      do eiusmod tempor incididunt ut labore et dolore magna aliqua."
-      "      Ut enim ad minim veniam, quis nostrud exercitation ullamco "
-      "      laboris nisi ut aliquip ex ea commodo consequat. Duis aute "
-      "      irure dolor in reprehenderit in voluptate velit esse cillum "
-      "      dolore eu fugiat nulla pariatur. Excepteur sint occaecat "
-      "      cupidatat non proident, sunt in culpa qui officia deserunt "
-      "    </div>"
-      "    <div id='target2'>"
-      "      Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed "
-      "      do eiusmod tempor incididunt ut labore et dolore magna aliqua."
-      "      Ut enim ad minim veniam, quis nostrud exercitation ullamco "
-      "      laboris nisi ut aliquip ex ea commodo consequat. Duis aute "
-      "      irure dolor in reprehenderit in voluptate velit esse cillum "
-      "      dolore eu fugiat nulla pariatur. Excepteur sint occaecat "
-      "      cupidatat non proident, sunt in culpa qui officia deserunt "
-      "    </div>"
-      "  </div>"
-      "  <div> hello </div>"
-      "</body>",
-      ASSERT_NO_EXCEPTION);
-  UpdateAllLifecyclePhasesForTest();
-
-  Element* target1 = GetDocument().getElementById("target1");
-  Element* target2 = GetDocument().getElementById("target2");
-  // (specified font-size = 16px) * ( column width = 800px / 3) /
-  // (window width = 320px) < 16px.
-  EXPECT_FLOAT_EQ(16.f,
-                  target1->GetLayoutObject()->StyleRef().ComputedFontSize());
-  EXPECT_FLOAT_EQ(16.f,
-                  target2->GetLayoutObject()->StyleRef().ComputedFontSize());
-}
-
 TEST_F(TextAutosizerTest, ScaledbyDSF) {
   const float device_scale = 3;
   set_device_scale_factor(device_scale);
@@ -1086,7 +1041,7 @@ TEST_F(TextAutosizerTest, ClusterHasEnoughTextToAutosizeForZoomDSF) {
 
 TEST_F(TextAutosizerTest, AfterPrint) {
   const float device_scale = 3;
-  gfx::SizeF print_size(160, 240);
+  FloatSize print_size(160, 240);
   set_device_scale_factor(device_scale);
   SetBodyInnerHTML(R"HTML(
     <style>
@@ -1123,7 +1078,7 @@ class TextAutosizerSimTest : public SimTest {
 
     Settings& settings = WebView().GetPage()->GetSettings();
     settings.SetTextAutosizingEnabled(true);
-    settings.SetTextAutosizingWindowSizeOverride(gfx::Size(400, 400));
+    settings.SetTextAutosizingWindowSizeOverride(IntSize(400, 400));
   }
 };
 

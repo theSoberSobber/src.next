@@ -1,4 +1,4 @@
-// Copyright 2017 The Chromium Authors
+// Copyright 2017 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -8,40 +8,38 @@
 #include <map>
 #include <memory>
 
+#include "base/macros.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/weak_ptr.h"
 #include "base/process/kill.h"
 #include "base/process/process.h"
-#include "base/task/sequenced_task_runner.h"
-#include "base/time/time.h"
+#include "base/sequenced_task_runner.h"
 #include "build/build_config.h"
-#include "content/public/browser/browser_child_process_host.h"
 #include "content/public/common/result_codes.h"
 #include "content/public/common/zygote/zygote_buildflags.h"
 #include "mojo/public/cpp/platform/platform_channel.h"
 #include "mojo/public/cpp/system/invitation.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
 
-#if !BUILDFLAG(IS_FUCHSIA)
+#if !defined(OS_FUCHSIA)
 #include "mojo/public/cpp/platform/named_platform_channel.h"
 #endif
 
-#if BUILDFLAG(IS_ANDROID)
+#if defined(OS_ANDROID)
 #include "base/android/scoped_java_ref.h"
 #endif
 
-#if BUILDFLAG(IS_WIN)
-#include "base/win/windows_types.h"
+#if defined(OS_WIN)
 #include "sandbox/win/src/sandbox_types.h"
 #else
 #include "content/public/browser/posix_file_descriptor_info.h"
 #endif
 
-#if BUILDFLAG(IS_MAC)
+#if defined(OS_MAC)
 #include "sandbox/mac/seatbelt_exec.h"
 #endif
 
-#if BUILDFLAG(IS_FUCHSIA)
+#if defined(OS_FUCHSIA)
 #include "sandbox/policy/fuchsia/sandbox_policy_fuchsia.h"
 #endif
 
@@ -57,17 +55,16 @@ namespace content {
 
 class ChildProcessLauncher;
 class SandboxedProcessLauncherDelegate;
-struct ChildProcessLauncherFileData;
 struct ChildProcessLauncherPriority;
 struct ChildProcessTerminationInfo;
 
-#if BUILDFLAG(IS_POSIX) || BUILDFLAG(IS_FUCHSIA)
+#if defined(OS_POSIX) || defined(OS_FUCHSIA)
 class PosixFileDescriptorInfo;
 #endif
 
 namespace internal {
 
-#if BUILDFLAG(IS_POSIX) || BUILDFLAG(IS_FUCHSIA)
+#if defined(OS_POSIX) || defined(OS_FUCHSIA)
 using FileMappedForLaunch = PosixFileDescriptorInfo;
 #else
 using FileMappedForLaunch = base::HandlesToInheritVector;
@@ -77,8 +74,8 @@ using FileMappedForLaunch = base::HandlesToInheritVector;
 // process. Since ChildProcessLauncher can be deleted by its client at any time,
 // this class is used to keep state as the process is started asynchronously.
 // It also contains the platform specific pieces.
-class ChildProcessLauncherHelper
-    : public base::RefCountedThreadSafe<ChildProcessLauncherHelper> {
+class ChildProcessLauncherHelper :
+    public base::RefCountedThreadSafe<ChildProcessLauncherHelper> {
  public:
   // Abstraction around a process required to deal in a platform independent way
   // between Linux (which can use zygotes) and the other platforms.
@@ -101,12 +98,12 @@ class ChildProcessLauncherHelper
       std::unique_ptr<SandboxedProcessLauncherDelegate> delegate,
       const base::WeakPtr<ChildProcessLauncher>& child_process_launcher,
       bool terminate_on_shutdown,
-#if BUILDFLAG(IS_ANDROID)
+#if defined(OS_ANDROID)
       bool is_pre_warmup_required,
 #endif
       mojo::OutgoingInvitation mojo_invitation,
       const mojo::ProcessErrorCallback& process_error_callback,
-      std::unique_ptr<ChildProcessLauncherFileData> file_data);
+      std::map<std::string, base::FilePath> files_to_preload);
 
   // The methods below are defined in the order they are called.
 
@@ -116,7 +113,7 @@ class ChildProcessLauncherHelper
   // Platform specific.
   void BeforeLaunchOnClientThread();
 
-#if !BUILDFLAG(IS_FUCHSIA)
+#if !defined(OS_FUCHSIA)
   // Called to give implementors a chance at creating a server pipe. Platform-
   // specific. Returns |absl::nullopt| if the helper should initialize
   // a regular PlatformChannel for communication instead.
@@ -144,7 +141,7 @@ class ChildProcessLauncherHelper
   ChildProcessLauncherHelper::Process LaunchProcessOnLauncherThread(
       const base::LaunchOptions& options,
       std::unique_ptr<FileMappedForLaunch> files_to_register,
-#if BUILDFLAG(IS_ANDROID)
+#if defined(OS_ANDROID)
       bool is_pre_warmup_required,
 #endif
       bool* is_synchronous_launch,
@@ -163,9 +160,6 @@ class ChildProcessLauncherHelper
 
   // Posted by PostLaunchOnLauncherThread onto the client thread.
   void PostLaunchOnClientThread(ChildProcessLauncherHelper::Process process,
-#if BUILDFLAG(IS_WIN)
-                                DWORD last_error,
-#endif
                                 int error_code);
 
   // See ChildProcessLauncher::GetChildTerminationInfo for more info.
@@ -190,14 +184,13 @@ class ChildProcessLauncherHelper
       base::Process process,
       const ChildProcessLauncherPriority& priority);
 
-#if BUILDFLAG(IS_ANDROID)
-  void OnChildProcessStarted(JNIEnv* env, jint handle);
-
-  base::android::ChildBindingState GetEffectiveChildBindingState();
+#if defined(OS_ANDROID)
+  void OnChildProcessStarted(JNIEnv* env,
+                             jint handle);
 
   // Dumps the stack of the child process without crashing it.
   void DumpProcessStack(const base::Process& process);
-#endif  // BUILDFLAG(IS_ANDROID)
+#endif  // OS_ANDROID
 
   std::string GetProcessType();
 
@@ -214,7 +207,7 @@ class ChildProcessLauncherHelper
   static void ForceNormalProcessTerminationSync(
       ChildProcessLauncherHelper::Process process);
 
-#if BUILDFLAG(IS_ANDROID)
+#if defined(OS_ANDROID)
   void set_java_peer_available_on_client_thread() {
     java_peer_avaiable_on_client_thread_ = true;
   }
@@ -233,7 +226,7 @@ class ChildProcessLauncherHelper
   // |CreateNamedPlatformChannelOnClientThread()|.
   absl::optional<mojo::PlatformChannel> mojo_channel_;
 
-#if !BUILDFLAG(IS_FUCHSIA)
+#if !defined(OS_FUCHSIA)
   // May be used in exclusion to the above if the platform helper implementation
   // returns a valid server endpoint from
   // |CreateNamedPlatformChannelOnClientThread()|.
@@ -243,20 +236,20 @@ class ChildProcessLauncherHelper
   bool terminate_on_shutdown_;
   mojo::OutgoingInvitation mojo_invitation_;
   const mojo::ProcessErrorCallback process_error_callback_;
-  std::unique_ptr<ChildProcessLauncherFileData> file_data_;
+  const std::map<std::string, base::FilePath> files_to_preload_;
 
-#if BUILDFLAG(IS_MAC)
+#if defined(OS_MAC)
   std::unique_ptr<sandbox::SeatbeltExecClient> seatbelt_exec_client_;
-#endif  // BUILDFLAG(IS_MAC)
+#endif  // defined(OS_MAC)
 
-#if BUILDFLAG(IS_ANDROID)
+#if defined(OS_ANDROID)
   base::android::ScopedJavaGlobalRef<jobject> java_peer_;
   bool java_peer_avaiable_on_client_thread_ = false;
   // Whether the process can use warmed up connection.
   bool can_use_warm_up_connection_;
 #endif
 
-#if BUILDFLAG(IS_FUCHSIA)
+#if defined(OS_FUCHSIA)
   std::unique_ptr<sandbox::policy::SandboxPolicyFuchsia> sandbox_policy_;
 #endif
 };

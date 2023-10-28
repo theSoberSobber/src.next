@@ -12,8 +12,6 @@
 #include "third_party/blink/renderer/core/css/cssom/paint_worklet_deferred_image.h"
 #include "third_party/blink/renderer/core/css/cssom/style_value_factory.h"
 #include "third_party/blink/renderer/core/css/properties/computed_style_utils.h"
-#include "third_party/blink/renderer/core/execution_context/execution_context.h"
-#include "third_party/blink/renderer/core/execution_context/security_context.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/layout/layout_object.h"
 #include "third_party/blink/renderer/core/page/page.h"
@@ -56,7 +54,7 @@ String CSSPaintValue::CustomCSSText() const {
     result.Append(variable_data.get()->TokenRange().Serialize());
   }
   result.Append(')');
-  return result.ReleaseString();
+  return result.ToString();
 }
 
 String CSSPaintValue::GetName() const {
@@ -65,27 +63,27 @@ String CSSPaintValue::GetName() const {
 
 const Vector<CSSPropertyID>* CSSPaintValue::NativeInvalidationProperties(
     const Document& document) const {
-  auto it = generators_.find(&document);
-  if (it == generators_.end())
+  const CSSPaintImageGenerator* generator = generators_.at(&document);
+  if (!generator)
     return nullptr;
-  return &it->value->NativeInvalidationProperties();
+  return &generator->NativeInvalidationProperties();
 }
 
 const Vector<AtomicString>* CSSPaintValue::CustomInvalidationProperties(
     const Document& document) const {
-  auto it = generators_.find(&document);
-  if (it == generators_.end())
+  const CSSPaintImageGenerator* generator = generators_.at(&document);
+  if (!generator)
     return nullptr;
-  return &it->value->CustomInvalidationProperties();
+  return &generator->CustomInvalidationProperties();
 }
 
 bool CSSPaintValue::IsUsingCustomProperty(
     const AtomicString& custom_property_name,
     const Document& document) const {
-  auto it = generators_.find(&document);
-  if (it == generators_.end() || !it->value->IsImageGeneratorReady())
+  const CSSPaintImageGenerator* generator = generators_.at(&document);
+  if (!generator || !generator->IsImageGeneratorReady())
     return false;
-  return it->value->CustomInvalidationProperties().Contains(
+  return generator->CustomInvalidationProperties().Contains(
       custom_property_name);
 }
 
@@ -103,7 +101,7 @@ scoped_refptr<Image> CSSPaintValue::GetImage(
     const ImageResourceObserver& client,
     const Document& document,
     const ComputedStyle& style,
-    const gfx::SizeF& target_size) {
+    const FloatSize& target_size) {
   // https://crbug.com/835589: early exit when paint target is associated with
   // a link.
   if (style.InsideLink() != EInsideLink::kNotInsideLink)
@@ -122,6 +120,17 @@ scoped_refptr<Image> CSSPaintValue::GetImage(
 
   // TODO(crbug.com/946515): Break dependency on LayoutObject.
   const LayoutObject& layout_object = static_cast<const LayoutObject&>(client);
+
+  // TODO(crbug.com/716231): Remove this hack once zoom_for_dsf is enabled on
+  // all platforms (currently not enabled on Mac).
+  float device_scale_factor = 1;
+  if (layout_object.GetFrame() && layout_object.GetFrame()->GetPage()) {
+    // The value of DeviceScaleFactorDeprecated would be 1 on a platform where
+    // zoom_for_dsf is enabled, even if we run chrome with
+    // --force-device-scale-factor with a value that is not 1.
+    device_scale_factor =
+        layout_object.GetFrame()->GetPage()->DeviceScaleFactorDeprecated();
+  }
 
   // For Off-Thread PaintWorklet, we just collect the necessary inputs together
   // and defer the actual JavaScript call until much later (during cc Raster).
@@ -157,15 +166,16 @@ scoped_refptr<Image> CSSPaintValue::GetImage(
       BuildInputArgumentValues(cross_thread_input_arguments);
       scoped_refptr<CSSPaintWorkletInput> input =
           base::MakeRefCounted<CSSPaintWorkletInput>(
-              GetName(), target_size, zoom, generator.WorkletId(),
-              std::move(style_data.value()),
+              GetName(), target_size, zoom, device_scale_factor,
+              generator.WorkletId(), std::move(style_data.value()),
               std::move(cross_thread_input_arguments),
               std::move(input_property_keys));
       return PaintWorkletDeferredImage::Create(std::move(input), target_size);
     }
   }
 
-  return generator.Paint(client, target_size, parsed_input_arguments_);
+  return generator.Paint(client, target_size, parsed_input_arguments_,
+                         device_scale_factor);
 }
 
 void CSSPaintValue::BuildInputArgumentValues(
@@ -188,14 +198,9 @@ bool CSSPaintValue::ParseInputArguments(const Document& document) {
       !RuntimeEnabledFeatures::CSSPaintAPIArgumentsEnabled())
     return true;
 
-  auto it = generators_.find(&document);
-  if (it == generators_.end()) {
-    input_arguments_invalid_ = true;
-    return false;
-  }
-  DCHECK(it->value->IsImageGeneratorReady());
+  DCHECK(generators_.at(&document)->IsImageGeneratorReady());
   const Vector<CSSSyntaxDefinition>& input_argument_types =
-      it->value->InputArgumentTypes();
+      generators_.at(&document)->InputArgumentTypes();
   if (argument_variable_data_.size() != input_argument_types.size()) {
     input_arguments_invalid_ = true;
     return false;
@@ -207,7 +212,6 @@ bool CSSPaintValue::ParseInputArguments(const Document& document) {
     // If we are parsing a paint() function, we must be a secure context.
     DCHECK_EQ(SecureContextMode::kSecureContext,
               document.GetExecutionContext()->GetSecureContextMode());
-    DCHECK(!argument_variable_data_[i]->NeedsVariableResolution());
     const CSSValue* parsed_value = argument_variable_data_[i]->ParseForSyntax(
         input_argument_types[i], SecureContextMode::kSecureContext);
     if (!parsed_value) {
@@ -237,8 +241,8 @@ void CSSPaintValue::PaintImageGeneratorReady() {
 
 bool CSSPaintValue::KnownToBeOpaque(const Document& document,
                                     const ComputedStyle&) const {
-  auto it = generators_.find(&document);
-  return it != generators_.end() && !it->value->HasAlpha();
+  const CSSPaintImageGenerator* generator = generators_.at(&document);
+  return generator && !generator->HasAlpha();
 }
 
 bool CSSPaintValue::Equals(const CSSPaintValue& other) const {

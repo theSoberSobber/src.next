@@ -1,4 +1,4 @@
-// Copyright 2020 The Chromium Authors
+// Copyright 2020 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -8,18 +8,15 @@ import android.view.View;
 import android.view.ViewGroup;
 
 import androidx.annotation.Nullable;
-import androidx.annotation.VisibleForTesting;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.recyclerview.widget.RecyclerView.LayoutManager;
 
 import org.chromium.base.TraceEvent;
-import org.chromium.base.metrics.TimingMetric;
 import org.chromium.ui.modelutil.MVCListAdapter.ModelList;
 import org.chromium.ui.modelutil.SimpleRecyclerViewAdapter;
 
 /** ModelListAdapter for OmniboxSuggestionsDropdown (RecyclerView version). */
-@VisibleForTesting(otherwise = VisibleForTesting.PACKAGE_PRIVATE)
-public class OmniboxSuggestionsDropdownAdapter extends SimpleRecyclerViewAdapter {
+class OmniboxSuggestionsDropdownAdapter extends SimpleRecyclerViewAdapter {
     private int mSelectedItem = RecyclerView.NO_POSITION;
     private LayoutManager mLayoutManager;
 
@@ -74,8 +71,7 @@ public class OmniboxSuggestionsDropdownAdapter extends SimpleRecyclerViewAdapter
      *
      * @param index end index.
      */
-    @VisibleForTesting(otherwise = VisibleForTesting.PACKAGE_PRIVATE)
-    public boolean setSelectedViewIndex(int index) {
+    boolean setSelectedViewIndex(int index) {
         if (mLayoutManager == null) return false;
         if (index != RecyclerView.NO_POSITION && (index < 0 || index >= getItemCount())) {
             return false;
@@ -103,7 +99,8 @@ public class OmniboxSuggestionsDropdownAdapter extends SimpleRecyclerViewAdapter
         // the creation of a view holder.
         try (TraceEvent tracing =
                         TraceEvent.scoped("OmniboxSuggestionsList.CreateView", "type:" + viewType);
-                TimingMetric metric = SuggestionsMetrics.recordSuggestionViewCreateTime()) {
+                SuggestionsMetrics.TimingMetric metric =
+                        SuggestionsMetrics.recordSuggestionViewCreateTime()) {
             return super.createView(parent, viewType);
         }
     }

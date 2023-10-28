@@ -1,4 +1,4 @@
-// Copyright 2021 The Chromium Authors
+// Copyright (c) 2021 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -32,11 +32,6 @@ jlongArray GenerateJavaLongArray(JNIEnv* env,
   return java_long_array.Release();
 }
 
-const int64_t kTimestampsNs[] = {
-    100'000'000, 116'000'000, 132'000'000, 148'000'000,
-    164'000'000, 180'000'000, 196'000'000, 212'000'000,
-};
-
 // Durations are received in nanoseconds, but are recorded to UMA in
 // milliseconds.
 const int64_t kDurations[] = {
@@ -49,17 +44,14 @@ const int64_t kDurations[] = {
     1'000'000,   // 1ms
     20'000'000,  // 20ms
 };
-const size_t kDurationsLen = std::size(kDurations);
-
-static_assert(std::size(kDurations) == std::size(kTimestampsNs),
-              "Length of timestamps and durations should be equal.");
+const size_t kDurationsLen = base::size(kDurations);
 
 // Jank bursts are calculated based on durations.
 const int64_t kJankBursts[] = {
     100'000'000,  // 100ms
     20'000'000,   // 20ms
 };
-const size_t kJankBurstsLen = std::size(kJankBursts);
+const size_t kJankBurstsLen = base::size(kJankBursts);
 
 }  // namespace
 
@@ -70,8 +62,6 @@ TEST(JankMetricUMARecorder, TestUMARecording) {
 
   jstring java_scenario_name =
       ConvertUTF8ToJavaString(env, "PeriodicReporting").Release();
-  jlongArray java_timestamps =
-      GenerateJavaLongArray(env, kTimestampsNs, kDurationsLen);
   jlongArray java_durations =
       GenerateJavaLongArray(env, kDurations, kDurationsLen);
   jlongArray java_jank_bursts =
@@ -81,8 +71,6 @@ TEST(JankMetricUMARecorder, TestUMARecording) {
       env,
       /* java_scenario_name= */
       base::android::JavaParamRef<jstring>(env, java_scenario_name),
-      /* java_timestamps_ns= */
-      base::android::JavaParamRef<jlongArray>(env, java_timestamps),
       /* java_durations_ns= */
       base::android::JavaParamRef<jlongArray>(env, java_durations),
       /* java_jank_bursts_ns=*/

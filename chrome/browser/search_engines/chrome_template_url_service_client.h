@@ -1,11 +1,11 @@
-// Copyright 2014 The Chromium Authors
+// Copyright 2014 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_SEARCH_ENGINES_CHROME_TEMPLATE_URL_SERVICE_CLIENT_H_
 #define CHROME_BROWSER_SEARCH_ENGINES_CHROME_TEMPLATE_URL_SERVICE_CLIENT_H_
 
-#include "base/memory/raw_ptr.h"
+#include "base/macros.h"
 #include "base/scoped_observation.h"
 #include "components/history/core/browser/history_service.h"
 #include "components/history/core/browser/history_service_observer.h"
@@ -18,12 +18,6 @@ class ChromeTemplateURLServiceClient : public TemplateURLServiceClient,
  public:
   explicit ChromeTemplateURLServiceClient(
       history::HistoryService* history_service);
-
-  ChromeTemplateURLServiceClient(const ChromeTemplateURLServiceClient&) =
-      delete;
-  ChromeTemplateURLServiceClient& operator=(
-      const ChromeTemplateURLServiceClient&) = delete;
-
   ~ChromeTemplateURLServiceClient() override;
 
   // TemplateURLServiceClient:
@@ -37,15 +31,19 @@ class ChromeTemplateURLServiceClient : public TemplateURLServiceClient,
 
   // history::HistoryServiceObserver:
   void OnURLVisited(history::HistoryService* history_service,
-                    const history::URLRow& url_row,
-                    const history::VisitRow& new_visit) override;
+                    ui::PageTransition transition,
+                    const history::URLRow& row,
+                    const history::RedirectList& redirects,
+                    base::Time visit_time) override;
 
  private:
-  raw_ptr<TemplateURLService> owner_;
+  TemplateURLService* owner_;
   base::ScopedObservation<history::HistoryService,
                           history::HistoryServiceObserver>
       history_service_observation_{this};
-  raw_ptr<history::HistoryService> history_service_;
+  history::HistoryService* history_service_;
+
+  DISALLOW_COPY_AND_ASSIGN(ChromeTemplateURLServiceClient);
 };
 
 #endif  // CHROME_BROWSER_SEARCH_ENGINES_CHROME_TEMPLATE_URL_SERVICE_CLIENT_H_

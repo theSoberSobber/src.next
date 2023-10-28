@@ -1,4 +1,4 @@
-// Copyright 2016 The Chromium Authors
+// Copyright (c) 2016 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -8,7 +8,6 @@
 #include <memory>
 
 #include "base/memory/ptr_util.h"
-#include "base/memory/raw_ptr.h"
 #include "net/http/http_stream.h"
 #include "net/http/http_stream_factory.h"
 #include "net/http/http_stream_factory_job.h"
@@ -28,8 +27,8 @@ class HttpStreamFactoryPeer {
  public:
   static void AddJobController(
       HttpStreamFactory* factory,
-      std::unique_ptr<HttpStreamFactory::JobController> job_controller) {
-    factory->job_controller_set_.insert(std::move(job_controller));
+      HttpStreamFactory::JobController* job_controller) {
+    factory->job_controller_set_.insert(base::WrapUnique(job_controller));
   }
 
   static bool IsJobControllerDeleted(HttpStreamFactory* factory) {
@@ -46,10 +45,6 @@ class HttpStreamFactoryPeer {
 class MockHttpStreamRequestDelegate : public HttpStreamRequest::Delegate {
  public:
   MockHttpStreamRequestDelegate();
-
-  MockHttpStreamRequestDelegate(const MockHttpStreamRequestDelegate&) = delete;
-  MockHttpStreamRequestDelegate& operator=(
-      const MockHttpStreamRequestDelegate&) = delete;
 
   ~MockHttpStreamRequestDelegate() override;
 
@@ -100,6 +95,9 @@ class MockHttpStreamRequestDelegate : public HttpStreamRequest::Delegate {
                     SSLCertRequestInfo* cert_info));
 
   MOCK_METHOD0(OnQuicBroken, void());
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(MockHttpStreamRequestDelegate);
 };
 
 class MockHttpStreamFactoryJob : public HttpStreamFactory::Job {
@@ -125,8 +123,6 @@ class MockHttpStreamFactoryJob : public HttpStreamFactory::Job {
   MOCK_METHOD0(Resume, void());
 
   MOCK_METHOD0(Orphan, void());
-
-  void DoResume();
 };
 
 // JobFactory for creating MockHttpStreamFactoryJobs.
@@ -135,7 +131,7 @@ class TestJobFactory : public HttpStreamFactory::JobFactory {
   TestJobFactory();
   ~TestJobFactory() override;
 
-  std::unique_ptr<HttpStreamFactory::Job> CreateJob(
+  std::unique_ptr<HttpStreamFactory::Job> CreateMainJob(
       HttpStreamFactory::Job::Delegate* delegate,
       HttpStreamFactory::JobType job_type,
       HttpNetworkSession* session,
@@ -148,18 +144,38 @@ class TestJobFactory : public HttpStreamFactory::JobFactory {
       GURL origin_url,
       bool is_websocket,
       bool enable_ip_based_pooling,
-      NetLog* net_log,
+      NetLog* net_log) override;
+
+  std::unique_ptr<HttpStreamFactory::Job> CreateAltSvcJob(
+      HttpStreamFactory::Job::Delegate* delegate,
+      HttpStreamFactory::JobType job_type,
+      HttpNetworkSession* session,
+      const HttpRequestInfo& request_info,
+      RequestPriority priority,
+      const ProxyInfo& proxy_info,
+      const SSLConfig& server_ssl_config,
+      const SSLConfig& proxy_ssl_config,
+      url::SchemeHostPort destination,
+      GURL origin_url,
       NextProto alternative_protocol,
-      quic::ParsedQuicVersion quic_version) override;
+      quic::ParsedQuicVersion quic_version,
+      bool is_websocket,
+      bool enable_ip_based_pooling,
+      NetLog* net_log) override;
 
   MockHttpStreamFactoryJob* main_job() const { return main_job_; }
   MockHttpStreamFactoryJob* alternative_job() const { return alternative_job_; }
-  MockHttpStreamFactoryJob* dns_alpn_h3_job() const { return dns_alpn_h3_job_; }
+
+  void UseDifferentURLForMainJob(GURL url) {
+    override_main_job_url_ = true;
+    main_job_alternative_url_ = url;
+  }
 
  private:
-  raw_ptr<MockHttpStreamFactoryJob> main_job_ = nullptr;
-  raw_ptr<MockHttpStreamFactoryJob> alternative_job_ = nullptr;
-  raw_ptr<MockHttpStreamFactoryJob> dns_alpn_h3_job_ = nullptr;
+  MockHttpStreamFactoryJob* main_job_;
+  MockHttpStreamFactoryJob* alternative_job_;
+  bool override_main_job_url_;
+  GURL main_job_alternative_url_;
 };
 
 }  // namespace net

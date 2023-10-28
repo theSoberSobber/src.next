@@ -17,7 +17,7 @@ namespace blink {
 class ShadowList;
 
 struct CORE_EXPORT TextPaintStyle {
-  DISALLOW_NEW();
+  STACK_ALLOCATED();
 
  public:
   Color current_color;

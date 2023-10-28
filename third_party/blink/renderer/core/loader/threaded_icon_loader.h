@@ -18,11 +18,10 @@
 namespace blink {
 
 class ResourceRequestHead;
+class SegmentReader;
 
 // Utility class for loading, decoding, and potentially rescaling an icon on a
 // background thread. Note that icons are only downscaled and never upscaled.
-// Warning! If the response image type is "image/svg+xml", the process will
-// happen on the main thread.
 class CORE_EXPORT ThreadedIconLoader final
     : public GarbageCollected<ThreadedIconLoader>,
       public ThreadableLoaderClient {
@@ -45,7 +44,6 @@ class CORE_EXPORT ThreadedIconLoader final
   void Stop();
 
   // ThreadableLoaderClient interface.
-  void DidReceiveResponse(uint64_t, const ResourceResponse& response) override;
   void DidReceiveData(const char* data, unsigned length) override;
   void DidFinishLoading(uint64_t resource_identifier) override;
   void DidFail(uint64_t, const ResourceError& error) override;
@@ -54,7 +52,11 @@ class CORE_EXPORT ThreadedIconLoader final
   void Trace(Visitor* visitor) const override;
 
  private:
-  void OnBackgroundTaskComplete(SkBitmap icon, double resize_scale);
+  void DecodeAndResizeImageOnBackgroundThread(
+      scoped_refptr<base::SingleThreadTaskRunner> task_runner,
+      scoped_refptr<SegmentReader> data);
+
+  void OnBackgroundTaskComplete(double resize_scale);
 
   Member<ThreadableLoader> threadable_loader_;
 
@@ -62,9 +64,9 @@ class CORE_EXPORT ThreadedIconLoader final
   // of the image data starts.
   scoped_refptr<SharedBuffer> data_;
 
-  String response_mime_type_;
-
+  // Accessed from main thread and background thread.
   absl::optional<gfx::Size> resize_dimensions_;
+  SkBitmap decoded_icon_;
 
   IconCallback icon_callback_;
 

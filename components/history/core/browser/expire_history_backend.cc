@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -21,7 +21,7 @@
 #include "base/location.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/numerics/safe_conversions.h"
-#include "base/task/sequenced_task_runner.h"
+#include "base/sequenced_task_runner.h"
 #include "build/build_config.h"
 #include "components/favicon/core/favicon_database.h"
 #include "components/history/core/browser/history_backend_client.h"
@@ -83,8 +83,8 @@ class AutoSubframeVisitsReader : public ExpiringVisitsReader {
 
     base::Time begin_time = db->GetEarlyExpirationThreshold();
     // Advance `end_time` to expire early.
-    base::Time early_end_time =
-        end_time + base::Days(kEarlyExpirationAdvanceDays);
+    base::Time early_end_time = end_time +
+        base::TimeDelta::FromDays(kEarlyExpirationAdvanceDays);
 
     // We don't want to set the early expiration threshold to a time in the
     // future.
@@ -122,7 +122,8 @@ const int kExpirationEmptyDelayMin = 5;
 
 // If the expiration timer is delayed by over an hour, then assume that the
 // machine went to sleep.
-constexpr base::TimeDelta kExpirationSleepWakeupThreshold = base::Hours(1);
+constexpr base::TimeDelta kExpirationSleepWakeupThreshold =
+    base::TimeDelta::FromHours(1);
 
 // The minimum number of hours between checking for old on-demand favicons that
 // should be cleared.
@@ -142,7 +143,7 @@ bool IsAnyURLPinned(HistoryBackendClient* backend_client,
 namespace internal {
 
 // Clearing old on-demand favicons is only enabled on mobile.
-#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
+#if defined(OS_ANDROID) || defined(OS_IOS)
 constexpr bool kClearOldOnDemandFaviconsEnabled = true;
 #else
 constexpr bool kClearOldOnDemandFaviconsEnabled = false;
@@ -338,7 +339,7 @@ void ExpireHistoryBackend::ClearOldOnDemandFaviconsIfPossible(
   // in time, since it can be fairly expensive.
   if (expiration_threshold <
       last_on_demand_expiration_threshold_ +
-          base::Hours(kClearOnDemandFaviconsIntervalHours)) {
+          base::TimeDelta::FromHours(kClearOnDemandFaviconsIntervalHours)) {
     return;
   }
 
@@ -472,8 +473,7 @@ void ExpireHistoryBackend::DeleteVisitRelatedInfo(const VisitVector& visits,
     }
 
     // Delete content & context annotations associated with visit.
-    if (visit.visit_id)
-      main_db_->DeleteAnnotationsForVisit(visit.visit_id);
+    main_db_->DeleteAnnotationsForVisit(visit.visit_id);
 
     notifier_->NotifyVisitDeleted(visit);
   }
@@ -576,9 +576,9 @@ void ExpireHistoryBackend::ScheduleExpire() {
     // If work queue is empty, reset the work queue to contain all tasks and
     // schedule next iteration after a longer delay.
     InitWorkQueue();
-    delay = base::Minutes(kExpirationEmptyDelayMin);
+    delay = base::TimeDelta::FromMinutes(kExpirationEmptyDelayMin);
   } else {
-    delay = base::Seconds(kExpirationDelaySec);
+    delay = base::TimeDelta::FromSeconds(kExpirationDelaySec);
   }
 
   expected_expiration_time_ = base::Time::Now() + delay;
@@ -603,7 +603,7 @@ void ExpireHistoryBackend::DoExpireIteration() {
         FROM_HERE,
         base::BindOnce(&ExpireHistoryBackend::ScheduleExpire,
                        weak_factory_.GetWeakPtr()),
-        base::Minutes(kExpirationEmptyDelayMin));
+        base::TimeDelta::FromMinutes(kExpirationEmptyDelayMin));
     return;
   }
 
@@ -620,7 +620,7 @@ void ExpireHistoryBackend::DoExpireIteration() {
     // Otherwise do a final clean-up - remove old favicons not bound to visits.
     ClearOldOnDemandFaviconsIfPossible(
         base::Time::Now() -
-        base::Days(internal::kOnDemandFaviconIsOldAfterDays));
+        base::TimeDelta::FromDays(internal::kOnDemandFaviconIsOldAfterDays));
   }
 
   ScheduleExpire();

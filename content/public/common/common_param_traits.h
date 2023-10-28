@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -19,7 +19,6 @@
 #include <string>
 
 #include "base/memory/ref_counted.h"
-#include "base/notreached.h"
 #include "build/build_config.h"
 #include "content/common/content_export.h"
 #include "content/public/common/common_param_traits_macros.h"
@@ -28,7 +27,7 @@
 #include "ui/surface/transport_dib.h"
 #include "url/ipc/url_param_traits.h"
 
-#if BUILDFLAG(IS_WIN)
+#if defined(OS_WIN)
 #include "base/win/win_util.h"
 #endif
 
@@ -52,7 +51,7 @@ template <>
 struct ParamTraits<gfx::NativeWindow> {
   typedef gfx::NativeWindow param_type;
   static void Write(base::Pickle* m, const param_type& p) {
-#if BUILDFLAG(IS_WIN)
+#if defined(OS_WIN)
     m->WriteUInt32(base::win::HandleToUint32(p));
 #else
     m->WriteData(reinterpret_cast<const char*>(&p), sizeof(p));
@@ -61,11 +60,11 @@ struct ParamTraits<gfx::NativeWindow> {
   static bool Read(const base::Pickle* m,
                    base::PickleIterator* iter,
                    param_type* r) {
-#if BUILDFLAG(IS_WIN)
+#if defined(OS_WIN)
     return iter->ReadUInt32(reinterpret_cast<uint32_t*>(r));
 #else
     const char *data;
-    size_t data_size = 0;
+    int data_size = 0;
     bool result = iter->ReadData(&data, &data_size);
     if (result && data_size == sizeof(gfx::NativeWindow)) {
       memcpy(r, data, sizeof(gfx::NativeWindow));

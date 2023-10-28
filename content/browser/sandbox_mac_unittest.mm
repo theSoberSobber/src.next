@@ -1,4 +1,4 @@
-// Copyright 2018 The Chromium Authors
+// Copyright 2018 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -15,9 +15,7 @@
 #include "base/mac/foundation_util.h"
 #include "base/mac/mac_util.h"
 #include "base/mac/scoped_cftyperef.h"
-#include "base/memory/read_only_shared_memory_region.h"
 #include "base/memory/ref_counted.h"
-#include "base/memory/shared_memory_mapping.h"
 #include "base/posix/eintr_wrapper.h"
 #include "base/process/kill.h"
 #include "base/strings/strcat.h"
@@ -30,11 +28,9 @@
 #include "content/browser/sandbox_parameters_mac.h"
 #include "content/common/mac/font_loader.h"
 #include "crypto/openssl_util.h"
-#include "ppapi/buildflags/buildflags.h"
 #include "sandbox/mac/seatbelt.h"
 #include "sandbox/mac/seatbelt_exec.h"
 #include "sandbox/policy/mac/sandbox_mac.h"
-#include "sandbox/policy/mojom/sandbox.mojom.h"
 #include "sandbox/policy/switches.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "testing/multiprocess_func_list.h"
@@ -63,7 +59,7 @@ class SandboxMacTest : public base::MultiProcessTest {
   }
 
   void ExecuteWithParams(const std::string& procname,
-                         sandbox::mojom::Sandbox sandbox_type) {
+                         sandbox::policy::SandboxType sandbox_type) {
     std::string profile =
         sandbox::policy::GetSandboxProfile(sandbox_type) + kTempDirSuffix;
     sandbox::SeatbeltExecClient client;
@@ -89,20 +85,16 @@ class SandboxMacTest : public base::MultiProcessTest {
 
   void ExecuteInAllSandboxTypes(const std::string& multiprocess_main,
                                 base::RepeatingClosure after_each) {
-    constexpr sandbox::mojom::Sandbox kSandboxTypes[] = {
-        sandbox::mojom::Sandbox::kAudio,
-        sandbox::mojom::Sandbox::kCdm,
-        sandbox::mojom::Sandbox::kGpu,
-        sandbox::mojom::Sandbox::kNaClLoader,
-#if BUILDFLAG(ENABLE_PPAPI)
-        sandbox::mojom::Sandbox::kPpapi,
-#endif
-        sandbox::mojom::Sandbox::kPrintBackend,
-        sandbox::mojom::Sandbox::kPrintCompositor,
-        sandbox::mojom::Sandbox::kRenderer,
-        sandbox::mojom::Sandbox::kService,
-        sandbox::mojom::Sandbox::kServiceWithJit,
-        sandbox::mojom::Sandbox::kUtility,
+    constexpr sandbox::policy::SandboxType kSandboxTypes[] = {
+        sandbox::policy::SandboxType::kAudio,
+        sandbox::policy::SandboxType::kCdm,
+        sandbox::policy::SandboxType::kGpu,
+        sandbox::policy::SandboxType::kNaClLoader,
+        sandbox::policy::SandboxType::kPpapi,
+        sandbox::policy::SandboxType::kPrintBackend,
+        sandbox::policy::SandboxType::kPrintCompositor,
+        sandbox::policy::SandboxType::kRenderer,
+        sandbox::policy::SandboxType::kUtility,
     };
 
     for (const auto type : kSandboxTypes) {
@@ -154,7 +146,8 @@ MULTIPROCESS_TEST_MAIN(RendererWriteProcess) {
 }
 
 TEST_F(SandboxMacTest, RendererCannotWriteHomeDir) {
-  ExecuteWithParams("RendererWriteProcess", sandbox::mojom::Sandbox::kRenderer);
+  ExecuteWithParams("RendererWriteProcess",
+                    sandbox::policy::SandboxType::kRenderer);
 }
 
 MULTIPROCESS_TEST_MAIN(ClipboardAccessProcess) {
@@ -209,19 +202,24 @@ MULTIPROCESS_TEST_MAIN(FontLoadingProcess) {
   size_t font_data_length = font_data.length();
   CHECK(font_data_length > 0);
 
-  auto shmem_region_and_mapping =
-      base::ReadOnlySharedMemoryRegion::Create(font_data_length);
-  CHECK(shmem_region_and_mapping.IsValid());
+  auto font_shmem = mojo::SharedBufferHandle::Create(font_data_length);
+  CHECK(font_shmem.is_valid());
 
-  memcpy(shmem_region_and_mapping.mapping.memory(), font_data.c_str(),
-         font_data_length);
+  mojo::ScopedSharedBufferMapping mapping = font_shmem->Map(font_data_length);
+  CHECK(mapping);
+
+  memcpy(mapping.get(), font_data.c_str(), font_data_length);
 
   // Now init the sandbox.
   CheckCreateSeatbeltServer();
 
+  mojo::ScopedSharedBufferHandle shmem_handle =
+      font_shmem->Clone(mojo::SharedBufferHandle::AccessMode::READ_ONLY);
+  CHECK(shmem_handle.is_valid());
+
   base::ScopedCFTypeRef<CTFontDescriptorRef> data_descriptor;
   CHECK(FontLoader::CTFontDescriptorFromBuffer(
-      std::move(shmem_region_and_mapping.region), &data_descriptor));
+      std::move(shmem_handle), font_data_length, &data_descriptor));
   CHECK(data_descriptor);
 
   base::ScopedCFTypeRef<CTFontRef> sized_ctfont(
@@ -244,22 +242,23 @@ TEST_F(SandboxMacTest, FontLoadingTest) {
   std::unique_ptr<FontLoader::ResultInternal> result =
       FontLoader::LoadFontForTesting(u"Geeza Pro", 16);
   ASSERT_TRUE(result);
-  ASSERT_TRUE(result->font_data.IsValid());
-  uint64_t font_data_size = result->font_data.GetSize();
+  ASSERT_TRUE(result->font_data.is_valid());
+  uint64_t font_data_size = result->font_data->GetSize();
   EXPECT_GT(font_data_size, 0U);
   EXPECT_GT(result->font_id, 0U);
 
-  base::ReadOnlySharedMemoryMapping mapping = result->font_data.Map();
-  ASSERT_TRUE(mapping.IsValid());
-  ASSERT_EQ(font_data_size, mapping.size());
+  mojo::ScopedSharedBufferMapping mapping =
+      result->font_data->Map(font_data_size);
+  ASSERT_TRUE(mapping);
 
   base::WriteFileDescriptor(
       fileno(temp_file.get()),
-      base::StringPiece(static_cast<const char*>(mapping.memory()),
+      base::StringPiece(static_cast<const char*>(mapping.get()),
                         font_data_size));
 
   extra_data_ = temp_file_path.value();
-  ExecuteWithParams("FontLoadingProcess", sandbox::mojom::Sandbox::kRenderer);
+  ExecuteWithParams("FontLoadingProcess",
+                    sandbox::policy::SandboxType::kRenderer);
   temp_file.reset();
   ASSERT_TRUE(base::DeleteFile(temp_file_path));
 }
@@ -267,10 +266,18 @@ TEST_F(SandboxMacTest, FontLoadingTest) {
 MULTIPROCESS_TEST_MAIN(BuiltinAvailable) {
   CheckCreateSeatbeltServer();
 
-  if (__builtin_available(macOS 10.13, *)) {
+  if (__builtin_available(macOS 10.11, *)) {
     // Can't negate a __builtin_available condition. But success!
   } else {
-    return 13;
+    return 11;
+  }
+
+  if (base::mac::IsAtLeastOS10_13()) {
+    if (__builtin_available(macOS 10.13, *)) {
+      // Can't negate a __builtin_available condition. But success!
+    } else {
+      return 13;
+    }
   }
 
   return 0;
@@ -309,7 +316,8 @@ MULTIPROCESS_TEST_MAIN(NetworkProcessPrefs) {
 }
 
 TEST_F(SandboxMacTest, NetworkProcessPrefs) {
-  ExecuteWithParams("NetworkProcessPrefs", sandbox::mojom::Sandbox::kNetwork);
+  ExecuteWithParams("NetworkProcessPrefs",
+                    sandbox::policy::SandboxType::kNetwork);
 }
 
 }  // namespace content

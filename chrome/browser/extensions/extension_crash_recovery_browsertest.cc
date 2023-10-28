@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -16,6 +16,7 @@
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "content/public/browser/navigation_controller.h"
+#include "content/public/browser/notification_types.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/web_contents.h"
@@ -25,14 +26,13 @@
 #include "content/public/test/no_renderer_crashes_assertion.h"
 #include "content/public/test/test_utils.h"
 #include "extensions/browser/extension_host.h"
-#include "extensions/browser/extension_host_test_helper.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/extension_system.h"
 #include "extensions/browser/process_manager.h"
 #include "extensions/browser/process_map.h"
 #include "extensions/browser/test_extension_registry_observer.h"
 #include "extensions/common/constants.h"
-#include "extensions/test/extension_background_page_waiter.h"
+#include "extensions/test/background_page_watcher.h"
 #include "ui/message_center/public/cpp/notification.h"
 #include "ui/message_center/public/cpp/notification_delegate.h"
 
@@ -78,10 +78,9 @@ class ExtensionCrashRecoveryTest : public extensions::ExtensionBrowserTest {
         GetBackgroundHostForExtension(extension_id);
     ASSERT_TRUE(extension_host);
 
-    extensions::ExtensionHostTestHelper host_helper(profile(), extension_id);
     extension_host->render_process_host()->Shutdown(
         content::RESULT_CODE_KILLED);
-    host_helper.WaitForRenderProcessGone();
+    ASSERT_TRUE(WaitForExtensionCrash(extension_id));
     ASSERT_FALSE(GetProcessManager()->
                  GetBackgroundHostForExtension(extension_id));
 
@@ -98,9 +97,8 @@ class ExtensionCrashRecoveryTest : public extensions::ExtensionBrowserTest {
     ASSERT_TRUE(extension_host);
     extensions::ProcessManager::FrameSet frames =
         GetProcessManager()->GetAllFrames();
-    ASSERT_NE(
-        frames.end(),
-        frames.find(extension_host->host_contents()->GetPrimaryMainFrame()));
+    ASSERT_NE(frames.end(),
+              frames.find(extension_host->host_contents()->GetMainFrame()));
     ASSERT_FALSE(GetProcessManager()->GetAllFrames().empty());
     ASSERT_TRUE(extension_host->IsRendererLive());
     extensions::ProcessMap* process_map =
@@ -133,8 +131,8 @@ class ExtensionCrashRecoveryTest : public extensions::ExtensionBrowserTest {
                                     absl::nullopt, absl::nullopt);
     scoped_refptr<const Extension> extension =
         observer.WaitForExtensionLoaded();
-    extensions::ExtensionBackgroundPageWaiter(profile(), *extension.get())
-        .WaitForBackgroundOpen();
+    extensions::BackgroundPageWatcher(GetProcessManager(), extension.get())
+        .WaitForOpen();
   }
 
   size_t CountNotifications() {
@@ -149,7 +147,13 @@ class ExtensionCrashRecoveryTest : public extensions::ExtensionBrowserTest {
   content::ScopedAllowRendererCrashes scoped_allow_renderer_crashes_;
 };
 
-IN_PROC_BROWSER_TEST_F(ExtensionCrashRecoveryTest, Basic) {
+// Flaky on ASAN builds (https://crbug.com/997634)
+#if defined(ADDRESS_SANITIZER)
+#define MAYBE_Basic DISABLED_Basic
+#else
+#define MAYBE_Basic Basic
+#endif
+IN_PROC_BROWSER_TEST_F(ExtensionCrashRecoveryTest, MAYBE_Basic) {
   const size_t count_before = GetEnabledExtensionCount();
   const size_t crash_count_before = GetTerminatedExtensionCount();
   LoadTestExtension();
@@ -163,7 +167,8 @@ IN_PROC_BROWSER_TEST_F(ExtensionCrashRecoveryTest, Basic) {
   ASSERT_EQ(crash_count_before, GetTerminatedExtensionCount());
 }
 
-IN_PROC_BROWSER_TEST_F(ExtensionCrashRecoveryTest, CloseAndReload) {
+// Flaky, http://crbug.com/241191.
+IN_PROC_BROWSER_TEST_F(ExtensionCrashRecoveryTest, DISABLED_CloseAndReload) {
   const size_t count_before = GetEnabledExtensionCount();
   const size_t crash_count_before = GetTerminatedExtensionCount();
   LoadTestExtension();
@@ -172,6 +177,9 @@ IN_PROC_BROWSER_TEST_F(ExtensionCrashRecoveryTest, CloseAndReload) {
   ASSERT_EQ(count_before, GetEnabledExtensionCount());
   ASSERT_EQ(crash_count_before + 1, GetTerminatedExtensionCount());
 
+  // In 2013, when this test became flaky, this line was part of the test.
+  // CancelNotification() no longer exists.
+  // ASSERT_NO_FATAL_FAILURE(CancelNotification(0));
   ReloadExtension(first_extension_id_);
 
   SCOPED_TRACE("after reloading");
@@ -179,6 +187,12 @@ IN_PROC_BROWSER_TEST_F(ExtensionCrashRecoveryTest, CloseAndReload) {
   ASSERT_EQ(crash_count_before, GetTerminatedExtensionCount());
 }
 
+// Flaky. crbug.com/846172
+#if defined(OS_LINUX) || defined(OS_CHROMEOS) || defined(OS_WIN)
+#define MAYBE_ReloadIndependently DISABLED_ReloadIndependently
+#else
+#define MAYBE_ReloadIndependently ReloadIndependently
+#endif
 IN_PROC_BROWSER_TEST_F(ExtensionCrashRecoveryTest, ReloadIndependently) {
   const size_t count_before = GetEnabledExtensionCount();
   LoadTestExtension();
@@ -199,8 +213,15 @@ IN_PROC_BROWSER_TEST_F(ExtensionCrashRecoveryTest, ReloadIndependently) {
   ASSERT_EQ(0U, CountNotifications());
 }
 
+// Flaky. crbug.com/846172
+#if defined(OS_LINUX) || defined(OS_CHROMEOS) || defined(OS_WIN)
+#define MAYBE_ReloadIndependentlyChangeTabs \
+  DISABLED_ReloadIndependentlyChangeTabs
+#else
+#define MAYBE_ReloadIndependentlyChangeTabs ReloadIndependentlyChangeTabs
+#endif
 IN_PROC_BROWSER_TEST_F(ExtensionCrashRecoveryTest,
-                       ReloadIndependentlyChangeTabs) {
+                       MAYBE_ReloadIndependentlyChangeTabs) {
   const size_t count_before = GetEnabledExtensionCount();
   LoadTestExtension();
   CrashExtension(first_extension_id_);
@@ -229,8 +250,15 @@ IN_PROC_BROWSER_TEST_F(ExtensionCrashRecoveryTest,
   ASSERT_EQ(0U, CountNotifications());
 }
 
+// Flaky on ASAN builds (https://crbug.com/997634)
+#if defined(ADDRESS_SANITIZER)
+#define MAYBE_ReloadIndependentlyNavigatePage \
+  DISABLED_ReloadIndependentlyNavigatePage
+#else
+#define MAYBE_ReloadIndependentlyNavigatePage ReloadIndependentlyNavigatePage
+#endif
 IN_PROC_BROWSER_TEST_F(ExtensionCrashRecoveryTest,
-                       ReloadIndependentlyNavigatePage) {
+                       MAYBE_ReloadIndependentlyNavigatePage) {
   const size_t count_before = GetEnabledExtensionCount();
   LoadTestExtension();
   CrashExtension(first_extension_id_);
@@ -242,10 +270,10 @@ IN_PROC_BROWSER_TEST_F(ExtensionCrashRecoveryTest,
   ASSERT_EQ(1U, CountNotifications());
 
   // Navigate to another page.
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(
+  ui_test_utils::NavigateToURL(
       browser(), ui_test_utils::GetTestUrl(
                      base::FilePath(base::FilePath::kCurrentDirectory),
-                     base::FilePath(FILE_PATH_LITERAL("title1.html")))));
+                     base::FilePath(FILE_PATH_LITERAL("title1.html"))));
   ASSERT_EQ(1U, CountNotifications());
 
   ReloadExtension(first_extension_id_);
@@ -265,7 +293,14 @@ IN_PROC_BROWSER_TEST_F(ExtensionCrashRecoveryTest, ShutdownWhileCrashed) {
   ASSERT_EQ(count_before, GetEnabledExtensionCount());
 }
 
-IN_PROC_BROWSER_TEST_F(ExtensionCrashRecoveryTest, TwoExtensionsCrashFirst) {
+// Flaky on ASAN builds (https://crbug.com/997634)
+#if defined(ADDRESS_SANITIZER)
+#define MAYBE_TwoExtensionsCrashFirst DISABLED_TwoExtensionsCrashFirst
+#else
+#define MAYBE_TwoExtensionsCrashFirst TwoExtensionsCrashFirst
+#endif
+IN_PROC_BROWSER_TEST_F(ExtensionCrashRecoveryTest,
+                       MAYBE_TwoExtensionsCrashFirst) {
   const size_t count_before = GetEnabledExtensionCount();
   LoadTestExtension();
   LoadSecondExtension();
@@ -278,7 +313,14 @@ IN_PROC_BROWSER_TEST_F(ExtensionCrashRecoveryTest, TwoExtensionsCrashFirst) {
   CheckExtensionConsistency(second_extension_id_);
 }
 
-IN_PROC_BROWSER_TEST_F(ExtensionCrashRecoveryTest, TwoExtensionsCrashSecond) {
+// Flaky on ASAN builds (https://crbug.com/997634)
+#if defined(ADDRESS_SANITIZER)
+#define MAYBE_TwoExtensionsCrashSecond DISABLED_TwoExtensionsCrashSecond
+#else
+#define MAYBE_TwoExtensionsCrashSecond TwoExtensionsCrashSecond
+#endif
+IN_PROC_BROWSER_TEST_F(ExtensionCrashRecoveryTest,
+                       MAYBE_TwoExtensionsCrashSecond) {
   const size_t count_before = GetEnabledExtensionCount();
   LoadTestExtension();
   LoadSecondExtension();
@@ -291,8 +333,14 @@ IN_PROC_BROWSER_TEST_F(ExtensionCrashRecoveryTest, TwoExtensionsCrashSecond) {
   CheckExtensionConsistency(second_extension_id_);
 }
 
+// Flaky on ASAN builds (https://crbug.com/997634)
+#if defined(ADDRESS_SANITIZER)
+#define MAYBE_TwoExtensionsCrashBothAtOnce DISABLED_TwoExtensionsCrashBothAtOnce
+#else
+#define MAYBE_TwoExtensionsCrashBothAtOnce TwoExtensionsCrashBothAtOnce
+#endif
 IN_PROC_BROWSER_TEST_F(ExtensionCrashRecoveryTest,
-                       TwoExtensionsCrashBothAtOnce) {
+                       MAYBE_TwoExtensionsCrashBothAtOnce) {
   const size_t count_before = GetEnabledExtensionCount();
   const size_t crash_count_before = GetTerminatedExtensionCount();
   LoadTestExtension();
@@ -318,7 +366,14 @@ IN_PROC_BROWSER_TEST_F(ExtensionCrashRecoveryTest,
   }
 }
 
-IN_PROC_BROWSER_TEST_F(ExtensionCrashRecoveryTest, TwoExtensionsOneByOne) {
+// Flaky on ASAN builds (https://crbug.com/997634)
+#if defined(ADDRESS_SANITIZER)
+#define MAYBE_TwoExtensionsOneByOne DISABLED_TwoExtensionsOneByOne
+#else
+#define MAYBE_TwoExtensionsOneByOne TwoExtensionsOneByOne
+#endif
+IN_PROC_BROWSER_TEST_F(ExtensionCrashRecoveryTest,
+                       MAYBE_TwoExtensionsOneByOne) {
   const size_t count_before = GetEnabledExtensionCount();
   LoadTestExtension();
   CrashExtension(first_extension_id_);
@@ -379,8 +434,15 @@ IN_PROC_BROWSER_TEST_F(ExtensionCrashRecoveryTest,
   CheckExtensionConsistency(second_extension_id_);
 }
 
+// Flaky on ASAN builds (https://crbug.com/997634)
+#if defined(ADDRESS_SANITIZER)
+#define MAYBE_TwoExtensionsReloadIndependently \
+  DISABLED_TwoExtensionsReloadIndependently
+#else
+#define MAYBE_TwoExtensionsReloadIndependently TwoExtensionsReloadIndependently
+#endif
 IN_PROC_BROWSER_TEST_F(ExtensionCrashRecoveryTest,
-                       TwoExtensionsReloadIndependently) {
+                       MAYBE_TwoExtensionsReloadIndependently) {
   const size_t count_before = GetEnabledExtensionCount();
   LoadTestExtension();
   LoadSecondExtension();
@@ -458,10 +520,10 @@ IN_PROC_BROWSER_TEST_F(ExtensionCrashRecoveryTest,
 
   // Open a tab extension.
   chrome::NewTab(browser());
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(
-      browser(), GURL(std::string(extensions::kExtensionScheme) +
-                      url::kStandardSchemeSeparator + first_extension_id_ +
-                      "/background.html")));
+  ui_test_utils::NavigateToURL(browser(),
+                               GURL(std::string(extensions::kExtensionScheme) +
+                                   url::kStandardSchemeSeparator +
+                                   first_extension_id_ + "/background.html"));
 
   const int tabs_before = tab_strip->count();
   CrashExtension(first_extension_id_);
@@ -473,10 +535,14 @@ IN_PROC_BROWSER_TEST_F(ExtensionCrashRecoveryTest,
 
   extensions::TestExtensionRegistryObserver observer(GetExtensionRegistry());
   {
-    content::LoadStopObserver notification_observer(
-        browser()->tab_strip_model()->GetActiveWebContents());
+    content::WindowedNotificationObserver observer(
+        content::NOTIFICATION_LOAD_STOP,
+        content::Source<NavigationController>(&browser()
+                                                   ->tab_strip_model()
+                                                   ->GetActiveWebContents()
+                                                   ->GetController()));
     chrome::Reload(browser(), WindowOpenDisposition::CURRENT_TAB);
-    notification_observer.Wait();
+    observer.Wait();
   }
   scoped_refptr<const Extension> extension = observer.WaitForExtensionLoaded();
   EXPECT_EQ(first_extension_id_, extension->id());

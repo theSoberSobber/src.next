@@ -1,4 +1,4 @@
-// Copyright 2020 The Chromium Authors
+// Copyright 2020 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -35,16 +35,20 @@ class ProtoTranslator {
     return PolicyFromProto(input_.policy());
   }
   base::Time parse_time() const {
-    return base::Time() + base::Microseconds(input_.parse_time());
+    return base::Time() +
+           base::TimeDelta::FromMicroseconds(input_.parse_time());
   }
   base::TimeTicks parse_time_ticks() const {
-    return base::TimeTicks() + base::Microseconds(input_.parse_time());
+    return base::TimeTicks() +
+           base::TimeDelta::FromMicroseconds(input_.parse_time());
   }
   base::Time serialize_time() const {
-    return base::Time() + base::Microseconds(input_.serialize_time());
+    return base::Time() +
+           base::TimeDelta::FromMicroseconds(input_.serialize_time());
   }
   base::TimeTicks now_ticks() const {
-    return base::TimeTicks() + base::Microseconds(input_.now_ticks());
+    return base::TimeTicks() +
+           base::TimeDelta::FromMicroseconds(input_.now_ticks());
   }
   absl::optional<base::Value> serialized_entry() const {
     json_proto::JsonProtoConverter converter;

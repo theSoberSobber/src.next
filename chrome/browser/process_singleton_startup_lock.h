@@ -1,4 +1,4 @@
-// Copyright 2013 The Chromium Authors
+// Copyright (c) 2013 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -11,6 +11,7 @@
 
 #include "base/command_line.h"
 #include "base/files/file_path.h"
+#include "base/macros.h"
 #include "base/sequence_checker.h"
 #include "chrome/browser/process_singleton.h"
 
@@ -26,11 +27,6 @@ class ProcessSingletonStartupLock {
  public:
   explicit ProcessSingletonStartupLock(
       const ProcessSingleton::NotificationCallback& original_callback);
-
-  ProcessSingletonStartupLock(const ProcessSingletonStartupLock&) = delete;
-  ProcessSingletonStartupLock& operator=(const ProcessSingletonStartupLock&) =
-      delete;
-
   ~ProcessSingletonStartupLock();
 
   // Returns the ProcessSingleton::NotificationCallback.
@@ -56,6 +52,8 @@ class ProcessSingletonStartupLock {
   ProcessSingleton::NotificationCallback original_callback_;
 
   SEQUENCE_CHECKER(sequence_checker_);
+
+  DISALLOW_COPY_AND_ASSIGN(ProcessSingletonStartupLock);
 };
 
 #endif  // CHROME_BROWSER_PROCESS_SINGLETON_STARTUP_LOCK_H_

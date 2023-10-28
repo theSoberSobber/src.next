@@ -30,11 +30,10 @@
 #include "third_party/blink/public/mojom/page_state/page_state.mojom-blink.h"
 #include "third_party/blink/public/web/web_frame_load_type.h"
 #include "third_party/blink/renderer/bindings/core/v8/serialization/serialized_script_value.h"
-#include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context_lifecycle_observer.h"
 #include "third_party/blink/renderer/core/loader/frame_loader_types.h"
 #include "third_party/blink/renderer/platform/bindings/script_wrappable.h"
-#include "third_party/blink/renderer/platform/heap/garbage_collected.h"
+#include "third_party/blink/renderer/platform/heap/handle.h"
 #include "third_party/blink/renderer/platform/wtf/forward.h"
 
 namespace blink {
@@ -56,17 +55,17 @@ class CORE_EXPORT History final : public ScriptWrappable,
   unsigned length(ExceptionState&) const;
   ScriptValue state(ScriptState*, ExceptionState&);
 
-  void back(ExceptionState&);
-  void forward(ExceptionState&);
-  void go(int delta, ExceptionState&);
+  void back(ScriptState*, ExceptionState&);
+  void forward(ScriptState*, ExceptionState&);
+  void go(ScriptState*, int delta, ExceptionState&);
 
-  void pushState(ScriptState*,
+  void pushState(v8::Isolate* isolate,
                  const ScriptValue& data,
                  const String& title,
                  const String& url,
                  ExceptionState&);
 
-  void replaceState(ScriptState*,
+  void replaceState(v8::Isolate* isolate,
                     const ScriptValue& data,
                     const String& title,
                     const String& url,
@@ -85,6 +84,7 @@ class CORE_EXPORT History final : public ScriptWrappable,
   void StateObjectAdded(scoped_refptr<SerializedScriptValue>,
                         const String& title,
                         const String& url,
+                        mojom::blink::ScrollRestorationType,
                         WebFrameLoadType,
                         ExceptionState&);
   SerializedScriptValue* StateInternal() const;

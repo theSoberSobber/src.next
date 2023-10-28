@@ -130,10 +130,7 @@ class LayoutTreeBuilderForText : public LayoutTreeBuilder<Text> {
   void CreateLayoutObject();
 
  private:
-  scoped_refptr<ComputedStyle>
-  CreateInlineWrapperStyleForDisplayContentsIfNeeded() const;
-  LayoutObject* CreateInlineWrapperForDisplayContentsIfNeeded(
-      ComputedStyle* wrappter_style) const;
+  LayoutObject* CreateInlineWrapperForDisplayContentsIfNeeded();
 };
 
 }  // namespace blink

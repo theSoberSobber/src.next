@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,7 +7,8 @@
 
 #include "base/callback.h"
 #include "base/files/file_path.h"
-#include "base/task/single_thread_task_runner.h"
+#include "base/macros.h"
+#include "base/single_thread_task_runner.h"
 #include "base/task/task_traits.h"
 #include "build/build_config.h"
 #include "content/public/browser/browser_thread.h"
@@ -42,16 +43,17 @@ class IconLoader {
   using IconLoadedCallback =
       base::OnceCallback<void(gfx::Image, const IconGroup&)>;
 
+  // Creates an IconLoader, which owns itself. If the IconLoader might outlive
+  // the caller, be sure to use a weak pointer in the |callback|.
+  static IconLoader* Create(const base::FilePath& file_path,
+                            IconSize size,
+                            float scale,
+                            IconLoadedCallback callback);
+
   // Starts the process of reading the icon. When the reading of the icon is
   // complete, the IconLoadedCallback callback will be fulfilled, and the
   // IconLoader will delete itself.
-  static void LoadIcon(const base::FilePath& file_path,
-                       IconSize size,
-                       float scale,
-                       IconLoadedCallback callback);
-
-  IconLoader(const IconLoader&) = delete;
-  IconLoader& operator=(const IconLoader&) = delete;
+  void Start();
 
  private:
   IconLoader(const base::FilePath& file_path,
@@ -61,19 +63,15 @@ class IconLoader {
 
   ~IconLoader();
 
-  void Start();
-
   // Given a file path, get the group for the given file.
   static IconGroup GroupForFilepath(const base::FilePath& file_path);
 
   // The TaskRunner that ReadIcon() must be called on.
   static scoped_refptr<base::TaskRunner> GetReadIconTaskRunner();
 
-#if !BUILDFLAG(IS_CHROMEOS)
   void ReadGroup();
   void ReadIcon();
-#endif
-#if BUILDFLAG(IS_WIN)
+#if defined(OS_WIN)
   // Reads an icon in a sandboxed service. Use this when the file itself must
   // be parsed.
   void ReadIconInSandbox();
@@ -82,10 +80,9 @@ class IconLoader {
   // The traits of the tasks posted to base::ThreadPool by this class. These
   // operations may block, because they are fetching icons from the disk, yet
   // the result will be seen by the user so they should be prioritized
-  // accordingly. They should not however block shutdown if long running.
+  // accordingly.
   static constexpr base::TaskTraits traits() {
-    return {base::MayBlock(), base::TaskPriority::USER_VISIBLE,
-            base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN};
+    return {base::MayBlock(), base::TaskPriority::USER_VISIBLE};
   }
 
   // The task runner object of the thread in which we notify the delegate.
@@ -95,11 +92,13 @@ class IconLoader {
 
   IconGroup group_;
 
-#if !BUILDFLAG(IS_ANDROID)
+#if !defined(OS_ANDROID)
   IconSize icon_size_;
-#endif  // !BUILDFLAG(IS_ANDROID)
+#endif  // !defined(OS_ANDROID)
   const float scale_;
   IconLoadedCallback callback_;
+
+  DISALLOW_COPY_AND_ASSIGN(IconLoader);
 };
 
 #endif  // CHROME_BROWSER_ICON_LOADER_H_

@@ -3,12 +3,11 @@
 // found in the LICENSE file.
 
 #include "testing/gtest/include/gtest/gtest.h"
-#include "third_party/blink/public/common/scheme_registry.h"
-#include "third_party/blink/public/mojom/use_counter/metrics/css_property_id.mojom-blink.h"
+#include "third_party/blink/public/mojom/use_counter/css_property_id.mojom-blink.h"
 #include "third_party/blink/renderer/core/css/css_property_names.h"
 #include "third_party/blink/renderer/core/css/properties/css_property.h"
 #include "third_party/blink/renderer/core/dom/shadow_root.h"
-#include "third_party/blink/renderer/core/frame/deprecation/deprecation.h"
+#include "third_party/blink/renderer/core/frame/deprecation.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/html/html_html_element.h"
@@ -60,7 +59,7 @@ class UseCounterImplTest : public testing::Test {
 
   UseCounterImplTest()
       : dummy_(std::make_unique<DummyPageHolder>(
-            /* initial_view_size= */ gfx::Size(),
+            /* initial_view_size= */ IntSize(),
             /* chrome_client= */ nullptr,
             /* local_frame_client= */
             MakeGarbageCollected<DummyLocalFrameClient>())) {
@@ -131,7 +130,7 @@ TEST_F(UseCounterImplTest, RecordingExtensions) {
   constexpr auto item = mojom::WebFeature::kFetch;
   constexpr auto second_item = WebFeature::kFetchBodyStream;
   const std::string url = kExtensionUrl;
-  CommonSchemeRegistry::RegisterURLSchemeAsExtension("chrome-extension");
+  SchemeRegistry::RegisterURLSchemeAsExtension("chrome-extension");
   UseCounterImpl::Context context = UseCounterImpl::kExtensionContext;
   int page_visits_bucket = GetPageVisitsBucketforHistogram(histogram);
 
@@ -173,12 +172,11 @@ TEST_F(UseCounterImplTest, RecordingExtensions) {
   EXPECT_TRUE(use_counter1.IsCounted(item));
   histogram_tester_.ExpectBucketCount(histogram, static_cast<int>(item), 2);
   histogram_tester_.ExpectTotalCount(histogram, 4);
-  CommonSchemeRegistry::RemoveURLSchemeAsExtensionForTest("chrome-extension");
+  SchemeRegistry::RemoveURLSchemeAsExtension("chrome-extension");
 }
 
 TEST_F(UseCounterImplTest, CSSSelectorPseudoWhere) {
-  auto dummy_page_holder =
-      std::make_unique<DummyPageHolder>(gfx::Size(800, 600));
+  auto dummy_page_holder = std::make_unique<DummyPageHolder>(IntSize(800, 600));
   Page::InsertOrdinaryPageForTesting(&dummy_page_holder->GetPage());
   Document& document = dummy_page_holder->GetDocument();
   WebFeature feature = WebFeature::kCSSSelectorPseudoWhere;
@@ -201,8 +199,7 @@ TEST_F(UseCounterImplTest, CSSSelectorPseudoWhere) {
  */
 
 TEST_F(UseCounterImplTest, CSSSelectorPseudoAnyLink) {
-  auto dummy_page_holder =
-      std::make_unique<DummyPageHolder>(gfx::Size(800, 600));
+  auto dummy_page_holder = std::make_unique<DummyPageHolder>(IntSize(800, 600));
   Page::InsertOrdinaryPageForTesting(&dummy_page_holder->GetPage());
   Document& document = dummy_page_holder->GetDocument();
   WebFeature feature = WebFeature::kCSSSelectorPseudoAnyLink;
@@ -213,8 +210,7 @@ TEST_F(UseCounterImplTest, CSSSelectorPseudoAnyLink) {
 }
 
 TEST_F(UseCounterImplTest, CSSSelectorPseudoWebkitAnyLink) {
-  auto dummy_page_holder =
-      std::make_unique<DummyPageHolder>(gfx::Size(800, 600));
+  auto dummy_page_holder = std::make_unique<DummyPageHolder>(IntSize(800, 600));
   Page::InsertOrdinaryPageForTesting(&dummy_page_holder->GetPage());
   Document& document = dummy_page_holder->GetDocument();
   WebFeature feature = WebFeature::kCSSSelectorPseudoWebkitAnyLink;
@@ -233,8 +229,7 @@ TEST_F(UseCounterImplTest, CSSTypedOMStylePropertyMap) {
 }
 
 TEST_F(UseCounterImplTest, CSSSelectorPseudoIs) {
-  auto dummy_page_holder =
-      std::make_unique<DummyPageHolder>(gfx::Size(800, 600));
+  auto dummy_page_holder = std::make_unique<DummyPageHolder>(IntSize(800, 600));
   Page::InsertOrdinaryPageForTesting(&dummy_page_holder->GetPage());
   Document& document = dummy_page_holder->GetDocument();
   WebFeature feature = WebFeature::kCSSSelectorPseudoIs;
@@ -246,8 +241,7 @@ TEST_F(UseCounterImplTest, CSSSelectorPseudoIs) {
 }
 
 TEST_F(UseCounterImplTest, CSSSelectorPseudoDir) {
-  auto dummy_page_holder =
-      std::make_unique<DummyPageHolder>(gfx::Size(800, 600));
+  auto dummy_page_holder = std::make_unique<DummyPageHolder>(IntSize(800, 600));
   Page::InsertOrdinaryPageForTesting(&dummy_page_holder->GetPage());
   Document& document = dummy_page_holder->GetDocument();
   WebFeature feature = WebFeature::kCSSSelectorPseudoDir;
@@ -258,8 +252,7 @@ TEST_F(UseCounterImplTest, CSSSelectorPseudoDir) {
 }
 
 TEST_F(UseCounterImplTest, CSSGridLayoutPercentageColumnIndefiniteWidth) {
-  auto dummy_page_holder =
-      std::make_unique<DummyPageHolder>(gfx::Size(800, 600));
+  auto dummy_page_holder = std::make_unique<DummyPageHolder>(IntSize(800, 600));
   Page::InsertOrdinaryPageForTesting(&dummy_page_holder->GetPage());
   Document& document = dummy_page_holder->GetDocument();
   WebFeature feature = WebFeature::kGridRowTrackPercentIndefiniteHeight;
@@ -272,8 +265,7 @@ TEST_F(UseCounterImplTest, CSSGridLayoutPercentageColumnIndefiniteWidth) {
 }
 
 TEST_F(UseCounterImplTest, CSSFlexibleBox) {
-  auto dummy_page_holder =
-      std::make_unique<DummyPageHolder>(gfx::Size(800, 600));
+  auto dummy_page_holder = std::make_unique<DummyPageHolder>(IntSize(800, 600));
   Page::InsertOrdinaryPageForTesting(&dummy_page_holder->GetPage());
   Document& document = dummy_page_holder->GetDocument();
   WebFeature feature = WebFeature::kCSSFlexibleBox;
@@ -285,8 +277,7 @@ TEST_F(UseCounterImplTest, CSSFlexibleBox) {
 }
 
 TEST_F(UseCounterImplTest, CSSFlexibleBoxInline) {
-  auto dummy_page_holder =
-      std::make_unique<DummyPageHolder>(gfx::Size(800, 600));
+  auto dummy_page_holder = std::make_unique<DummyPageHolder>(IntSize(800, 600));
   Page::InsertOrdinaryPageForTesting(&dummy_page_holder->GetPage());
   Document& document = dummy_page_holder->GetDocument();
   WebFeature feature = WebFeature::kCSSFlexibleBox;
@@ -300,8 +291,7 @@ TEST_F(UseCounterImplTest, CSSFlexibleBoxInline) {
 TEST_F(UseCounterImplTest, CSSFlexibleBoxButton) {
   // LayoutButton is a subclass of LayoutFlexibleBox, however we don't want it
   // to be counted as usage of flexboxes as it's an implementation detail.
-  auto dummy_page_holder =
-      std::make_unique<DummyPageHolder>(gfx::Size(800, 600));
+  auto dummy_page_holder = std::make_unique<DummyPageHolder>(IntSize(800, 600));
   Page::InsertOrdinaryPageForTesting(&dummy_page_holder->GetPage());
   Document& document = dummy_page_holder->GetDocument();
   WebFeature feature = WebFeature::kCSSFlexibleBox;
@@ -312,8 +302,7 @@ TEST_F(UseCounterImplTest, CSSFlexibleBoxButton) {
 }
 
 TEST_F(UseCounterImplTest, HTMLRootContained) {
-  auto dummy_page_holder =
-      std::make_unique<DummyPageHolder>(gfx::Size(800, 600));
+  auto dummy_page_holder = std::make_unique<DummyPageHolder>(IntSize(800, 600));
   Page::InsertOrdinaryPageForTesting(&dummy_page_holder->GetPage());
   Document& document = dummy_page_holder->GetDocument();
   WebFeature feature = WebFeature::kHTMLRootContained;
@@ -333,8 +322,7 @@ TEST_F(UseCounterImplTest, HTMLRootContained) {
 }
 
 TEST_F(UseCounterImplTest, HTMLBodyContained) {
-  auto dummy_page_holder =
-      std::make_unique<DummyPageHolder>(gfx::Size(800, 600));
+  auto dummy_page_holder = std::make_unique<DummyPageHolder>(IntSize(800, 600));
   Page::InsertOrdinaryPageForTesting(&dummy_page_holder->GetPage());
   Document& document = dummy_page_holder->GetDocument();
   WebFeature feature = WebFeature::kHTMLBodyContained;
@@ -371,27 +359,38 @@ TEST_F(DeprecationTest, InspectorDisablesDeprecation) {
   // The specific feature we use here isn't important.
   WebFeature feature =
       WebFeature::kCSSSelectorInternalMediaControlsOverlayCastButton;
+  CSSPropertyID property = CSSPropertyID::kFontWeight;
+
+  EXPECT_FALSE(deprecation_.IsSuppressed(property));
 
   deprecation_.MuteForInspector();
+  Deprecation::WarnOnDeprecatedProperties(GetFrame(), property);
+  EXPECT_FALSE(deprecation_.IsSuppressed(property));
   Deprecation::CountDeprecation(GetFrame()->DomWindow(), feature);
   EXPECT_FALSE(use_counter_.IsCounted(feature));
 
   deprecation_.MuteForInspector();
+  Deprecation::WarnOnDeprecatedProperties(GetFrame(), property);
+  EXPECT_FALSE(deprecation_.IsSuppressed(property));
   Deprecation::CountDeprecation(GetFrame()->DomWindow(), feature);
   EXPECT_FALSE(use_counter_.IsCounted(feature));
 
   deprecation_.UnmuteForInspector();
+  Deprecation::WarnOnDeprecatedProperties(GetFrame(), property);
+  EXPECT_FALSE(deprecation_.IsSuppressed(property));
   Deprecation::CountDeprecation(GetFrame()->DomWindow(), feature);
   EXPECT_FALSE(use_counter_.IsCounted(feature));
 
   deprecation_.UnmuteForInspector();
+  Deprecation::WarnOnDeprecatedProperties(GetFrame(), property);
+  // TODO: use the actually deprecated property to get a deprecation message.
+  EXPECT_FALSE(deprecation_.IsSuppressed(property));
   Deprecation::CountDeprecation(GetFrame()->DomWindow(), feature);
   EXPECT_TRUE(use_counter_.IsCounted(feature));
 }
 
 TEST_F(UseCounterImplTest, CSSUnknownNamespacePrefixInSelector) {
-  auto dummy_page_holder =
-      std::make_unique<DummyPageHolder>(gfx::Size(800, 600));
+  auto dummy_page_holder = std::make_unique<DummyPageHolder>(IntSize(800, 600));
   Page::InsertOrdinaryPageForTesting(&dummy_page_holder->GetPage());
   Document& document = dummy_page_holder->GetDocument();
   WebFeature feature = WebFeature::kCSSUnknownNamespacePrefixInSelector;
@@ -413,8 +412,7 @@ TEST_F(UseCounterImplTest, CSSUnknownNamespacePrefixInSelector) {
 }
 
 TEST_F(UseCounterImplTest, CSSSelectorHostContextInLiveProfile) {
-  auto dummy_page_holder =
-      std::make_unique<DummyPageHolder>(gfx::Size(800, 600));
+  auto dummy_page_holder = std::make_unique<DummyPageHolder>(IntSize(800, 600));
   Page::InsertOrdinaryPageForTesting(&dummy_page_holder->GetPage());
   Document& document = dummy_page_holder->GetDocument();
   WebFeature feature = WebFeature::kCSSSelectorHostContextInLiveProfile;
@@ -446,8 +444,7 @@ TEST_F(UseCounterImplTest, CSSSelectorHostContextInLiveProfile) {
 }
 
 TEST_F(UseCounterImplTest, CSSSelectorHostContextInSnapshotProfile) {
-  auto dummy_page_holder =
-      std::make_unique<DummyPageHolder>(gfx::Size(800, 600));
+  auto dummy_page_holder = std::make_unique<DummyPageHolder>(IntSize(800, 600));
   Page::InsertOrdinaryPageForTesting(&dummy_page_holder->GetPage());
   Document& document = dummy_page_holder->GetDocument();
   WebFeature feature = WebFeature::kCSSSelectorHostContextInSnapshotProfile;
@@ -508,8 +505,7 @@ TEST_F(UseCounterImplTest, MaximumCSSSampleId) {
 
 TEST_F(UseCounterImplTest, CSSMarkerPseudoElementUA) {
   // Check that UA styles for list markers are not counted.
-  auto dummy_page_holder =
-      std::make_unique<DummyPageHolder>(gfx::Size(800, 600));
+  auto dummy_page_holder = std::make_unique<DummyPageHolder>(IntSize(800, 600));
   Page::InsertOrdinaryPageForTesting(&dummy_page_holder->GetPage());
   Document& document = dummy_page_holder->GetDocument();
   WebFeature feature = WebFeature::kHasMarkerPseudoElement;
@@ -540,8 +536,7 @@ TEST_F(UseCounterImplTest, CSSMarkerPseudoElementUA) {
 
 TEST_F(UseCounterImplTest, CSSMarkerPseudoElementAuthor) {
   // Check that author styles for list markers are counted.
-  auto dummy_page_holder =
-      std::make_unique<DummyPageHolder>(gfx::Size(800, 600));
+  auto dummy_page_holder = std::make_unique<DummyPageHolder>(IntSize(800, 600));
   Page::InsertOrdinaryPageForTesting(&dummy_page_holder->GetPage());
   Document& document = dummy_page_holder->GetDocument();
   WebFeature feature = WebFeature::kHasMarkerPseudoElement;
@@ -558,35 +553,6 @@ TEST_F(UseCounterImplTest, CSSMarkerPseudoElementAuthor) {
   )HTML");
   UpdateAllLifecyclePhases(document);
   EXPECT_TRUE(document.IsUseCounted(feature));
-}
-
-TEST_F(UseCounterImplTest, H1UserAgentFontSizeInSectionApplied) {
-  auto dummy_page_holder =
-      std::make_unique<DummyPageHolder>(gfx::Size(800, 600));
-  Page::InsertOrdinaryPageForTesting(&dummy_page_holder->GetPage());
-  Document& document = dummy_page_holder->GetDocument();
-  WebFeature feature = WebFeature::kH1UserAgentFontSizeInSectionApplied;
-
-  EXPECT_FALSE(document.IsUseCounted(feature));
-
-  document.documentElement()->setInnerHTML("<h1></h1>");
-  UpdateAllLifecyclePhases(document);
-  EXPECT_FALSE(document.IsUseCounted(feature))
-      << "Not inside sectioning element";
-
-  document.documentElement()->setInnerHTML(R"HTML(
-      <article><h1 style="font-size: 10px"></h1></article>
-  )HTML");
-  UpdateAllLifecyclePhases(document);
-  EXPECT_FALSE(document.IsUseCounted(feature))
-      << "Inside sectioning element with author font-size";
-
-  document.documentElement()->setInnerHTML(R"HTML(
-      <article><h1></h1></article>
-  )HTML");
-  UpdateAllLifecyclePhases(document);
-  EXPECT_TRUE(document.IsUseCounted(feature))
-      << "Inside sectioning element with UA font-size";
 }
 
 }  // namespace blink

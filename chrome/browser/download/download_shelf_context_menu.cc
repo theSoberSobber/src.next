@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -6,11 +6,9 @@
 
 #include <memory>
 
-#include "base/metrics/histogram_functions.h"
 #include "build/build_config.h"
 #include "chrome/browser/download/chrome_download_manager_delegate.h"
 #include "chrome/browser/download/download_commands.h"
-#include "chrome/browser/download/download_stats.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/download/public/common/download_danger_type.h"
 #include "components/vector_icons/vector_icons.h"
@@ -20,7 +18,7 @@
 #include "ui/base/models/simple_menu_model.h"
 #include "ui/gfx/color_palette.h"
 
-#if BUILDFLAG(IS_WIN)
+#if defined(OS_WIN)
 #include "chrome/browser/ui/pdf/adobe_reader_info_win.h"
 #endif
 
@@ -40,30 +38,7 @@ DownloadShelfContextMenu::DownloadShelfContextMenu(
     base::WeakPtr<DownloadUIModel> download)
     : download_(download), download_commands_(new DownloadCommands(download)) {
   DCHECK(download_);
-}
-
-void DownloadShelfContextMenu::RecordCommandsEnabled(
-    ui::SimpleMenuModel* model) {
-  // Meant to be kept up-to-date with DownloadCommands::Command
-
-  if (download_commands_enabled_recorded_) {
-    return;
-  }
-
-  for (int command_int = 1; command_int < DownloadCommands::Command::MAX;
-       command_int++) {
-    if (model->GetIndexOfCommandId(command_int).has_value() &&
-        IsCommandIdEnabled(command_int)) {
-      DownloadCommands::Command download_command =
-          static_cast<DownloadCommands::Command>(command_int);
-      base::UmaHistogramEnumeration(
-          "Download.ShelfContextMenuAction",
-          DownloadCommandToShelfAction(download_command,
-                                       /*clicked=*/false));
-    }
-  }
-
-  download_commands_enabled_recorded_ = true;
+  download_->AddObserver(this);
 }
 
 ui::SimpleMenuModel* DownloadShelfContextMenu::GetMenuModel() {
@@ -74,7 +49,7 @@ ui::SimpleMenuModel* DownloadShelfContextMenu::GetMenuModel() {
 
   DCHECK(WantsContextMenu(download_.get()));
 
-  bool is_download = download_->GetDownloadItem() != nullptr;
+  bool is_download = download_->download() != nullptr;
 
   if (download_->IsMixedContent()) {
     model = GetMixedContentDownloadMenuModel();
@@ -97,7 +72,7 @@ ui::SimpleMenuModel* DownloadShelfContextMenu::GetMenuModel() {
   } else {
     model = GetInProgressMenuModel(is_download);
   }
-  RecordCommandsEnabled(model);
+
   return model;
 }
 
@@ -167,14 +142,19 @@ std::u16string DownloadShelfContextMenu::GetLabelForCommandId(
       if (download_commands_) {
         bool can_open_pdf_in_system_viewer =
             download_commands_->CanOpenPdfInSystemViewer();
+#if defined(OS_WIN)
         if (can_open_pdf_in_system_viewer) {
-          id = IDS_DOWNLOAD_MENU_PLATFORM_OPEN_ALWAYS;
-#if BUILDFLAG(IS_WIN)
-          if (IsAdobeReaderDefaultPDFViewer())
-            id = IDS_DOWNLOAD_MENU_ALWAYS_OPEN_PDF_IN_READER;
-#endif  // BUILDFLAG(IS_WIN)
+          id = IsAdobeReaderDefaultPDFViewer()
+                   ? IDS_DOWNLOAD_MENU_ALWAYS_OPEN_PDF_IN_READER
+                   : IDS_DOWNLOAD_MENU_PLATFORM_OPEN_ALWAYS;
           break;
         }
+#elif defined(OS_MAC) || defined(OS_LINUX) || defined(OS_CHROMEOS)
+        if (can_open_pdf_in_system_viewer) {
+          id = IDS_DOWNLOAD_MENU_PLATFORM_OPEN_ALWAYS;
+          break;
+        }
+#endif
       }
       id = IDS_DOWNLOAD_MENU_ALWAYS_OPEN_TYPE;
       break;
@@ -195,7 +175,8 @@ std::u16string DownloadShelfContextMenu::GetLabelForCommandId(
       id = IDS_DOWNLOAD_MENU_LEARN_MORE_MIXED_CONTENT;
       break;
     case DownloadCommands::COPY_TO_CLIPBOARD:
-      // This command is implemented only for the Download notification.
+    case DownloadCommands::ANNOTATE:
+      // These commands are implemented only for the Download notification.
       NOTREACHED();
       break;
     case DownloadCommands::DEEP_SCAN:
@@ -203,12 +184,6 @@ std::u16string DownloadShelfContextMenu::GetLabelForCommandId(
       break;
     case DownloadCommands::BYPASS_DEEP_SCANNING:
       id = IDS_OPEN_DOWNLOAD_NOW;
-      break;
-    // These commands are not supported on the context menu.
-    case DownloadCommands::REVIEW:
-    case DownloadCommands::RETRY:
-    case DownloadCommands::MAX:
-      NOTREACHED();
       break;
   }
   CHECK(id != -1);
@@ -220,6 +195,7 @@ void DownloadShelfContextMenu::DetachFromDownloadItem() {
     return;
 
   download_commands_.reset();
+  download_->RemoveObserver(this);
   download_ = nullptr;
 }
 
@@ -336,7 +312,7 @@ ui::SimpleMenuModel* DownloadShelfContextMenu::GetInterruptedMenuModel(
 
   interrupted_download_menu_model_->AddItem(
       DownloadCommands::RESUME, GetLabelForCommandId(DownloadCommands::RESUME));
-#if BUILDFLAG(IS_WIN)
+#if defined(OS_WIN)
   // The Help Center article is currently Windows specific.
   // TODO(asanka): Enable this for other platforms when the article is expanded
   // for other platforms.
@@ -448,7 +424,7 @@ void DownloadShelfContextMenu::AddAutoOpenToMenu(ui::SimpleMenuModel* menu) {
         DownloadCommands::ALWAYS_OPEN_TYPE,
         GetLabelForCommandId(DownloadCommands::ALWAYS_OPEN_TYPE),
         ui::ImageModel::FromVectorIcon(vector_icons::kBusinessIcon,
-                                       ui::kColorIcon,
+                                       gfx::kChromeIconGrey,
                                        ui::SimpleMenuModel::kDefaultIconSize));
   } else {
     menu->AddCheckItem(

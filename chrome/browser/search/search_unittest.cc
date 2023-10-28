@@ -1,4 +1,4 @@
-// Copyright 2013 The Chromium Authors
+// Copyright (c) 2013 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -11,18 +11,16 @@
 #include <utility>
 
 #include "base/bind.h"
+#include "base/cxx17_backports.h"
 #include "base/strings/utf_string_conversions.h"
 #include "build/build_config.h"
 #include "chrome/browser/search/instant_service.h"
 #include "chrome/browser/search/instant_service_factory.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
-#include "chrome/browser/signin/chrome_signin_client_factory.h"
-#include "chrome/browser/signin/chrome_signin_client_test_util.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/test/base/browser_with_test_window_test.h"
 #include "chrome/test/base/search_test_utils.h"
-#include "chrome/test/base/testing_profile.h"
 #include "components/search_engines/template_url_service.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/render_frame_host.h"
@@ -97,7 +95,7 @@ class SearchTest : public BrowserWithTestWindowTest {
     InstantService* instant_service =
         InstantServiceFactory::GetForProfile(profile());
     return instant_service->IsInstantProcess(
-        contents->GetPrimaryMainFrame()->GetProcess()->GetID());
+        contents->GetMainFrame()->GetProcess()->GetID());
   }
 
   // Each test case represents a navigation to |start_url| followed by a
@@ -132,13 +130,6 @@ class SearchTest : public BrowserWithTestWindowTest {
        false, !content::CanSameSiteMainFrameNavigationsChangeSiteInstances(),
        true},
   };
-
-  // BrowserWithTestWindowTest:
-  TestingProfile::TestingFactories GetTestingFactories() override {
-    return {{ChromeSigninClientFactory::GetInstance(),
-             base::BindRepeating(&BuildChromeSigninClientWithURLLoader,
-                                 test_url_loader_factory())}};
-  }
 };
 
 struct SearchTestCase {
@@ -162,7 +153,7 @@ TEST_F(SearchTest, ShouldAssignURLToInstantRenderer) {
       {"https://foo.com/", false, "Instant support was removed"},
   };
 
-  for (size_t i = 0; i < std::size(kTestCases); ++i) {
+  for (size_t i = 0; i < base::size(kTestCases); ++i) {
     const SearchTestCase& test = kTestCases[i];
     EXPECT_EQ(test.expected_result,
               ShouldAssignURLToInstantRenderer(GURL(test.url), profile()))
@@ -185,7 +176,7 @@ TEST_F(SearchTest, ShouldUseProcessPerSiteForInstantSiteURL) {
       {"https://foo.com/", false, "Non-exact path"},
   };
 
-  for (size_t i = 0; i < std::size(kTestCases); ++i) {
+  for (size_t i = 0; i < base::size(kTestCases); ++i) {
     const SearchTestCase& test = kTestCases[i];
     EXPECT_EQ(test.expected_result, ShouldUseProcessPerSiteForInstantSiteURL(
                                         GURL(test.url), profile()))
@@ -194,7 +185,7 @@ TEST_F(SearchTest, ShouldUseProcessPerSiteForInstantSiteURL) {
 }
 
 TEST_F(SearchTest, ProcessIsolation) {
-  for (size_t i = 0; i < std::size(kProcessIsolationTestCases); ++i) {
+  for (size_t i = 0; i < base::size(kProcessIsolationTestCases); ++i) {
     const ProcessIsolationTestCase& test = kProcessIsolationTestCases[i];
     AddTab(browser(), GURL("chrome://blank"));
     content::WebContents* contents =
@@ -209,9 +200,9 @@ TEST_F(SearchTest, ProcessIsolation) {
     const scoped_refptr<content::SiteInstance> start_site_instance =
         contents->GetSiteInstance();
     const content::RenderProcessHost* start_rph =
-        contents->GetPrimaryMainFrame()->GetProcess();
+        contents->GetMainFrame()->GetProcess();
     const content::RenderViewHost* start_rvh =
-        contents->GetPrimaryMainFrame()->GetRenderViewHost();
+        contents->GetMainFrame()->GetRenderViewHost();
 
     // Navigate to end URL.
     NavigateAndCommitActiveTab(GURL(test.end_url));
@@ -222,16 +213,16 @@ TEST_F(SearchTest, ProcessIsolation) {
               start_site_instance.get() == contents->GetSiteInstance())
         << test.description;
     EXPECT_EQ(test.same_site_instance,
-              start_rvh == contents->GetPrimaryMainFrame()->GetRenderViewHost())
+              start_rvh == contents->GetMainFrame()->GetRenderViewHost())
         << test.description;
     EXPECT_EQ(test.same_process,
-              start_rph == contents->GetPrimaryMainFrame()->GetProcess())
+              start_rph == contents->GetMainFrame()->GetProcess())
         << test.description;
   }
 }
 
 TEST_F(SearchTest, ProcessIsolation_RendererInitiated) {
-  for (size_t i = 0; i < std::size(kProcessIsolationTestCases); ++i) {
+  for (size_t i = 0; i < base::size(kProcessIsolationTestCases); ++i) {
     const ProcessIsolationTestCase& test = kProcessIsolationTestCases[i];
     AddTab(browser(), GURL("chrome://blank"));
     content::WebContents* contents =
@@ -246,13 +237,13 @@ TEST_F(SearchTest, ProcessIsolation_RendererInitiated) {
     const scoped_refptr<content::SiteInstance> start_site_instance =
         contents->GetSiteInstance();
     const content::RenderProcessHost* start_rph =
-        contents->GetPrimaryMainFrame()->GetProcess();
+        contents->GetMainFrame()->GetProcess();
     const content::RenderViewHost* start_rvh =
-        contents->GetPrimaryMainFrame()->GetRenderViewHost();
+        contents->GetMainFrame()->GetRenderViewHost();
 
     // Navigate to end URL via a renderer-initiated navigation.
     content::NavigationSimulator::NavigateAndCommitFromDocument(
-        GURL(test.end_url), contents->GetPrimaryMainFrame());
+        GURL(test.end_url), contents->GetMainFrame());
 
     EXPECT_EQ(test.end_in_instant_process, InInstantProcess(contents))
         << test.description;
@@ -261,10 +252,10 @@ TEST_F(SearchTest, ProcessIsolation_RendererInitiated) {
               start_site_instance.get() == contents->GetSiteInstance())
         << test.description;
     EXPECT_EQ(test.same_site_instance,
-              start_rvh == contents->GetPrimaryMainFrame()->GetRenderViewHost())
+              start_rvh == contents->GetMainFrame()->GetRenderViewHost())
         << test.description;
     EXPECT_EQ(test.same_process,
-              start_rph == contents->GetPrimaryMainFrame()->GetProcess())
+              start_rph == contents->GetMainFrame()->GetProcess())
         << test.description;
   }
 }
@@ -359,7 +350,7 @@ TEST_F(SearchTest, UseLocalNTPIfNTPURLIsNotSet) {
 #if BUILDFLAG(ENABLE_SUPERVISED_USERS)
 TEST_F(SearchTest, UseLocalNTPIfNTPURLIsBlockedForSupervisedUser) {
   // Mark the profile as supervised, otherwise the URL filter won't be checked.
-  profile()->SetIsSupervisedProfile();
+  profile()->SetSupervisedUserId("supervised");
   // Block access to foo.com in the URL filter.
   SupervisedUserService* supervised_user_service =
       SupervisedUserServiceFactory::GetForProfile(profile());
@@ -393,11 +384,11 @@ TEST_F(SearchTest, IsNTPOrRelatedURL) {
   EXPECT_FALSE(IsNTPOrRelatedURL(search_url_with_search_terms, profile()));
   EXPECT_FALSE(IsNTPOrRelatedURL(search_url_without_search_terms, profile()));
 
-  EXPECT_FALSE(IsNTPOrRelatedURL(ntp_url, nullptr));
-  EXPECT_FALSE(IsNTPOrRelatedURL(remote_ntp_url, nullptr));
-  EXPECT_FALSE(IsNTPOrRelatedURL(remote_ntp_service_worker_url, nullptr));
-  EXPECT_FALSE(IsNTPOrRelatedURL(search_url_with_search_terms, nullptr));
-  EXPECT_FALSE(IsNTPOrRelatedURL(search_url_without_search_terms, nullptr));
+  EXPECT_FALSE(IsNTPOrRelatedURL(ntp_url, NULL));
+  EXPECT_FALSE(IsNTPOrRelatedURL(remote_ntp_url, NULL));
+  EXPECT_FALSE(IsNTPOrRelatedURL(remote_ntp_service_worker_url, NULL));
+  EXPECT_FALSE(IsNTPOrRelatedURL(search_url_with_search_terms, NULL));
+  EXPECT_FALSE(IsNTPOrRelatedURL(search_url_without_search_terms, NULL));
 }
 
 // Tests whether a |url| corresponds to a New Tab page.
@@ -413,7 +404,7 @@ TEST_F(SearchTest, IsNTPURL) {
       {"", false, "Invalid URL"},
   };
 
-  for (size_t i = 0; i < std::size(kTestCases); ++i) {
+  for (size_t i = 0; i < base::size(kTestCases); ++i) {
     const SearchTestCase& test = kTestCases[i];
     EXPECT_EQ(test.expected_result, IsNTPURL(GURL(test.url)))
         << test.url << " " << test.comment;

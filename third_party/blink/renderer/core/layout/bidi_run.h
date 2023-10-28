@@ -61,11 +61,7 @@ struct BidiRun final : BidiCharacterRun {
 
  public:
   LineLayoutItem line_layout_item_;
-
-  // This doesn't create reference cycle as BidiRunList/BidiResolver, which own
-  // BidiRun, is allocated only on stack and BidiRun deleted manually in
-  // BidiRunList::DeleteRuns().
-  Persistent<InlineBox> box_;
+  InlineBox* box_;
 };
 
 }  // namespace blink

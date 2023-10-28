@@ -1,4 +1,4 @@
-// Copyright 2014 The Chromium Authors
+// Copyright 2014 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -16,15 +16,12 @@
 #include "chrome/common/chrome_constants.h"
 #include "chrome/test/base/testing_profile.h"
 #include "components/prefs/scoped_user_pref_update.h"
+#include "content/public/browser/plugin_service.h"
 #include "content/public/test/browser_task_environment.h"
 #include "content/public/test/test_utils.h"
 #include "extensions/browser/extension_prefs.h"
 #include "extensions/browser/pref_names.h"
 #include "ppapi/buildflags/buildflags.h"
-
-#if BUILDFLAG(ENABLE_PLUGINS)
-#include "content/public/browser/plugin_service.h"
-#endif
 
 namespace extensions {
 
@@ -57,7 +54,7 @@ TEST_F(ExtensionGarbageCollectorUnitTest, CleanupOnStartup) {
   // Simulate that one of them got partially deleted by clearing its pref.
   {
     DictionaryPrefUpdate update(profile_->GetPrefs(), pref_names::kExtensions);
-    base::Value* dict = update.Get();
+    base::DictionaryValue* dict = update.Get();
     ASSERT_TRUE(dict != nullptr);
     dict->RemoveKey(kExtensionId);
   }
@@ -92,7 +89,7 @@ TEST_F(ExtensionGarbageCollectorUnitTest, NoCleanupDuringInstall) {
   // Simulate that one of them got partially deleted by clearing its pref.
   {
     DictionaryPrefUpdate update(profile_->GetPrefs(), pref_names::kExtensions);
-    base::Value* dict = update.Get();
+    base::DictionaryValue* dict = update.Get();
     ASSERT_TRUE(dict != nullptr);
     dict->RemoveKey(kExtensionId);
   }

@@ -31,6 +31,7 @@
 #include "third_party/blink/renderer/core/html/html_table_element.h"
 #include "third_party/blink/renderer/core/html_names.h"
 #include "third_party/blink/renderer/core/layout/hit_test_result.h"
+#include "third_party/blink/renderer/core/layout/layout_analyzer.h"
 #include "third_party/blink/renderer/core/layout/layout_object_factory.h"
 #include "third_party/blink/renderer/core/layout/layout_table_caption.h"
 #include "third_party/blink/renderer/core/layout/layout_table_cell.h"
@@ -80,16 +81,6 @@ LayoutTable::LayoutTable(Element* element)
 
 LayoutTable::~LayoutTable() = default;
 
-void LayoutTable::Trace(Visitor* visitor) const {
-  visitor->Trace(captions_);
-  visitor->Trace(column_layout_objects_);
-  visitor->Trace(head_);
-  visitor->Trace(foot_);
-  visitor->Trace(first_body_);
-  visitor->Trace(table_layout_);
-  LayoutBlock::Trace(visitor);
-}
-
 void LayoutTable::StyleDidChange(StyleDifference diff,
                                  const ComputedStyle* old_style) {
   NOT_DESTROYED();
@@ -117,9 +108,9 @@ void LayoutTable::StyleDidChange(StyleDifference diff,
     // explicit width is specified on the table. Auto width implies auto table
     // layout.
     if (StyleRef().IsFixedTableLayout())
-      table_layout_ = MakeGarbageCollected<TableLayoutAlgorithmFixed>(this);
+      table_layout_ = std::make_unique<TableLayoutAlgorithmFixed>(this);
     else
-      table_layout_ = MakeGarbageCollected<TableLayoutAlgorithmAuto>(this);
+      table_layout_ = std::make_unique<TableLayoutAlgorithmAuto>(this);
   }
 
   if (!old_style)
@@ -137,9 +128,8 @@ void LayoutTable::StyleDidChange(StyleDifference diff,
     MarkAllCellsWidthsDirtyAndOrNeedsLayout(kMarkDirtyAndNeedsLayout);
 }
 
-static inline void ResetSectionPointerIfNotBefore(
-    Member<LayoutTableSection>& ptr,
-    LayoutObject* before) {
+static inline void ResetSectionPointerIfNotBefore(LayoutTableSection*& ptr,
+                                                  LayoutObject* before) {
   if (!before || !ptr)
     return;
   LayoutObject* o = before->PreviousSibling();
@@ -162,35 +152,12 @@ void LayoutTable::AddChild(LayoutObject* child, LayoutObject* before_child) {
   NOT_DESTROYED();
   bool wrap_in_anonymous_section = !child->IsOutOfFlowPositioned();
 
-  // TODO(crbug.com/1345894): TODO(crbug.com/1341619): The |child| should never
-  // be NG, but the Container Queries crbug.com/1145970 may break the rule. When
-  // that happens, and if the |child|'s legacy/NG are not in the super/sub-class
-  // relationship, |To<>| will fail.
-  //
-  // The proper fix will be to fix callers preventing such code path, and for
-  // |LayoutTable*| to use proper legacy-only |Is*()| functions with
-  // |NOTREACHED()| where appropriate, but for now, |CHECK|s are added to
-  // prevent NG table-part children being added to legacy table-part parents.
-  //
-  // Following class is in super-/subclass relationships:
-  // - LayoutTableCaption
-  // Following classes are not:
-  // - LayoutTableCell
-  // - LayoutTableCol
-  // - LayoutTableRow
-  // - LayoutTableSection
   if (child->IsTableCaption()) {
     wrap_in_anonymous_section = false;
   } else if (child->IsLayoutTableCol()) {
-    // TODO(crbug.com/1345894): See the TODO at the top of this function.
-    // |LayoutNGTableColumn| is not a subclass of |LayoutTableCol|.
-    CHECK(IsA<LayoutTableCol>(child));
     has_col_elements_ = true;
     wrap_in_anonymous_section = false;
   } else if (child->IsTableSection()) {
-    // TODO(crbug.com/1345894): See the TODO at the top of this function.
-    // |LayoutNGTableSection| is not a subclass of |LayoutTableSection|.
-    CHECK(IsA<LayoutTableSection>(child));
     switch (child->StyleRef().Display()) {
       case EDisplay::kTableHeaderGroup:
         ResetSectionPointerIfNotBefore(head_, before_child);
@@ -210,7 +177,7 @@ void LayoutTable::AddChild(LayoutObject* child, LayoutObject* before_child) {
           wrap_in_anonymous_section = false;
           break;
         }
-        [[fallthrough]];
+        FALLTHROUGH;
       case EDisplay::kTableRowGroup:
         ResetSectionPointerIfNotBefore(first_body_, before_child);
         if (!first_body_)
@@ -319,40 +286,29 @@ LayoutNGTableSectionInterface* LayoutTable::FirstBodyInterface() const {
   return FirstBody();
 }
 
-LayoutNGTableSectionInterface* LayoutTable::FirstSectionInterface() const {
+LayoutNGTableSectionInterface* LayoutTable::TopSectionInterface() const {
   NOT_DESTROYED();
   return TopSection();
 }
 
-LayoutNGTableSectionInterface* LayoutTable::LastSectionInterface() const {
+LayoutNGTableSectionInterface* LayoutTable::BottomSectionInterface() const {
   NOT_DESTROYED();
   return BottomSection();
 }
 
-LayoutNGTableSectionInterface* LayoutTable::FirstNonEmptySectionInterface()
+LayoutNGTableSectionInterface* LayoutTable::TopNonEmptySectionInterface()
     const {
   NOT_DESTROYED();
   return TopNonEmptySection();
 }
 
-LayoutNGTableSectionInterface* LayoutTable::NextSectionInterface(
+LayoutNGTableSectionInterface* LayoutTable::SectionBelowInterface(
     const LayoutNGTableSectionInterface* section,
     SkipEmptySectionsValue skip_empty_sections) const {
   NOT_DESTROYED();
-  return SectionBelow(To<LayoutTableSection>(section->ToLayoutObject()),
-                      skip_empty_sections);
+  return SectionBelow(section->ToLayoutTableSection(), skip_empty_sections);
 }
-
-// Only used by NG.
-LayoutNGTableSectionInterface* LayoutTable::PreviousSectionInterface(
-    const LayoutNGTableSectionInterface* section,
-    SkipEmptySectionsValue skip_empty_sections) const {
-  NOT_DESTROYED();
-  NOTIMPLEMENTED();
-  return nullptr;
-}
-
-LayoutNGTableSectionInterface* LayoutTable::LastNonEmptySectionInterface()
+LayoutNGTableSectionInterface* LayoutTable::BottomNonEmptySectionInterface()
     const {
   NOT_DESTROYED();
   return BottomNonEmptySection();
@@ -678,7 +634,7 @@ void LayoutTable::SimplifiedNormalFlowLayout() {
   // FIXME: We should walk through the items in the tree in tree order to do the
   // layout here instead of walking through individual parts of the tree.
   // crbug.com/442737
-  for (auto& caption : captions_)
+  for (auto*& caption : captions_)
     caption->LayoutIfNeeded();
 
   for (LayoutTableSection* section = TopSection(); section;
@@ -719,7 +675,7 @@ RecalcLayoutOverflowResult LayoutTable::RecalcLayoutOverflow() {
 
 void LayoutTable::RecalcVisualOverflow() {
   NOT_DESTROYED();
-  for (const auto& caption : captions_) {
+  for (auto* caption : captions_) {
     if (!caption->HasSelfPaintingLayer())
       caption->RecalcVisualOverflow();
   }
@@ -736,6 +692,7 @@ void LayoutTable::RecalcVisualOverflow() {
 void LayoutTable::UpdateLayout() {
   NOT_DESTROYED();
   DCHECK(NeedsLayout());
+  LayoutAnalyzer::Scope analyzer(*this);
 
   if (SimplifiedLayout())
     return;
@@ -1083,7 +1040,7 @@ void LayoutTable::AddVisualOverflowFromChildren() {
   }
 
   // Add overflow from our caption.
-  for (const auto& caption : captions_)
+  for (auto* caption : captions_)
     AddVisualOverflowFromChild(*caption);
 
   // Add overflow from our sections.
@@ -1198,7 +1155,7 @@ MinMaxSizes LayoutTable::PreferredLogicalWidths() const {
   table_layout_->ApplyPreferredLogicalWidthQuirks(sizes.min_size,
                                                   sizes.max_size);
 
-  for (const auto& caption : captions_) {
+  for (const auto* caption : captions_) {
     LayoutUnit min_preferred_logical_width =
         caption->PreferredLogicalWidths().min_size;
     sizes.Encompass(min_preferred_logical_width);
@@ -1731,7 +1688,7 @@ PhysicalRect LayoutTable::OverflowClipRect(
 bool LayoutTable::NodeAtPoint(HitTestResult& result,
                               const HitTestLocation& hit_test_location,
                               const PhysicalOffset& accumulated_offset,
-                              HitTestPhase phase) {
+                              HitTestAction action) {
   NOT_DESTROYED();
   // Check kids first.
   bool skip_children = (result.GetHitTestRequest().GetStopNode() == this);
@@ -1745,7 +1702,7 @@ bool LayoutTable::NodeAtPoint(HitTestResult& result,
         PhysicalOffset child_accumulated_offset =
             accumulated_offset + To<LayoutBox>(child)->PhysicalLocation(this);
         if (child->NodeAtPoint(result, hit_test_location,
-                               child_accumulated_offset, phase)) {
+                               child_accumulated_offset, action)) {
           UpdateHitTestResult(result,
                               hit_test_location.Point() - accumulated_offset);
           return true;
@@ -1757,7 +1714,8 @@ bool LayoutTable::NodeAtPoint(HitTestResult& result,
   // Check our bounds next.
   PhysicalRect bounds_rect(accumulated_offset, Size());
   if (VisibleToHitTestRequest(result.GetHitTestRequest()) &&
-      (phase == HitTestPhase::kSelfBlockBackground) &&
+      (action == kHitTestBlockBackground ||
+       action == kHitTestChildBlockBackground) &&
       hit_test_location.Intersects(bounds_rect)) {
     UpdateHitTestResult(result, hit_test_location.Point() - accumulated_offset);
     if (result.AddNodeToListBasedTestResult(GetNode(), hit_test_location,
@@ -1948,8 +1906,7 @@ void LayoutTable::UpdateCollapsedOuterBorders() const {
 // LayoutNGTableCellInterface API
 bool LayoutTable::IsFirstCell(const LayoutNGTableCellInterface& cell) const {
   NOT_DESTROYED();
-  const LayoutTableCell& layout_cell =
-      To<LayoutTableCell>(*cell.ToLayoutObject());
+  const LayoutTableCell& layout_cell = *cell.ToLayoutTableCell();
   return !(CellPreceding(layout_cell) || CellAbove(layout_cell));
 }
 

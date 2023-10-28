@@ -1,4 +1,4 @@
-// Copyright 2021 The Chromium Authors
+// Copyright 2021 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -13,8 +13,6 @@ import android.widget.LinearLayout;
 
 import androidx.appcompat.widget.SwitchCompat;
 
-import org.chromium.chrome.browser.price_tracking.PriceTrackingFeatures;
-import org.chromium.chrome.browser.price_tracking.PriceTrackingUtilities;
 import org.chromium.chrome.tab_ui.R;
 import org.chromium.ui.widget.ChromeImageButton;
 
@@ -24,7 +22,6 @@ import org.chromium.ui.widget.ChromeImageButton;
 public class PriceTrackingDialogView extends LinearLayout {
     private SwitchCompat mTrackPricesSwitch;
     private ChromeImageButton mPriceAlertsArrow;
-    private ViewGroup mPriceAnnotationsRowMenu;
     private ViewGroup mPriceAlertsRowMenu;
 
     public PriceTrackingDialogView(Context context, AttributeSet attrs) {
@@ -36,7 +33,6 @@ public class PriceTrackingDialogView extends LinearLayout {
         super.onFinishInflate();
         mTrackPricesSwitch = (SwitchCompat) findViewById(R.id.track_prices_switch);
         mPriceAlertsArrow = (ChromeImageButton) findViewById(R.id.price_alerts_arrow);
-        mPriceAnnotationsRowMenu = (ViewGroup) findViewById(R.id.price_annotations_row_menu_id);
         mPriceAlertsRowMenu = (ViewGroup) findViewById(R.id.price_alerts_row_menu_id);
     }
 
@@ -64,16 +60,11 @@ public class PriceTrackingDialogView extends LinearLayout {
     }
 
     /**
-     * Set visibility of each row menu.
+     * Set visibility of the price alerts row menu.
      */
-    void setupRowMenuVisibility() {
-        mPriceAnnotationsRowMenu.setVisibility(
-                PriceTrackingFeatures.allowUsersToDisablePriceAnnotations() ? View.VISIBLE
-                                                                            : View.GONE);
-        mPriceAlertsRowMenu.setVisibility(
-                PriceTrackingFeatures.isPriceDropNotificationEligible() ? View.VISIBLE : View.GONE);
-        // At least one row should be visible.
-        assert mPriceAnnotationsRowMenu.getVisibility() == View.VISIBLE
-                || mPriceAlertsRowMenu.getVisibility() == View.VISIBLE;
+    void setupPriceAlertsRowMenuVisibility() {
+        mPriceAlertsRowMenu.setVisibility(PriceTrackingUtilities.isPriceDropNotificationEligible()
+                        ? View.VISIBLE
+                        : View.GONE);
     }
 }

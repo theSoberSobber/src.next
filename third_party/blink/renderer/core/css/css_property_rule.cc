@@ -46,7 +46,7 @@ String CSSPropertyRule::cssText() const {
     builder.Append("; ");
   }
   builder.Append("}");
-  return builder.ReleaseString();
+  return builder.ToString();
 }
 
 void CSSPropertyRule::Reattach(StyleRuleBase* rule) {

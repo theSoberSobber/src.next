@@ -25,17 +25,15 @@
 #define THIRD_PARTY_BLINK_RENDERER_CORE_CSS_STYLE_PROPERTY_SERIALIZER_H_
 
 #include <bitset>
-#include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/css/css_property_value_set.h"
 #include "third_party/blink/renderer/core/css/css_value_list.h"
 
 namespace blink {
 
-class CSSPropertyName;
 class CSSPropertyValueSet;
 class StylePropertyShorthand;
 
-class CORE_EXPORT StylePropertySerializer {
+class StylePropertySerializer {
   STACK_ALLOCATED();
 
  public:
@@ -43,9 +41,6 @@ class CORE_EXPORT StylePropertySerializer {
 
   String AsText() const;
   String SerializeShorthand(CSSPropertyID) const;
-
-  static bool IsValidToggleShorthand(const CSSValue* toggle_root,
-                                     const CSSValue* toggle_trigger);
 
  private:
   String GetCommonValue(const StylePropertyShorthand&) const;
@@ -60,21 +55,15 @@ class CORE_EXPORT StylePropertySerializer {
   String PageBreakPropertyValue(const StylePropertyShorthand&) const;
   String GetShorthandValue(const StylePropertyShorthand&,
                            String separator = " ") const;
-  String GetShorthandValueForGrid(const StylePropertyShorthand&) const;
-  String GetShorthandValueForGridTemplate(const StylePropertyShorthand&) const;
   String ContainerValue() const;
-  String ScrollTimelineValue() const;
-  String ViewTimelineValue() const;
   String FontValue() const;
-  String FontSynthesisValue() const;
   String FontVariantValue() const;
   bool AppendFontLonghandValueIfNotNormal(const CSSProperty&,
                                           StringBuilder& result) const;
   String OffsetValue() const;
   String TextDecorationValue() const;
   String BackgroundRepeatPropertyValue() const;
-  String ContainIntrinsicSizeValue() const;
-  String GetPropertyText(const CSSPropertyName&,
+  String GetPropertyText(const CSSProperty&,
                          const String& value,
                          bool is_important,
                          bool is_not_first_decl) const;
@@ -100,23 +89,24 @@ class CORE_EXPORT StylePropertySerializer {
     explicit PropertyValueForSerializer(
         CSSPropertyValueSet::PropertyReference property)
         : value_(&property.Value()),
-          name_(property.Name()),
+          property_(CSSProperty::Get(property.Id())),
           is_important_(property.IsImportant()) {}
 
     // TODO(sashab): Make this take a const CSSValue&.
-    PropertyValueForSerializer(const CSSPropertyName& name,
+    PropertyValueForSerializer(const CSSProperty& property,
                                const CSSValue* value,
                                bool is_important)
-        : value_(value), name_(name), is_important_(is_important) {}
+        : value_(value), property_(property), is_important_(is_important) {}
 
-    const CSSPropertyName& Name() const { return name_; }
+    // TODO(crbug.com/980160): Remove this function.
+    const CSSProperty& Property() const { return property_; }
     const CSSValue* Value() const { return value_; }
     bool IsImportant() const { return is_important_; }
     bool IsValid() const { return value_; }
 
    private:
     const CSSValue* value_;
-    CSSPropertyName name_;
+    const CSSProperty& property_;
     bool is_important_;
   };
 

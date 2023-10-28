@@ -24,31 +24,28 @@
 
 namespace blink {
 
-static inline gfx::PointF MidPoint(const gfx::PointF& first,
-                                   const gfx::PointF& second) {
-  return gfx::PointF((first.x() + second.x()) / 2.0f,
-                     (first.y() + second.y()) / 2.0f);
+static inline FloatPoint MidPoint(const FloatPoint& first,
+                                  const FloatPoint& second) {
+  return FloatPoint((first.X() + second.X()) / 2.0f,
+                    (first.Y() + second.Y()) / 2.0f);
 }
 
-static inline float DistanceLine(const gfx::PointF& start,
-                                 const gfx::PointF& end) {
-  return (end - start).Length();
-}
-
-static inline double DotSelf(const gfx::PointF& p) {
-  return p.OffsetFromOrigin().LengthSquared();
+static inline float DistanceLine(const FloatPoint& start,
+                                 const FloatPoint& end) {
+  return sqrtf((end.X() - start.X()) * (end.X() - start.X()) +
+               (end.Y() - start.Y()) * (end.Y() - start.Y()));
 }
 
 struct QuadraticBezier {
   DISALLOW_NEW();
   QuadraticBezier() = default;
-  QuadraticBezier(const gfx::PointF& s,
-                  const gfx::PointF& c,
-                  const gfx::PointF& e)
+  QuadraticBezier(const FloatPoint& s, const FloatPoint& c, const FloatPoint& e)
       : start(s), control(c), end(e), split_depth(0) {}
 
   double MagnitudeSquared() const {
-    return (DotSelf(start) + DotSelf(control) + DotSelf(end)) / 9.0;
+    return ((double)(start.Dot(start)) + (double)(control.Dot(control)) +
+            (double)(end.Dot(end))) /
+           9.0;
   }
 
   float ApproximateDistance() const {
@@ -59,7 +56,7 @@ struct QuadraticBezier {
     left.control = MidPoint(start, control);
     right.control = MidPoint(control, end);
 
-    gfx::PointF left_control_to_right_control =
+    FloatPoint left_control_to_right_control =
         MidPoint(left.control, right.control);
     left.end = left_control_to_right_control;
     right.start = left_control_to_right_control;
@@ -70,24 +67,24 @@ struct QuadraticBezier {
     left.split_depth = right.split_depth = split_depth + 1;
   }
 
-  gfx::PointF start;
-  gfx::PointF control;
-  gfx::PointF end;
+  FloatPoint start;
+  FloatPoint control;
+  FloatPoint end;
   uint16_t split_depth;
 };
 
 struct CubicBezier {
   DISALLOW_NEW();
   CubicBezier() = default;
-  CubicBezier(const gfx::PointF& s,
-              const gfx::PointF& c1,
-              const gfx::PointF& c2,
-              const gfx::PointF& e)
+  CubicBezier(const FloatPoint& s,
+              const FloatPoint& c1,
+              const FloatPoint& c2,
+              const FloatPoint& e)
       : start(s), control1(c1), control2(c2), end(e), split_depth(0) {}
 
   double MagnitudeSquared() const {
-    return (DotSelf(start) + DotSelf(control1) + DotSelf(control2) +
-            DotSelf(end)) /
+    return ((double)(start.Dot(start)) + (double)(control1.Dot(control1)) +
+            (double)(control2.Dot(control2)) + (double)(end.Dot(end))) /
            16.0;
   }
 
@@ -97,7 +94,7 @@ struct CubicBezier {
   }
 
   void Split(CubicBezier& left, CubicBezier& right) const {
-    gfx::PointF start_to_control1 = MidPoint(control1, control2);
+    FloatPoint start_to_control1 = MidPoint(control1, control2);
 
     left.start = start;
     left.control1 = MidPoint(start, control1);
@@ -107,7 +104,7 @@ struct CubicBezier {
     right.control1 = MidPoint(right.control2, start_to_control1);
     right.end = end;
 
-    gfx::PointF left_control2_to_right_control1 =
+    FloatPoint left_control2_to_right_control1 =
         MidPoint(left.control2, right.control1);
     left.end = left_control2_to_right_control1;
     right.start = left_control2_to_right_control1;
@@ -115,10 +112,10 @@ struct CubicBezier {
     left.split_depth = right.split_depth = split_depth + 1;
   }
 
-  gfx::PointF start;
-  gfx::PointF control1;
-  gfx::PointF control2;
-  gfx::PointF end;
+  FloatPoint start;
+  FloatPoint control1;
+  FloatPoint control2;
+  FloatPoint end;
   uint16_t split_depth;
 };
 
@@ -180,20 +177,20 @@ float PathTraversalState::CloseSubpath() {
   return distance;
 }
 
-float PathTraversalState::MoveTo(const gfx::PointF& point) {
+float PathTraversalState::MoveTo(const FloatPoint& point) {
   current_ = start_ = point;
   return 0;
 }
 
-float PathTraversalState::LineTo(const gfx::PointF& point) {
+float PathTraversalState::LineTo(const FloatPoint& point) {
   float distance = DistanceLine(current_, point);
   current_ = point;
   return distance;
 }
 
-float PathTraversalState::CubicBezierTo(const gfx::PointF& new_control1,
-                                        const gfx::PointF& new_control2,
-                                        const gfx::PointF& new_end) {
+float PathTraversalState::CubicBezierTo(const FloatPoint& new_control1,
+                                        const FloatPoint& new_control2,
+                                        const FloatPoint& new_end) {
   float distance = CurveLength<CubicBezier>(
       *this, CubicBezier(current_, new_control1, new_control2, new_end));
 
@@ -208,12 +205,12 @@ void PathTraversalState::ProcessSegment() {
   if ((action_ == kTraversalPointAtLength ||
        action_ == kTraversalNormalAngleAtLength) &&
       total_length_ >= desired_length_) {
-    float slope = (current_ - previous_).SlopeAngleRadians();
+    float slope = FloatPoint(current_ - previous_).SlopeAngleRadians();
     if (action_ == kTraversalPointAtLength) {
       float offset = desired_length_ - total_length_;
-      current_.Offset(offset * cosf(slope), offset * sinf(slope));
+      current_.Move(offset * cosf(slope), offset * sinf(slope));
     } else {
-      normal_angle_ = Rad2deg(slope);
+      normal_angle_ = rad2deg(slope);
     }
     success_ = true;
   }

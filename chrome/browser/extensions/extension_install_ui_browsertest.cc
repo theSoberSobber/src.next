@@ -1,8 +1,9 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include "base/command_line.h"
+#include "base/macros.h"
 #include "base/strings/string_util.h"
 #include "build/build_config.h"
 #include "chrome/app/chrome_command_ids.h"
@@ -36,11 +37,6 @@ using extensions::Extension;
 class ExtensionInstallUIBrowserTest : public extensions::ExtensionBrowserTest {
  public:
   ExtensionInstallUIBrowserTest() {}
-
-  ExtensionInstallUIBrowserTest(const ExtensionInstallUIBrowserTest&) = delete;
-  ExtensionInstallUIBrowserTest& operator=(
-      const ExtensionInstallUIBrowserTest&) = delete;
-
   ~ExtensionInstallUIBrowserTest() override {}
 
   // Checks that a theme info bar is currently visible and issues an undo to
@@ -93,6 +89,9 @@ class ExtensionInstallUIBrowserTest : public extensions::ExtensionBrowserTest {
         ThemeServiceFactory::GetForProfile(browser()->profile()));
     waiter.WaitForThemeChanged();
   }
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(ExtensionInstallUIBrowserTest);
 };
 
 // Fails on Linux and Windows (http://crbug.com/580907).
@@ -106,7 +105,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionInstallUIBrowserTest,
   ASSERT_TRUE(theme);
   std::string theme_id = theme->id();
   VerifyThemeInfoBarAndUndoInstall();
-  ASSERT_EQ(nullptr, GetTheme());
+  ASSERT_EQ(NULL, GetTheme());
 
   // Set the same theme twice and undo to verify we go back to default theme.
   ASSERT_TRUE(InstallExtensionWithUIAutoConfirm(theme_crx, 0, browser()));
@@ -120,7 +119,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionInstallUIBrowserTest,
   ASSERT_TRUE(theme);
   ASSERT_EQ(theme_id, theme->id());
   VerifyThemeInfoBarAndUndoInstall();
-  ASSERT_EQ(nullptr, GetTheme());
+  ASSERT_EQ(NULL, GetTheme());
 }
 
 IN_PROC_BROWSER_TEST_F(ExtensionInstallUIBrowserTest,

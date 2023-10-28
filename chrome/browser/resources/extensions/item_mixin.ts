@@ -1,8 +1,8 @@
-// Copyright 2017 The Chromium Authors
+// Copyright 2017 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import {assertNotReached} from 'chrome://resources/js/assert_ts.js';
+import {assertNotReached} from 'chrome://resources/js/assert.m.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.m.js';
 import {dedupingMixin, PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
@@ -29,13 +29,15 @@ export const ItemMixin = dedupingMixin(
               return extensionLabel;
           }
           assertNotReached('Item type is not App or Extension.');
+          // Unreachable return to satisfy TS compiler.
+          return ExtensionType.EXTENSION;
         }
 
         /**
          * @return The a11y association descriptor, e.g. "Related to <ext>".
          */
         a11yAssociation(name: string): string {
-          // Don't use I18nMixin.i18n because of additional checks it
+          // Don't use I18nBehavior.i18n because of additional checks it
           // performs. Polymer ensures that this string is not stamped into
           // arbitrary HTML. `name` can contain any data including html tags,
           // e.g. "My <video> download extension!"
@@ -46,7 +48,7 @@ export const ItemMixin = dedupingMixin(
       return ItemMixin;
     });
 
-export interface ItemMixinInterface {
+interface ItemMixinInterface {
   appOrExtension(
       type: chrome.developerPrivate.ExtensionType, appLabel: string,
       extensionLabel: string): string;

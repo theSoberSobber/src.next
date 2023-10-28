@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -41,18 +41,10 @@ class TransportSecurityPersisterTest : public ::testing::TestWithParam<bool>,
   TransportSecurityPersisterTest()
       : WithTaskEnvironment(
             base::test::TaskEnvironment::TimeSource::MOCK_TIME) {
-    // This feature is used in initializing |state_|.
-    if (partition_expect_ct_state()) {
-      feature_list_.InitAndEnableFeature(
-          features::kPartitionExpectCTStateByNetworkIsolationKey);
-    } else {
-      feature_list_.InitAndDisableFeature(
-          features::kPartitionExpectCTStateByNetworkIsolationKey);
-    }
     // Mock out time so that entries with hard-coded json data can be
     // successfully loaded. Use a large enough value that dynamically created
     // entries have at least somewhat interesting expiration times.
-    FastForwardBy(base::Days(3660));
+    FastForwardBy(base::TimeDelta::FromDays(3660));
   }
 
   ~TransportSecurityPersisterTest() override {
@@ -62,23 +54,27 @@ class TransportSecurityPersisterTest : public ::testing::TestWithParam<bool>,
 
   void SetUp() override {
     ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
-    transport_security_file_path_ =
-        temp_dir_.GetPath().AppendASCII("TransportSecurity");
     ASSERT_TRUE(base::CurrentIOThread::IsSet());
     scoped_refptr<base::SequencedTaskRunner> background_runner(
         base::ThreadPool::CreateSequencedTaskRunner(
             {base::MayBlock(), base::TaskPriority::BEST_EFFORT,
              base::TaskShutdownBehavior::BLOCK_SHUTDOWN}));
+    // This feature is used in initializing |state_|.
+    if (partition_expect_ct_state()) {
+      feature_list_.InitAndEnableFeature(
+          features::kPartitionExpectCTStateByNetworkIsolationKey);
+    } else {
+      feature_list_.InitAndDisableFeature(
+          features::kPartitionExpectCTStateByNetworkIsolationKey);
+    }
     state_ = std::make_unique<TransportSecurityState>();
     persister_ = std::make_unique<TransportSecurityPersister>(
-        state_.get(), std::move(background_runner),
-        transport_security_file_path_);
+        state_.get(), temp_dir_.GetPath(), std::move(background_runner));
   }
 
   bool partition_expect_ct_state() const { return GetParam(); }
 
  protected:
-  base::FilePath transport_security_file_path_;
   base::ScopedTempDir temp_dir_;
   base::test::ScopedFeatureList feature_list_;
   std::unique_ptr<TransportSecurityState> state_;
@@ -96,7 +92,7 @@ TEST_P(TransportSecurityPersisterTest, LoadEntriesClearsExistingState) {
   TransportSecurityState::STSState sts_state;
   TransportSecurityState::ExpectCTState expect_ct_state;
   const base::Time current_time(base::Time::Now());
-  const base::Time expiry = current_time + base::Seconds(1000);
+  const base::Time expiry = current_time + base::TimeDelta::FromSeconds(1000);
   static const char kYahooDomain[] = "yahoo.com";
 
   EXPECT_FALSE(state_->GetDynamicSTSState(kYahooDomain, &sts_state));
@@ -132,7 +128,7 @@ TEST_P(TransportSecurityPersisterTest, SerializeData1) {
 TEST_P(TransportSecurityPersisterTest, SerializeData2) {
   TransportSecurityState::STSState sts_state;
   const base::Time current_time(base::Time::Now());
-  const base::Time expiry = current_time + base::Seconds(1000);
+  const base::Time expiry = current_time + base::TimeDelta::FromSeconds(1000);
   static const char kYahooDomain[] = "yahoo.com";
 
   EXPECT_FALSE(state_->GetDynamicSTSState(kYahooDomain, &sts_state));
@@ -164,14 +160,16 @@ TEST_P(TransportSecurityPersisterTest, SerializeData3) {
       TransportSecurityState::kDynamicExpectCTFeature);
   const GURL report_uri(kReportUri);
   // Add an entry.
-  base::Time expiry = base::Time::Now() + base::Seconds(1000);
+  base::Time expiry =
+      base::Time::Now() + base::TimeDelta::FromSeconds(1000);
   bool include_subdomains = false;
   state_->AddHSTS("www.example.com", expiry, include_subdomains);
   state_->AddExpectCT("www.example.com", expiry, true /* enforce */, GURL(),
                       NetworkIsolationKey());
 
   // Add another entry.
-  expiry = base::Time::Now() + base::Seconds(3000);
+  expiry =
+      base::Time::Now() + base::TimeDelta::FromSeconds(3000);
   state_->AddHSTS("www.example.net", expiry, include_subdomains);
   state_->AddExpectCT("www.example.net", expiry, false /* enforce */,
                       report_uri, NetworkIsolationKey());
@@ -200,9 +198,9 @@ TEST_P(TransportSecurityPersisterTest, SerializeData3) {
   run_loop.Run();
 
   // Read the data back.
+  base::FilePath path = temp_dir_.GetPath().AppendASCII("TransportSecurity");
   std::string persisted;
-  EXPECT_TRUE(
-      base::ReadFileToString(transport_security_file_path_, &persisted));
+  EXPECT_TRUE(base::ReadFileToString(path, &persisted));
   EXPECT_EQ(persisted, serialized);
   persister_->LoadEntries(persisted);
 
@@ -228,23 +226,23 @@ TEST_P(TransportSecurityPersisterTest, SerializeData3) {
 // entries being added to the transport security state.
 TEST_P(TransportSecurityPersisterTest, DeserializeBadData) {
   persister_->LoadEntries("");
-  EXPECT_EQ(0u, state_->num_expect_ct_entries_for_testing());
+  EXPECT_EQ(0u, state_->num_expect_ct_entries());
   EXPECT_EQ(0u, state_->num_sts_entries());
 
   persister_->LoadEntries("Foopy");
-  EXPECT_EQ(0u, state_->num_expect_ct_entries_for_testing());
+  EXPECT_EQ(0u, state_->num_expect_ct_entries());
   EXPECT_EQ(0u, state_->num_sts_entries());
 
   persister_->LoadEntries("15");
-  EXPECT_EQ(0u, state_->num_expect_ct_entries_for_testing());
+  EXPECT_EQ(0u, state_->num_expect_ct_entries());
   EXPECT_EQ(0u, state_->num_sts_entries());
 
   persister_->LoadEntries("[15]");
-  EXPECT_EQ(0u, state_->num_expect_ct_entries_for_testing());
+  EXPECT_EQ(0u, state_->num_expect_ct_entries());
   EXPECT_EQ(0u, state_->num_sts_entries());
 
   persister_->LoadEntries("{\"version\":1}");
-  EXPECT_EQ(0u, state_->num_expect_ct_entries_for_testing());
+  EXPECT_EQ(0u, state_->num_expect_ct_entries());
   EXPECT_EQ(0u, state_->num_sts_entries());
 }
 
@@ -260,7 +258,7 @@ TEST_P(TransportSecurityPersisterTest, DeserializeDataOldWithoutCreationDate) {
       "}"
       "}";
   persister_->LoadEntries(kInput);
-  EXPECT_EQ(0u, state_->num_expect_ct_entries_for_testing());
+  EXPECT_EQ(0u, state_->num_expect_ct_entries());
   EXPECT_EQ(0u, state_->num_sts_entries());
 }
 
@@ -302,7 +300,7 @@ TEST_P(TransportSecurityPersisterTest, DeserializeDataOldMergedDictionary) {
       "}";
 
   persister_->LoadEntries(kInput);
-  EXPECT_EQ(0u, state_->num_expect_ct_entries_for_testing());
+  EXPECT_EQ(0u, state_->num_expect_ct_entries());
   EXPECT_EQ(0u, state_->num_sts_entries());
 }
 
@@ -319,7 +317,7 @@ TEST_P(TransportSecurityPersisterTest, ExpectCT) {
       kTestDomain, NetworkIsolationKey(), &expect_ct_state));
 
   const base::Time current_time(base::Time::Now());
-  const base::Time expiry = current_time + base::Seconds(1000);
+  const base::Time expiry = current_time + base::TimeDelta::FromSeconds(1000);
   state_->AddExpectCT(kTestDomain, expiry, true /* enforce */, GURL(),
                       NetworkIsolationKey());
   std::string serialized;
@@ -362,7 +360,7 @@ TEST_P(TransportSecurityPersisterTest, ExpectCTWithSTSDataPresent) {
       kTestDomain, NetworkIsolationKey(), &expect_ct_state));
 
   const base::Time current_time(base::Time::Now());
-  const base::Time expiry = current_time + base::Seconds(1000);
+  const base::Time expiry = current_time + base::TimeDelta::FromSeconds(1000);
   state_->AddHSTS(kTestDomain, expiry, false /* include subdomains */);
   state_->AddExpectCT(kTestDomain, expiry, true /* enforce */, GURL(),
                       NetworkIsolationKey());
@@ -400,7 +398,7 @@ TEST_P(TransportSecurityPersisterTest, ExpectCTDisabled) {
       kTestDomain, NetworkIsolationKey(), &expect_ct_state));
 
   const base::Time current_time(base::Time::Now());
-  const base::Time expiry = current_time + base::Seconds(1000);
+  const base::Time expiry = current_time + base::TimeDelta::FromSeconds(1000);
   state_->AddExpectCT(kTestDomain, expiry, true /* enforce */, GURL(),
                       NetworkIsolationKey());
   std::string serialized;
@@ -430,9 +428,9 @@ TEST_P(TransportSecurityPersisterTest, ExpectCTWithNetworkIsolationKey) {
       NetworkIsolationKey::CreateTransient();
 
   const base::Time current_time(base::Time::Now());
-  const base::Time expiry1 = current_time + base::Seconds(1000);
-  const base::Time expiry2 = current_time + base::Seconds(2000);
-  const base::Time expiry3 = current_time + base::Seconds(3000);
+  const base::Time expiry1 = current_time + base::TimeDelta::FromSeconds(1000);
+  const base::Time expiry2 = current_time + base::TimeDelta::FromSeconds(2000);
+  const base::Time expiry3 = current_time + base::TimeDelta::FromSeconds(3000);
 
   // Serialize data with kPartitionExpectCTStateByNetworkIsolationKey enabled,
   // and then revert the feature to its previous value.
@@ -443,11 +441,10 @@ TEST_P(TransportSecurityPersisterTest, ExpectCTWithNetworkIsolationKey) {
         features::kPartitionExpectCTStateByNetworkIsolationKey);
     TransportSecurityState state2;
     TransportSecurityPersister persister2(
-        &state2,
+        &state2, temp_dir_.GetPath(),
         std::move(base::ThreadPool::CreateSequencedTaskRunner(
             {base::MayBlock(), base::TaskPriority::BEST_EFFORT,
-             base::TaskShutdownBehavior::BLOCK_SHUTDOWN})),
-        transport_security_file_path_);
+             base::TaskShutdownBehavior::BLOCK_SHUTDOWN})));
     TransportSecurityState::ExpectCTState expect_ct_state;
     state2.AddExpectCT(kTestDomain, expiry1, true /* enforce */, GURL(),
                        empty_network_isolation_key);
@@ -517,18 +514,17 @@ TEST_P(TransportSecurityPersisterTest,
   const NetworkIsolationKey network_isolation_key(kSite /* top_frame_site */,
                                                   kSite /* frame_site */);
   const base::Time current_time(base::Time::Now());
-  const base::Time expiry1 = current_time + base::Seconds(1000);
-  const base::Time expiry2 = current_time + base::Seconds(2000);
+  const base::Time expiry1 = current_time + base::TimeDelta::FromSeconds(1000);
+  const base::Time expiry2 = current_time + base::TimeDelta::FromSeconds(2000);
 
   // Serialize data.
   std::string serialized;
   TransportSecurityState state2;
   TransportSecurityPersister persister2(
-      &state2,
+      &state2, temp_dir_.GetPath(),
       std::move(base::ThreadPool::CreateSequencedTaskRunner(
           {base::MayBlock(), base::TaskPriority::BEST_EFFORT,
-           base::TaskShutdownBehavior::BLOCK_SHUTDOWN})),
-      transport_security_file_path_);
+           base::TaskShutdownBehavior::BLOCK_SHUTDOWN})));
   TransportSecurityState::ExpectCTState expect_ct_state;
   state2.AddExpectCT(kTestDomain, expiry1, true /* enforce */, GURL(),
                      empty_network_isolation_key);

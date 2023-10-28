@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -9,13 +9,14 @@
 
 #include "base/bind.h"
 #include "base/logging.h"
+#include "base/macros.h"
 #include "base/metrics/histogram_macros.h"
-#include "base/task/sequenced_task_runner.h"
+#include "base/sequenced_task_runner.h"
+#include "base/task/post_task.h"
 #include "base/task/task_traits.h"
-#include "build/build_config.h"
 #include "net/dns/dns_config_service.h"
 
-#if BUILDFLAG(IS_IOS)
+#if defined(OS_IOS)
 #import <CoreTelephony/CTTelephonyNetworkInfo.h>
 #endif
 
@@ -35,6 +36,8 @@ static bool CalculateReachability(SCNetworkConnectionFlags flags) {
 
 NetworkChangeNotifierMac::NetworkChangeNotifierMac()
     : NetworkChangeNotifier(NetworkChangeCalculatorParamsMac()),
+      connection_type_(CONNECTION_UNKNOWN),
+      connection_type_initialized_(false),
       initial_connection_type_cv_(&connection_type_lock_),
       forwarder_(this) {
   // Must be initialized after the rest of this object, as it may call back into
@@ -62,10 +65,11 @@ NetworkChangeNotifierMac::NetworkChangeCalculatorParamsMac() {
   NetworkChangeCalculatorParams params;
   // Delay values arrived at by simple experimentation and adjusted so as to
   // produce a single signal when switching between network connections.
-  params.ip_address_offline_delay_ = base::Milliseconds(500);
-  params.ip_address_online_delay_ = base::Milliseconds(500);
-  params.connection_type_offline_delay_ = base::Milliseconds(1000);
-  params.connection_type_online_delay_ = base::Milliseconds(500);
+  params.ip_address_offline_delay_ = base::TimeDelta::FromMilliseconds(500);
+  params.ip_address_online_delay_ = base::TimeDelta::FromMilliseconds(500);
+  params.connection_type_offline_delay_ =
+      base::TimeDelta::FromMilliseconds(1000);
+  params.connection_type_online_delay_ = base::TimeDelta::FromMilliseconds(500);
   return params;
 }
 
@@ -78,6 +82,9 @@ NetworkChangeNotifierMac::GetCurrentConnectionType() const {
   if (connection_type_initialized_)
     return connection_type_;
 
+  SCOPED_UMA_HISTOGRAM_TIMER(
+      "Net.NetworkChangeNotifierMac.GetCurrentConnectionTypeWaitTime");
+
   // Wait up to a limited amount of time for the connection type to be
   // determined, to avoid blocking the main thread indefinitely. Since
   // ConditionVariables are susceptible to spurious wake-ups, each call to
@@ -86,9 +93,9 @@ NetworkChangeNotifierMac::GetCurrentConnectionType() const {
   // called repeatedly until either the timeout is reached or the connection
   // type has been determined.
   base::TimeDelta remaining_time =
-      base::Seconds(kMaxWaitForConnectionTypeInSeconds);
+      base::TimeDelta::FromSecondsD(kMaxWaitForConnectionTypeInSeconds);
   base::TimeTicks end_time = base::TimeTicks::Now() + remaining_time;
-  while (remaining_time.is_positive()) {
+  while (remaining_time > base::TimeDelta()) {
     initial_connection_type_cv_.TimedWait(remaining_time);
     if (connection_type_initialized_)
       return connection_type_;
@@ -111,7 +118,7 @@ NetworkChangeNotifierMac::CalculateConnectionType(
   if (!reachable)
     return CONNECTION_NONE;
 
-#if BUILDFLAG(IS_IOS)
+#if defined(OS_IOS)
   if (!(flags & kSCNetworkReachabilityFlagsIsWWAN)) {
     return CONNECTION_WIFI;
   }
@@ -239,11 +246,11 @@ void NetworkChangeNotifierMac::StartReachabilityNotifications() {
 
   DCHECK(reachability_);
   SCNetworkReachabilityContext reachability_context = {
-      0,        // version
-      this,     // user data
-      nullptr,  // retain
-      nullptr,  // release
-      nullptr   // description
+      0,     // version
+      this,  // user data
+      NULL,  // retain
+      NULL,  // release
+      NULL   // description
   };
   if (!SCNetworkReachabilitySetCallback(
           reachability_, &NetworkChangeNotifierMac::ReachabilityCallback,
@@ -259,7 +266,7 @@ void NetworkChangeNotifierMac::StartReachabilityNotifications() {
 
 void NetworkChangeNotifierMac::SetDynamicStoreNotificationKeys(
     SCDynamicStoreRef store) {
-#if BUILDFLAG(IS_IOS)
+#if defined(OS_IOS)
   // SCDynamicStore API does not exist on iOS.
   NOTREACHED();
 #else
@@ -267,25 +274,25 @@ void NetworkChangeNotifierMac::SetDynamicStoreNotificationKeys(
       CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks));
   base::ScopedCFTypeRef<CFStringRef> key(
       SCDynamicStoreKeyCreateNetworkGlobalEntity(
-          nullptr, kSCDynamicStoreDomainState, kSCEntNetInterface));
+          NULL, kSCDynamicStoreDomainState, kSCEntNetInterface));
   CFArrayAppendValue(notification_keys.get(), key.get());
   key.reset(SCDynamicStoreKeyCreateNetworkGlobalEntity(
-      nullptr, kSCDynamicStoreDomainState, kSCEntNetIPv4));
+      NULL, kSCDynamicStoreDomainState, kSCEntNetIPv4));
   CFArrayAppendValue(notification_keys.get(), key.get());
   key.reset(SCDynamicStoreKeyCreateNetworkGlobalEntity(
-      nullptr, kSCDynamicStoreDomainState, kSCEntNetIPv6));
+      NULL, kSCDynamicStoreDomainState, kSCEntNetIPv6));
   CFArrayAppendValue(notification_keys.get(), key.get());
 
   // Set the notification keys.  This starts us receiving notifications.
-  bool ret = SCDynamicStoreSetNotificationKeys(store, notification_keys.get(),
-                                               nullptr);
+  bool ret =
+      SCDynamicStoreSetNotificationKeys(store, notification_keys.get(), NULL);
   // TODO(willchan): Figure out a proper way to handle this rather than crash.
   CHECK(ret);
-#endif  // BUILDFLAG(IS_IOS)
+#endif  // defined(OS_IOS)
 }
 
 void NetworkChangeNotifierMac::OnNetworkConfigChange(CFArrayRef changed_keys) {
-#if BUILDFLAG(IS_IOS)
+#if defined(OS_IOS)
   // SCDynamicStore API does not exist on iOS.
   NOTREACHED();
 #else
@@ -306,7 +313,7 @@ void NetworkChangeNotifierMac::OnNetworkConfigChange(CFArrayRef changed_keys) {
       NOTREACHED();
     }
   }
-#endif  // BUILDFLAG(IS_IOS)
+#endif  // defined(OS_IOS)
 }
 
 // static
@@ -334,11 +341,11 @@ void NetworkChangeNotifierMac::ReachabilityCallback(
     NotifyObserversOfMaxBandwidthChange(max_bandwidth_mbps, new_type);
   }
 
-#if BUILDFLAG(IS_IOS)
+#if defined(OS_IOS)
   // On iOS, the SCDynamicStore API does not exist, and we use the reachability
   // API to detect IP address changes instead.
   NotifyObserversOfIPAddressChange();
-#endif  // BUILDFLAG(IS_IOS)
+#endif  // defined(OS_IOS)
 }
 
 }  // namespace net

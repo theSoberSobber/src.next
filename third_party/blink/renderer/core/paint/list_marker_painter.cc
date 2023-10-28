@@ -11,13 +11,11 @@
 #include "third_party/blink/renderer/core/paint/box_model_object_painter.h"
 #include "third_party/blink/renderer/core/paint/box_painter.h"
 #include "third_party/blink/renderer/core/paint/highlight_painting_utils.h"
-#include "third_party/blink/renderer/core/paint/paint_auto_dark_mode.h"
 #include "third_party/blink/renderer/core/paint/paint_info.h"
 #include "third_party/blink/renderer/core/paint/scoped_paint_state.h"
 #include "third_party/blink/renderer/core/paint/text_painter.h"
 #include "third_party/blink/renderer/platform/fonts/text_run_paint_info.h"
 #include "third_party/blink/renderer/platform/geometry/layout_point.h"
-#include "third_party/blink/renderer/platform/graphics/graphics_context.h"
 #include "third_party/blink/renderer/platform/graphics/graphics_context_state_saver.h"
 #include "third_party/blink/renderer/platform/graphics/paint/drawing_recorder.h"
 
@@ -48,22 +46,22 @@ DisclosureOrientation GetDisclosureOrientation(const ComputedStyle& style,
                                         : DisclosureOrientation::kUp;
 }
 
-Path CreatePath(const gfx::PointF* path) {
+Path CreatePath(const FloatPoint* path) {
   Path result;
-  result.MoveTo(gfx::PointF(path[0].x(), path[0].y()));
+  result.MoveTo(FloatPoint(path[0].X(), path[0].Y()));
   for (int i = 1; i < 4; ++i)
-    result.AddLineTo(gfx::PointF(path[i].x(), path[i].y()));
+    result.AddLineTo(FloatPoint(path[i].X(), path[i].Y()));
   return result;
 }
 
 Path GetCanonicalDisclosurePath(const ComputedStyle& style, bool is_open) {
-  constexpr gfx::PointF kLeftPoints[4] = {
+  constexpr FloatPoint kLeftPoints[4] = {
       {1.0f, 0.0f}, {0.14f, 0.5f}, {1.0f, 1.0f}, {1.0f, 0.0f}};
-  constexpr gfx::PointF kRightPoints[4] = {
+  constexpr FloatPoint kRightPoints[4] = {
       {0.0f, 0.0f}, {0.86f, 0.5f}, {0.0f, 1.0f}, {0.0f, 0.0f}};
-  constexpr gfx::PointF kUpPoints[4] = {
+  constexpr FloatPoint kUpPoints[4] = {
       {0.0f, 0.93f}, {0.5f, 0.07f}, {1.0f, 0.93f}, {0.0f, 0.93f}};
-  constexpr gfx::PointF kDownPoints[4] = {
+  constexpr FloatPoint kDownPoints[4] = {
       {0.0f, 0.07f}, {0.5f, 0.93f}, {1.0f, 0.07f}, {0.0f, 0.07f}};
 
   switch (GetDisclosureOrientation(style, is_open)) {
@@ -90,6 +88,8 @@ void ListMarkerPainter::PaintSymbol(const PaintInfo& paint_info,
   DCHECK(style.ListStyleType());
   DCHECK(style.ListStyleType()->IsCounterStyle());
   GraphicsContext& context = paint_info.context;
+  ScopedDarkModeElementRoleOverride list_symbol(
+      &context, DarkModeFilter::ElementRole::kListSymbol);
   Color color(object->ResolveColor(GetCSSPropertyColor()));
   if (BoxModelObjectPainter::ShouldForceWhiteBackgroundForPrintEconomy(
           object->GetDocument(), style))
@@ -99,21 +99,19 @@ void ListMarkerPainter::PaintSymbol(const PaintInfo& paint_info,
   context.SetStrokeColor(color);
   context.SetStrokeStyle(kSolidStroke);
   context.SetStrokeThickness(1.0f);
-  gfx::Rect snapped_rect = ToPixelSnappedRect(marker);
+  IntRect snapped_rect = PixelSnappedIntRect(marker);
   const AtomicString& type = style.ListStyleType()->GetCounterStyleName();
-  AutoDarkMode auto_dark_mode(
-      PaintAutoDarkMode(style, DarkModeFilter::ElementRole::kListSymbol));
   if (type == "disc") {
-    context.FillEllipse(gfx::RectF(snapped_rect), auto_dark_mode);
+    context.FillEllipse(FloatRect(snapped_rect));
   } else if (type == "circle") {
-    context.StrokeEllipse(gfx::RectF(snapped_rect), auto_dark_mode);
+    context.StrokeEllipse(FloatRect(snapped_rect));
   } else if (type == "square") {
-    context.FillRect(snapped_rect, color, auto_dark_mode);
+    context.FillRect(snapped_rect);
   } else if (type == "disclosure-open" || type == "disclosure-closed") {
     Path path = GetCanonicalDisclosurePath(style, type == "disclosure-open");
     path.Transform(AffineTransform().Scale(marker.Width(), marker.Height()));
-    path.Translate(gfx::Vector2dF(marker.X(), marker.Y()));
-    context.FillPath(path, auto_dark_mode);
+    path.Translate(FloatSize(marker.X(), marker.Y()));
+    context.FillPath(path);
   } else {
     NOTREACHED();
   }
@@ -150,23 +148,14 @@ void ListMarkerPainter::Paint(const PaintInfo& paint_info) {
   GraphicsContext& context = local_paint_info.context;
 
   if (layout_list_marker_.IsImage()) {
-    const gfx::RectF marker_rect(marker);
-    scoped_refptr<Image> target_image =
-        layout_list_marker_.GetImage()->GetImage(
-            layout_list_marker_, layout_list_marker_.GetDocument(),
-            layout_list_marker_.StyleRef(), marker_rect.size());
-    if (!target_image)
-      return;
-    // TODO(penglin): This should always be classified as 'icon'.
-    const gfx::RectF src_rect(target_image->Rect());
-    auto image_auto_dark_mode = ImageClassifierHelper::GetImageAutoDarkMode(
-        *layout_list_marker_.GetFrame(), layout_list_marker_.StyleRef(),
-        marker_rect, src_rect);
     // Since there is no way for the developer to specify decode behavior, use
     // kSync by default.
-    context.DrawImage(target_image.get(), Image::kSyncDecode,
-                      image_auto_dark_mode, ImagePaintTimingInfo(), marker_rect,
-                      &src_rect);
+    context.DrawImage(
+        layout_list_marker_.GetImage()
+            ->GetImage(layout_list_marker_, layout_list_marker_.GetDocument(),
+                       layout_list_marker_.StyleRef(), FloatSize(marker.Size()))
+            .get(),
+        Image::kSyncDecode, FloatRect(marker));
     return;
   }
 
@@ -202,21 +191,21 @@ void ListMarkerPainter::Paint(const PaintInfo& paint_info) {
     marker.MoveBy(-box_origin);
     marker = marker.TransposedRect();
     marker.MoveBy(
-        LayoutPoint(RoundToInt(box.X()),
-                    RoundToInt(box.Y() - layout_list_marker_.LogicalHeight())));
+        IntPoint(RoundToInt(box.X()),
+                 RoundToInt(box.Y() - layout_list_marker_.LogicalHeight())));
     state_saver.Save();
     context.Translate(marker.X(), marker.MaxY());
-    context.Rotate(Deg2rad(90.0f));
+    context.Rotate(static_cast<float>(deg2rad(90.)));
     context.Translate(-marker.X(), -marker.MaxY());
   }
 
   TextRunPaintInfo text_run_paint_info(text_run);
   const SimpleFontData* font_data =
       layout_list_marker_.StyleRef().GetFont().PrimaryFont();
-  gfx::PointF text_origin =
-      gfx::PointF(marker.X().Round(),
-                  marker.Y().Round() +
-                      (font_data ? font_data->GetFontMetrics().Ascent() : 0));
+  FloatPoint text_origin =
+      FloatPoint(marker.X().Round(),
+                 marker.Y().Round() +
+                     (font_data ? font_data->GetFontMetrics().Ascent() : 0));
 
   // Text is not arbitrary. We can judge whether it's RTL from the first
   // character, and we only need to handle the direction RightToLeft for now.
@@ -233,13 +222,9 @@ void ListMarkerPainter::Paint(const PaintInfo& paint_info) {
     text_run.SetText(reversed_text.ToString());
   }
 
-  AutoDarkMode auto_dark_mode(
-      PaintAutoDarkMode(layout_list_marker_.StyleRef(),
-                        DarkModeFilter::ElementRole::kListSymbol));
   if (style_category == ListMarker::ListStyleCategory::kStaticString) {
     // Don't add a suffix.
-    context.DrawText(font, text_run_paint_info, text_origin, kInvalidDOMNodeId,
-                     auto_dark_mode);
+    context.DrawText(font, text_run_paint_info, text_origin, kInvalidDOMNodeId);
     context.GetPaintController().SetTextPainted();
     return;
   }
@@ -259,23 +244,18 @@ void ListMarkerPainter::Paint(const PaintInfo& paint_info) {
   TextRunPaintInfo suffix_run_info(suffix_run);
 
   if (layout_list_marker_.StyleRef().IsLeftToRightDirection()) {
-    context.DrawText(font, prefix_run_info, text_origin, kInvalidDOMNodeId,
-                     auto_dark_mode);
-    text_origin += gfx::Vector2dF(font.Width(prefix_run), 0);
-    context.DrawText(font, text_run_paint_info, text_origin, kInvalidDOMNodeId,
-                     auto_dark_mode);
-    text_origin += gfx::Vector2dF(font.Width(text_run), 0);
-    context.DrawText(font, suffix_run_info, text_origin, kInvalidDOMNodeId,
-                     auto_dark_mode);
+    context.DrawText(font, prefix_run_info, text_origin, kInvalidDOMNodeId);
+    text_origin += FloatSize(IntSize(font.Width(prefix_run), 0));
+    context.DrawText(font, text_run_paint_info, text_origin, kInvalidDOMNodeId);
+    text_origin += FloatSize(IntSize(font.Width(text_run), 0));
+    context.DrawText(font, suffix_run_info, text_origin, kInvalidDOMNodeId);
   } else {
-    context.DrawText(font, suffix_run_info, text_origin, kInvalidDOMNodeId,
-                     auto_dark_mode);
-    text_origin += gfx::Vector2dF(font.Width(suffix_run), 0);
-    context.DrawText(font, text_run_paint_info, text_origin, kInvalidDOMNodeId,
-                     auto_dark_mode);
-    text_origin += gfx::Vector2dF(font.Width(text_run), 0);
-    context.DrawText(font, prefix_run_info, text_origin, kInvalidDOMNodeId,
-                     auto_dark_mode);
+    // Is the truncation to IntSize below meaningful or a bug?
+    context.DrawText(font, suffix_run_info, text_origin, kInvalidDOMNodeId);
+    text_origin += FloatSize(IntSize(font.Width(suffix_run), 0));
+    context.DrawText(font, text_run_paint_info, text_origin, kInvalidDOMNodeId);
+    text_origin += FloatSize(IntSize(font.Width(text_run), 0));
+    context.DrawText(font, prefix_run_info, text_origin, kInvalidDOMNodeId);
   }
   // TODO(npm): Check that there are non-whitespace characters. See
   // crbug.com/788444.

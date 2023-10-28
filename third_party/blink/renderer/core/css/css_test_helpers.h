@@ -29,7 +29,7 @@ namespace css_test_helpers {
 // RuleSet& ruleSet = sheet.ruleSet();
 // ... examine RuleSet to find the rule and test properties on it.
 class TestStyleSheet {
-  DISALLOW_NEW();
+  STACK_ALLOCATED();
 
  public:
   TestStyleSheet();
@@ -48,13 +48,9 @@ class TestStyleSheet {
 
 CSSStyleSheet* CreateStyleSheet(Document& document);
 
-// Create a PropertyRegistration with the given name. An initial value must
-// be provided when the syntax is not "*".
-PropertyRegistration* CreatePropertyRegistration(
-    const String& name,
-    String syntax = "*",
-    const CSSValue* initial_value = nullptr,
-    bool is_inherited = false);
+// Create a PropertyRegistration for the given name. The syntax, initial value,
+// and inherited status are all undefined.
+PropertyRegistration* CreatePropertyRegistration(const String& name);
 
 // Create a non-inherited PropertyRegistration with syntax <length>, and the
 // given value in pixels as the initial value.
@@ -65,17 +61,6 @@ void RegisterProperty(Document& document,
                       const String& syntax,
                       const absl::optional<String>& initial_value,
                       bool is_inherited);
-void RegisterProperty(Document& document,
-                      const String& name,
-                      const String& syntax,
-                      const absl::optional<String>& initial_value,
-                      bool is_inherited,
-                      ExceptionState&);
-void DeclareProperty(Document& document,
-                     const String& name,
-                     const String& syntax,
-                     const absl::optional<String>& initial_value,
-                     bool is_inherited);
 
 scoped_refptr<CSSVariableData> CreateVariableData(String);
 const CSSValue* CreateCustomIdent(AtomicString);

@@ -1,4 +1,4 @@
-// Copyright 2018 The Chromium Authors
+// Copyright 2018 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -32,22 +32,18 @@ void DownloaderTestDelegate::AddResponse(const ExtensionId& extension_id,
       std::make_pair(base::Version(version_string), crx_path);
 }
 
-const std::vector<ExtensionDownloaderTask>& DownloaderTestDelegate::requests() {
+const std::vector<std::unique_ptr<ManifestFetchData>>&
+DownloaderTestDelegate::requests() {
   return requests_;
 }
 
 void DownloaderTestDelegate::StartUpdateCheck(
     ExtensionDownloader* downloader,
     ExtensionDownloaderDelegate* delegate,
-    std::vector<ExtensionDownloaderTask> tasks) {
-  ExtensionIdSet extension_ids;
-  std::set<int> request_ids;
-  for (ExtensionDownloaderTask& task : tasks) {
-    extension_ids.insert(task.id);
-    request_ids.insert(task.request_id);
-  }
-  for (ExtensionDownloaderTask& task : tasks)
-    requests_.push_back(std::move(task));
+    std::unique_ptr<ManifestFetchData> fetch_data) {
+  requests_.push_back(std::move(fetch_data));
+  const ManifestFetchData* data = requests_.back().get();
+  const ExtensionIdSet extension_ids = data->GetExtensionIds();
   for (const auto& id : extension_ids) {
     if (base::Contains(responses_, id)) {
       CRXFileInfo crx_info(responses_[id].second, GetTestVerifierFormat());
@@ -63,7 +59,7 @@ void DownloaderTestDelegate::StartUpdateCheck(
               &ExtensionDownloaderDelegate::OnExtensionDownloadFinished,
               base::Unretained(delegate), crx_info,
               false /* pass_file_ownership */, GURL(),
-              ExtensionDownloaderDelegate::PingResult(), request_ids,
+              ExtensionDownloaderDelegate::PingResult(), data->request_ids(),
               ExtensionDownloaderDelegate::InstallCallback()));
     }
   }
@@ -89,11 +85,11 @@ bool ForceInstallProvider::MustRemainEnabled(const Extension* extension,
 DelayTracker::DelayTracker()
     : action_(base::BindRepeating(&DelayTracker::ReinstallAction,
                                   base::Unretained(this))) {
-  CorruptedExtensionReinstaller::set_reinstall_action_for_test(&action_);
+  PolicyExtensionReinstaller::set_policy_reinstall_action_for_test(&action_);
 }
 
 DelayTracker::~DelayTracker() {
-  CorruptedExtensionReinstaller::set_reinstall_action_for_test(nullptr);
+  PolicyExtensionReinstaller::set_policy_reinstall_action_for_test(nullptr);
 }
 
 const std::vector<base::TimeDelta>& DelayTracker::calls() {
@@ -116,7 +112,7 @@ void DelayTracker::Proceed() {
 }
 
 void DelayTracker::StopWatching() {
-  CorruptedExtensionReinstaller::set_reinstall_action_for_test(nullptr);
+  PolicyExtensionReinstaller::set_policy_reinstall_action_for_test(nullptr);
 }
 
 }  // namespace content_verifier_test

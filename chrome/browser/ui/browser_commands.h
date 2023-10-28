@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -13,9 +13,8 @@
 #include "chrome/browser/devtools/devtools_toggle_action.h"
 #include "chrome/browser/devtools/devtools_window.h"
 #include "chrome/browser/ui/chrome_pages.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_delegate.h"
-#include "chrome/browser/ui/tabs/tab_strip_user_gesture_details.h"
-#include "components/services/screen_ai/buildflags/buildflags.h"
 #include "content/public/common/page_zoom.h"
 #include "printing/buildflags/buildflags.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
@@ -48,21 +47,13 @@ void RemoveCommandObserver(Browser*, int command, CommandObserver* observer);
 
 int GetContentRestrictions(const Browser* browser);
 
-// Opens a new window. If the |should_trigger_session_restore| is true, a new
-// window opening should be treated like the start of a session (with potential
-// session restore, startup URLs, etc.). Otherwise, don't restore the session,
-// opens a new window with the default blank tab.
-void NewEmptyWindow(Profile* profile,
-                    bool should_trigger_session_restore = true);
+// Opens a new window with the default blank tab.
+void NewEmptyWindow(Profile* profile);
 
-// Opens a new window. If the |should_trigger_session_restore| is true, a new
-// window opening should be treated like the start of a session (with potential
-// session restore, startup URLs, etc.). Otherwise, don't restore the session,
-// opens a new window with the default blank tab. This bypasses metrics and
+// Opens a new window with the default blank tab. This bypasses metrics and
 // various internal bookkeeping; NewEmptyWindow (above) is preferred.
 // Returns nullptr if browser creation is not possible.
-Browser* OpenEmptyWindow(Profile* profile,
-                         bool should_trigger_session_restore = true);
+Browser* OpenEmptyWindow(Profile* profile);
 
 // Opens a new window with the tabs from |profile|'s TabRestoreService.
 void OpenWindowWithRestoredTabs(Profile* profile);
@@ -83,7 +74,7 @@ void Reload(Browser* browser, WindowOpenDisposition disposition);
 void ReloadBypassingCache(Browser* browser, WindowOpenDisposition disposition);
 bool CanReload(const Browser* browser);
 void Home(Browser* browser, WindowOpenDisposition disposition);
-base::WeakPtr<content::NavigationHandle> OpenCurrentURL(Browser* browser);
+void OpenCurrentURL(Browser* browser);
 void Stop(Browser* browser);
 void NewWindow(Browser* browser);
 void NewIncognitoWindow(Profile* profile);
@@ -97,23 +88,23 @@ bool CanResetZoom(content::WebContents* contents);
 void RestoreTab(Browser* browser);
 void SelectNextTab(
     Browser* browser,
-    TabStripUserGestureDetails gesture_detail = TabStripUserGestureDetails(
-        TabStripUserGestureDetails::GestureType::kOther));
+    TabStripModel::UserGestureDetails gesture_detail =
+        TabStripModel::UserGestureDetails(TabStripModel::GestureType::kOther));
 void SelectPreviousTab(
     Browser* browser,
-    TabStripUserGestureDetails gesture_detail = TabStripUserGestureDetails(
-        TabStripUserGestureDetails::GestureType::kOther));
+    TabStripModel::UserGestureDetails gesture_detail =
+        TabStripModel::UserGestureDetails(TabStripModel::GestureType::kOther));
 void MoveTabNext(Browser* browser);
 void MoveTabPrevious(Browser* browser);
 void SelectNumberedTab(
     Browser* browser,
     int index,
-    TabStripUserGestureDetails gesture_detail = TabStripUserGestureDetails(
-        TabStripUserGestureDetails::GestureType::kOther));
+    TabStripModel::UserGestureDetails gesture_detail =
+        TabStripModel::UserGestureDetails(TabStripModel::GestureType::kOther));
 void SelectLastTab(
     Browser* browser,
-    TabStripUserGestureDetails gesture_detail = TabStripUserGestureDetails(
-        TabStripUserGestureDetails::GestureType::kOther));
+    TabStripModel::UserGestureDetails gesture_detail =
+        TabStripModel::UserGestureDetails(TabStripModel::GestureType::kOther));
 void DuplicateTab(Browser* browser);
 bool CanDuplicateTab(const Browser* browser);
 bool CanDuplicateKeyboardFocusedTab(const Browser* browser);
@@ -157,18 +148,17 @@ bool MoveCurrentTabToReadLater(Browser* browser);
 bool MoveTabToReadLater(Browser* browser, content::WebContents* web_contents);
 bool MarkCurrentTabAsReadInReadLater(Browser* browser);
 bool IsCurrentTabUnreadInReadLater(Browser* browser);
+void MaybeShowBookmarkBarForReadLater(Browser* browser);
 void ShowOffersAndRewardsForPage(Browser* browser);
 void SaveCreditCard(Browser* browser);
 void MigrateLocalCards(Browser* browser);
 void SaveAutofillAddress(Browser* browser);
 void ShowVirtualCardManualFallbackBubble(Browser* browser);
-void ShowVirtualCardEnrollBubble(Browser* browser);
 void Translate(Browser* browser);
 void ManagePasswordsForPage(Browser* browser);
 void SendTabToSelfFromPageAction(Browser* browser);
 void GenerateQRCodeFromPageAction(Browser* browser);
 void SharingHubFromPageAction(Browser* browser);
-void ScreenshotCaptureFromPageAction(Browser* browser);
 void SavePage(Browser* browser);
 bool CanSavePage(const Browser* browser);
 void Print(Browser* browser);
@@ -198,9 +188,9 @@ void FocusSearch(Browser* browser);
 void FocusAppMenu(Browser* browser);
 void FocusBookmarksToolbar(Browser* browser);
 void FocusInactivePopupForAccessibility(Browser* browser);
+void FocusHelpBubble(Browser* browser);
 void FocusNextPane(Browser* browser);
 void FocusPreviousPane(Browser* browser);
-void FocusWebContentsPane(Browser* browser);
 void ToggleDevToolsWindow(Browser* browser,
                           DevToolsToggleAction action,
                           DevToolsOpenedByAction opened_by);
@@ -227,7 +217,7 @@ void SetAndroidOsForTabletSite(content::WebContents* current_tab);
 void ToggleFullscreenMode(Browser* browser);
 void ClearCache(Browser* browser);
 bool IsDebuggerAttachedToCurrentTab(Browser* browser);
-void CopyURL(content::WebContents* web_contents);
+void CopyURL(Browser* browser);
 // Moves the WebContents of a hosted app Browser to a tabbed Browser. Returns
 // the tabbed Browser.
 Browser* OpenInChrome(Browser* hosted_app_browser);
@@ -241,21 +231,10 @@ void ExecuteUIDebugCommand(int id, const Browser* browser);
 absl::optional<int> GetKeyboardFocusedTabIndex(const Browser* browser);
 
 void ShowIncognitoClearBrowsingDataDialog(Browser* browser);
-void ShowIncognitoHistoryDisclaimerDialog(Browser* browser);
 bool ShouldInterceptChromeURLNavigationInIncognito(Browser* browser,
                                                    const GURL& url);
 void ProcessInterceptedChromeURLNavigationInIncognito(Browser* browser,
                                                       const GURL& url);
-
-// Follows/unfollows a web feed associated with the main frame of specified web
-// contents.
-void FollowSite(content::WebContents* web_contents);
-void UnfollowSite(content::WebContents* web_contents);
-
-#if BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
-// Triggers the Screen AI visual annotations to be run once on the |browser|.
-void RunScreenAIVisualAnnotation(Browser* browser);
-#endif  // BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
 
 }  // namespace chrome
 

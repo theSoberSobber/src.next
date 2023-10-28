@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -9,9 +9,9 @@
 #include "base/command_line.h"
 #include "base/files/file_path.h"
 #include "base/run_loop.h"
+#include "base/single_thread_task_runner.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
-#include "base/task/single_thread_task_runner.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/initialize_extensions_client.h"
 #include "content/public/browser/browser_task_traits.h"
@@ -33,11 +33,9 @@ void PrintPackExtensionMessage(const std::string& message) {
 
 }  // namespace
 
-StartupHelper::StartupHelper() {
+StartupHelper::StartupHelper() : pack_job_succeeded_(false) {
   EnsureExtensionsClientInitialized();
 }
-
-StartupHelper::~StartupHelper() = default;
 
 void StartupHelper::OnPackSuccess(
     const base::FilePath& crx_path,
@@ -51,12 +49,10 @@ void StartupHelper::OnPackSuccess(
 
 void StartupHelper::OnPackFailure(const std::string& error_message,
                                   ExtensionCreator::ErrorType type) {
-  error_message_ = error_message;
   PrintPackExtensionMessage(error_message);
 }
 
-bool StartupHelper::PackExtension(const base::CommandLine& cmd_line,
-                                  std::string* error) {
+bool StartupHelper::PackExtension(const base::CommandLine& cmd_line) {
   if (!cmd_line.HasSwitch(::switches::kPackExtension))
     return false;
 
@@ -76,8 +72,6 @@ bool StartupHelper::PackExtension(const base::CommandLine& cmd_line,
   pack_job.set_synchronous();
   pack_job.Start();
 
-  if (!pack_job_succeeded_)
-    *error = error_message_;
   return pack_job_succeeded_;
 }
 
@@ -92,9 +86,6 @@ class ValidateCrxHelper : public SandboxedUnpackerClient {
         temp_dir_(temp_dir),
         quit_closure_(std::move(quit_closure)),
         success_(false) {}
-
-  ValidateCrxHelper(const ValidateCrxHelper&) = delete;
-  ValidateCrxHelper& operator=(const ValidateCrxHelper&) = delete;
 
   bool success() const { return success_; }
   const std::u16string& error() const { return error_; }
@@ -156,6 +147,9 @@ class ValidateCrxHelper : public SandboxedUnpackerClient {
 
   // If the unpacking wasn't successful, this contains an error message.
   std::u16string error_;
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(ValidateCrxHelper);
 };
 
 }  // namespace
@@ -188,5 +182,7 @@ bool StartupHelper::ValidateCrx(const base::CommandLine& cmd_line,
     *error = base::UTF16ToUTF8(helper->error());
   return success;
 }
+
+StartupHelper::~StartupHelper() {}
 
 }  // namespace extensions

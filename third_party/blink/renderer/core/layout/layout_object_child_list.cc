@@ -72,11 +72,6 @@ void InvalidateInlineItems(LayoutObject* object) {
 
 }  // namespace
 
-void LayoutObjectChildList::Trace(Visitor* visitor) const {
-  visitor->Trace(first_child_);
-  visitor->Trace(last_child_);
-}
-
 void LayoutObjectChildList::DestroyLeftoverChildren() {
   // Destroy any anonymous children remaining in the layout tree, as well as
   // implicit (shadow) DOM elements like those used in the engine-based text
@@ -118,6 +113,8 @@ LayoutObject* LayoutObjectChildList::RemoveChildNode(
     To<LayoutBox>(old_child)->DeleteLineBoxWrapper();
 
   if (!owner->DocumentBeingDestroyed()) {
+    owner->NotifyOfSubtreeChange();
+
     if (notify_layout_object) {
       LayoutCounter::LayoutObjectSubtreeWillBeDetached(old_child);
       old_child->WillBeRemovedFromTree();
@@ -232,9 +229,17 @@ void LayoutObjectChildList::InsertChildNode(LayoutObject* owner,
   if (owner->HasSubtreeChangeListenerRegistered())
     new_child->RegisterSubtreeChangeListenerOnDescendants(true);
 
+  // If the inserted node is currently marked as needing to notify children then
+  // we have to propagate that mark up the tree.
+  if (new_child->WasNotifiedOfSubtreeChange())
+    owner->NotifyAncestorsOfSubtreeChange();
+
   if (UNLIKELY(!new_child->IsLayoutNGObject())) {
-    if (owner->ForceLegacyLayoutForChildren()) {
+    if (owner->ForceLegacyLayout()) {
       new_child->SetForceLegacyLayout();
+    } else if (const auto* element = DynamicTo<Element>(new_child->GetNode())) {
+      if (element->ShouldForceLegacyLayout())
+        new_child->SetForceLegacyLayout();
     }
   }
 
@@ -256,6 +261,9 @@ void LayoutObjectChildList::InsertChildNode(LayoutObject* owner,
     owner->SetChildNeedsLayout();  // We may supply the static position for an
                                    // absolute positioned child.
   }
+
+  if (!owner->DocumentBeingDestroyed())
+    owner->NotifyOfSubtreeChange();
 
   if (AXObjectCache* cache = owner->GetDocument().ExistingAXObjectCache())
     cache->ChildrenChanged(owner);

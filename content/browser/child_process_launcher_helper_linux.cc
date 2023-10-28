@@ -1,8 +1,7 @@
-// Copyright 2017 The Chromium Authors
+// Copyright 2017 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "base/command_line.h"
 #include "base/path_service.h"
 #include "base/posix/global_descriptors.h"
 #include "build/build_config.h"
@@ -40,8 +39,8 @@ std::unique_ptr<FileMappedForLaunch>
 ChildProcessLauncherHelper::GetFilesToMap() {
   DCHECK(CurrentlyOnProcessLauncherTaskRunner());
   return CreateDefaultPosixFilesToMap(
-      child_process_id(), mojo_channel_->remote_endpoint(),
-      file_data_->files_to_preload, GetProcessType(), command_line());
+      child_process_id(), mojo_channel_->remote_endpoint(), files_to_preload_,
+      GetProcessType(), command_line());
 }
 
 bool ChildProcessLauncherHelper::BeforeLaunchOnLauncherThread(
@@ -56,11 +55,6 @@ bool ChildProcessLauncherHelper::BeforeLaunchOnLauncherThread(
     options->fds_to_remap.push_back(std::make_pair(sandbox_fd, GetSandboxFD()));
   }
 
-  for (const auto& remapped_fd : file_data_->additional_remapped_fds) {
-    options->fds_to_remap.emplace_back(remapped_fd.second.get(),
-                                       remapped_fd.first);
-  }
-
   options->environment = delegate_->GetEnvironment();
 
   return true;
@@ -73,7 +67,7 @@ ChildProcessLauncherHelper::LaunchProcessOnLauncherThread(
     bool* is_synchronous_launch,
     int* launch_result) {
   *is_synchronous_launch = true;
-  Process process;
+
   ZygoteHandle zygote_handle =
       base::CommandLine::ForCurrentProcess()->HasSwitch(switches::kNoZygote)
           ? nullptr
@@ -87,7 +81,7 @@ ChildProcessLauncherHelper::LaunchProcessOnLauncherThread(
         GetProcessType());
     *launch_result = LAUNCH_RESULT_SUCCESS;
 
-#if !BUILDFLAG(IS_OPENBSD)
+#if !defined(OS_OPENBSD)
     if (handle) {
       // It could be a renderer process or an utility process.
       int oom_score = content::kMiscOomScore;
@@ -98,20 +92,16 @@ ChildProcessLauncherHelper::LaunchProcessOnLauncherThread(
     }
 #endif
 
+    Process process;
     process.process = base::Process(handle);
     process.zygote = zygote_handle;
-  } else {
-    process.process = base::LaunchProcess(*command_line(), options);
-    *launch_result = process.process.IsValid() ? LAUNCH_RESULT_SUCCESS
-                                               : LAUNCH_RESULT_FAILURE;
+    return process;
   }
 
-#if BUILDFLAG(IS_CHROMEOS)
-  if (GetProcessType() == switches::kRendererProcess) {
-    process.process.InitializePriority();
-  }
-#endif
-
+  Process process;
+  process.process = base::LaunchProcess(*command_line(), options);
+  *launch_result = process.process.IsValid() ? LAUNCH_RESULT_SUCCESS
+                                             : LAUNCH_RESULT_FAILURE;
   return process;
 }
 

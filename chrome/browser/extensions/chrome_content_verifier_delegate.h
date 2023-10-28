@@ -1,4 +1,4 @@
-// Copyright 2015 The Chromium Authors
+// Copyright 2015 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -10,7 +10,7 @@
 #include <set>
 #include <string>
 
-#include "base/memory/raw_ptr.h"
+#include "base/macros.h"
 #include "extensions/browser/content_verifier_delegate.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
 
@@ -23,6 +23,8 @@ class BackoffEntry;
 }
 
 namespace extensions {
+
+class PolicyExtensionReinstaller;
 
 class ChromeContentVerifierDelegate : public ContentVerifierDelegate {
  public:
@@ -67,10 +69,6 @@ class ChromeContentVerifierDelegate : public ContentVerifierDelegate {
 
   explicit ChromeContentVerifierDelegate(content::BrowserContext* context);
 
-  ChromeContentVerifierDelegate(const ChromeContentVerifierDelegate&) = delete;
-  ChromeContentVerifierDelegate& operator=(
-      const ChromeContentVerifierDelegate&) = delete;
-
   ~ChromeContentVerifierDelegate() override;
 
   // ContentVerifierDelegate:
@@ -92,7 +90,7 @@ class ChromeContentVerifierDelegate : public ContentVerifierDelegate {
   // Returns information needed for content verification of |extension|.
   VerifyInfo GetVerifyInfo(const Extension& extension) const;
 
-  raw_ptr<content::BrowserContext> context_;
+  content::BrowserContext* context_;
   VerifyInfo::Mode default_mode_;
 
   // This maps an extension id to a backoff entry for slowing down
@@ -108,6 +106,10 @@ class ChromeContentVerifierDelegate : public ContentVerifierDelegate {
   // For reporting metrics about extensions without hashes, which we want to
   // reinstall in the future. See https://crbug.com/958794#c22 for details.
   std::set<std::string> would_be_reinstalled_ids_;
+
+  std::unique_ptr<PolicyExtensionReinstaller> policy_extension_reinstaller_;
+
+  DISALLOW_COPY_AND_ASSIGN(ChromeContentVerifierDelegate);
 };
 
 }  // namespace extensions

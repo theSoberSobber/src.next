@@ -39,10 +39,10 @@ bool LayoutTextControlMultiLine::NodeAtPoint(
     HitTestResult& result,
     const HitTestLocation& hit_test_location,
     const PhysicalOffset& accumulated_offset,
-    HitTestPhase phase) {
+    HitTestAction hit_test_action) {
   NOT_DESTROYED();
   if (!LayoutTextControl::NodeAtPoint(result, hit_test_location,
-                                      accumulated_offset, phase))
+                                      accumulated_offset, hit_test_action))
     return false;
 
   const LayoutObject* stop_node = result.GetHitTestRequest().GetStopNode();

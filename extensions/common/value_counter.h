@@ -1,4 +1,4 @@
-// Copyright 2014 The Chromium Authors
+// Copyright 2014 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -6,6 +6,8 @@
 #define EXTENSIONS_COMMON_VALUE_COUNTER_H_
 
 #include <vector>
+
+#include "base/macros.h"
 
 namespace base {
 class Value;
@@ -22,10 +24,6 @@ namespace extensions {
 class ValueCounter {
  public:
   ValueCounter();
-
-  ValueCounter(const ValueCounter&) = delete;
-  ValueCounter& operator=(const ValueCounter&) = delete;
-
   ~ValueCounter();
 
   // Adds |value| to the set. In the case where a Value equal to |value|
@@ -44,6 +42,8 @@ class ValueCounter {
  private:
   struct Entry;
   std::vector<Entry> entries_;
+
+  DISALLOW_COPY_AND_ASSIGN(ValueCounter);
 };
 
 }  // namespace extensions

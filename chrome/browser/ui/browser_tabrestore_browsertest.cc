@@ -1,11 +1,8 @@
-// Copyright 2014 The Chromium Authors
+// Copyright 2014 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include "chrome/browser/ui/browser_tabrestore.h"
-
-#include <map>
-#include <string>
 
 #include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/sessions/tab_restore_service_factory.h"
@@ -108,7 +105,10 @@ IN_PROC_BROWSER_TEST_F(BrowserTabRestoreTest, RecentTabsMenuTabDisposition) {
     EXPECT_EQ("about:blank", about_blank_contents->GetURL().spec());
     if (about_blank_contents->IsLoading() ||
         about_blank_contents->GetController().NeedsReload()) {
-      content::LoadStopObserver load_stop_observer(about_blank_contents);
+      content::WindowedNotificationObserver load_stop_observer(
+          content::NOTIFICATION_LOAD_STOP,
+          content::Source<content::NavigationController>(
+              &about_blank_contents->GetController()));
       load_stop_observer.Wait();
     }
   }
@@ -138,7 +138,6 @@ IN_PROC_BROWSER_TEST_F(BrowserTabRestoreTest,
       /* last_active_time=*/base::TimeTicks::Now(),
       /* storage_namespace=*/nullptr,
       /* user_agent_override=*/sessions::SerializedUserAgentOverride(),
-      /* extra_data*/ std::map<std::string, std::string>(),
       /* from_session_restore=*/true);
 
   EXPECT_TRUE(web_contents->GetController().GetPendingEntry());
@@ -161,7 +160,6 @@ IN_PROC_BROWSER_TEST_F(BrowserTabRestoreTest,
       /* last_active_time=*/base::TimeTicks::Now(),
       /* storage_namespace=*/nullptr,
       /* user_agent_override=*/sessions::SerializedUserAgentOverride(),
-      /* extra_data*/ std::map<std::string, std::string>(),
       /* from_session_restore=*/true);
 
   EXPECT_FALSE(web_contents->GetController().GetPendingEntry());
@@ -212,7 +210,10 @@ IN_PROC_BROWSER_TEST_F(BrowserTabRestoreTest, DelegateRestoreTabDisposition) {
     EXPECT_EQ("about:blank", about_blank_contents->GetURL().spec());
     if (about_blank_contents->IsLoading() ||
         about_blank_contents->GetController().NeedsReload()) {
-      content::LoadStopObserver load_stop_observer(about_blank_contents);
+      content::WindowedNotificationObserver load_stop_observer(
+          content::NOTIFICATION_LOAD_STOP,
+          content::Source<content::NavigationController>(
+              &about_blank_contents->GetController()));
       load_stop_observer.Wait();
     }
   }

@@ -40,7 +40,6 @@
 #include "third_party/blink/renderer/core/events/current_input_event.h"
 #include "third_party/blink/renderer/core/events/mouse_event.h"
 #include "third_party/blink/renderer/core/page/create_window.h"
-#include "third_party/blink/renderer/platform/weborigin/kurl.h"
 
 namespace blink {
 
@@ -127,7 +126,7 @@ TEST_F(NavigationPolicyTest, ShiftLeftClickPopup) {
 }
 
 TEST_F(NavigationPolicyTest, ControlOrMetaLeftClick) {
-#if BUILDFLAG(IS_MAC)
+#if defined(OS_MAC)
   int modifiers = WebInputEvent::kMetaKey;
 #else
   int modifiers = WebInputEvent::kControlKey;
@@ -139,7 +138,7 @@ TEST_F(NavigationPolicyTest, ControlOrMetaLeftClick) {
 }
 
 TEST_F(NavigationPolicyTest, ControlOrMetaLeftClickPopup) {
-#if BUILDFLAG(IS_MAC)
+#if defined(OS_MAC)
   int modifiers = WebInputEvent::kMetaKey;
 #else
   int modifiers = WebInputEvent::kControlKey;
@@ -151,7 +150,7 @@ TEST_F(NavigationPolicyTest, ControlOrMetaLeftClickPopup) {
 }
 
 TEST_F(NavigationPolicyTest, ControlOrMetaAndShiftLeftClick) {
-#if BUILDFLAG(IS_MAC)
+#if defined(OS_MAC)
   int modifiers = WebInputEvent::kMetaKey;
 #else
   int modifiers = WebInputEvent::kControlKey;
@@ -164,7 +163,7 @@ TEST_F(NavigationPolicyTest, ControlOrMetaAndShiftLeftClick) {
 }
 
 TEST_F(NavigationPolicyTest, ControlOrMetaAndShiftLeftClickPopup) {
-#if BUILDFLAG(IS_MAC)
+#if defined(OS_MAC)
   int modifiers = WebInputEvent::kMetaKey;
 #else
   int modifiers = WebInputEvent::kControlKey;
@@ -225,14 +224,6 @@ TEST_F(NavigationPolicyTest, NoOpener) {
     NavigationPolicy policy;
   } kCases[] = {
       {"", kNavigationPolicyNewForegroundTab},
-      {"location,menubar,resizable,scrollbars,status",
-       kNavigationPolicyNewForegroundTab},
-      {"popup,location,menubar,resizable,scrollbars,status",
-       kNavigationPolicyNewPopup},
-      {"PoPuP,location,menubar,resizable,scrollbars,status",
-       kNavigationPolicyNewPopup},
-      {"popupFoo,location,menubar,resizable,scrollbars,status",
-       kNavigationPolicyNewForegroundTab},
       {"something", kNavigationPolicyNewPopup},
       {"something, something", kNavigationPolicyNewPopup},
       {"notnoopener", kNavigationPolicyNewPopup},
@@ -245,7 +236,7 @@ TEST_F(NavigationPolicyTest, NoOpener) {
   for (const auto& test : kCases) {
     EXPECT_EQ(test.policy,
               NavigationPolicyForCreateWindow(GetWindowFeaturesFromString(
-                  test.feature_string, /*dom_window=*/nullptr, KURL())))
+                  test.feature_string, nullptr /* dom_window */)))
         << "Testing '" << test.feature_string << "'";
   }
 }
@@ -258,20 +249,17 @@ TEST_F(NavigationPolicyTest, NoOpenerAndNoReferrer) {
       {"", kNavigationPolicyNewForegroundTab},
       {"noopener, noreferrer", kNavigationPolicyNewForegroundTab},
       {"noopener, notreferrer", kNavigationPolicyNewPopup},
-      {"noopener, notreferrer, popup", kNavigationPolicyNewPopup},
       {"notopener, noreferrer", kNavigationPolicyNewPopup},
-      {"notopener, noreferrer, popup", kNavigationPolicyNewPopup},
-      {"notopener, noreferrer, popup=0", kNavigationPolicyNewForegroundTab},
-      {"popup, noopener, noreferrer", kNavigationPolicyNewPopup},
-      {"noopener, noreferrer, popup", kNavigationPolicyNewPopup},
-      {"noopener, popup, noreferrer", kNavigationPolicyNewPopup},
+      {"something, noopener, noreferrer", kNavigationPolicyNewPopup},
+      {"noopener, noreferrer, something", kNavigationPolicyNewPopup},
+      {"noopener, something, noreferrer", kNavigationPolicyNewPopup},
       {"NoOpEnEr, NoReFeRrEr", kNavigationPolicyNewForegroundTab},
   };
 
   for (const auto& test : kCases) {
     EXPECT_EQ(test.policy,
               NavigationPolicyForCreateWindow(GetWindowFeaturesFromString(
-                  test.feature_string, /*dom_window=*/nullptr, KURL())))
+                  test.feature_string, nullptr /* dom_window */)))
         << "Testing '" << test.feature_string << "'";
   }
 }
@@ -282,21 +270,19 @@ TEST_F(NavigationPolicyTest, NoReferrer) {
     NavigationPolicy policy;
   } kCases[] = {
       {"", kNavigationPolicyNewForegroundTab},
-      {"popup", kNavigationPolicyNewPopup},
-      {"popup, something", kNavigationPolicyNewPopup},
+      {"something", kNavigationPolicyNewPopup},
+      {"something, something", kNavigationPolicyNewPopup},
       {"notreferrer", kNavigationPolicyNewPopup},
-      {"notreferrer,popup", kNavigationPolicyNewPopup},
-      {"notreferrer,popup=0", kNavigationPolicyNewForegroundTab},
       {"noreferrer", kNavigationPolicyNewForegroundTab},
-      {"popup, noreferrer", kNavigationPolicyNewPopup},
-      {"noreferrer, popup", kNavigationPolicyNewPopup},
+      {"something, noreferrer", kNavigationPolicyNewPopup},
+      {"noreferrer, something", kNavigationPolicyNewPopup},
       {"NoReFeRrEr", kNavigationPolicyNewForegroundTab},
   };
 
   for (const auto& test : kCases) {
     EXPECT_EQ(test.policy,
               NavigationPolicyForCreateWindow(GetWindowFeaturesFromString(
-                  test.feature_string, /*dom_window=*/nullptr, KURL())))
+                  test.feature_string, nullptr /* dom_window */)))
         << "Testing '" << test.feature_string << "'";
   }
 }
@@ -325,7 +311,7 @@ TEST_F(NavigationPolicyTest, EventShiftLeftClick) {
 }
 
 TEST_F(NavigationPolicyTest, EventControlOrMetaLeftClick) {
-#if BUILDFLAG(IS_MAC)
+#if defined(OS_MAC)
   int modifiers = WebInputEvent::kMetaKey;
 #else
   int modifiers = WebInputEvent::kControlKey;
@@ -336,7 +322,7 @@ TEST_F(NavigationPolicyTest, EventControlOrMetaLeftClick) {
 }
 
 TEST_F(NavigationPolicyTest, EventControlOrMetaLeftClickWithUserEvent) {
-#if BUILDFLAG(IS_MAC)
+#if defined(OS_MAC)
   int modifiers = WebInputEvent::kMetaKey;
 #else
   int modifiers = WebInputEvent::kControlKey;
@@ -348,7 +334,7 @@ TEST_F(NavigationPolicyTest, EventControlOrMetaLeftClickWithUserEvent) {
 
 TEST_F(NavigationPolicyTest,
        EventControlOrMetaLeftClickWithDifferentUserEvent) {
-#if BUILDFLAG(IS_MAC)
+#if defined(OS_MAC)
   int modifiers = WebInputEvent::kMetaKey;
 #else
   int modifiers = WebInputEvent::kControlKey;
@@ -359,7 +345,7 @@ TEST_F(NavigationPolicyTest,
 }
 
 TEST_F(NavigationPolicyTest, EventShiftControlOrMetaLeftClick) {
-#if BUILDFLAG(IS_MAC)
+#if defined(OS_MAC)
   int modifiers = WebInputEvent::kMetaKey | WebInputEvent::kShiftKey;
 #else
   int modifiers = WebInputEvent::kControlKey | WebInputEvent::kShiftKey;

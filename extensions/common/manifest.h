@@ -1,4 +1,4 @@
-// Copyright 2013 The Chromium Authors
+// Copyright 2013 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -11,14 +11,11 @@
 #include <string>
 #include <vector>
 
+#include "base/macros.h"
+#include "base/values.h"
 #include "extensions/common/extension_id.h"
 #include "extensions/common/hashed_extension_id.h"
 #include "extensions/common/mojom/manifest.mojom-shared.h"
-
-namespace base {
-class DictionaryValue;
-class Value;
-}  // namespace base
 
 namespace extensions {
 struct InstallWarning;
@@ -124,10 +121,6 @@ class Manifest final {
   Manifest(mojom::ManifestLocation location,
            std::unique_ptr<base::DictionaryValue> value,
            ExtensionId extension_id);
-
-  Manifest(const Manifest&) = delete;
-  Manifest& operator=(const Manifest&) = delete;
-
   ~Manifest();
 
   const ExtensionId& extension_id() const { return extension_id_; }
@@ -168,20 +161,33 @@ class Manifest final {
     return type_ == TYPE_CHROMEOS_SYSTEM_EXTENSION;
   }
 
-  // These access the wrapped manifest value, returning nullptr/nullopt when the
-  // property does not exist or if the manifest type can't access it.
-  const base::Value* FindKey(base::StringPiece path) const;
-  const base::Value* FindPath(base::StringPiece path) const;
-  absl::optional<bool> FindBoolPath(base::StringPiece path) const;
-  absl::optional<int> FindIntPath(base::StringPiece path) const;
-  const std::string* FindStringPath(base::StringPiece path) const;
+  // These access the wrapped manifest value, returning false when the property
+  // does not exist or if the manifest type can't access it.
+  // TODO(karandeepb): These methods should be changed to use base::StringPiece.
+  // Better, we should pass a list of path components instead of a unified
+  // |path| to do away with our usage of deprecated base::Value methods.
+  bool HasKey(const std::string& key) const;
+  bool HasPath(const std::string& path) const;
+  bool Get(const std::string& path, const base::Value** out_value) const;
+  bool GetBoolean(const std::string& path, bool* out_value) const;
+  bool GetInteger(const std::string& path, int* out_value) const;
+  bool GetString(const std::string& path, std::string* out_value) const;
+  bool GetString(const std::string& path, std::u16string* out_value) const;
   // Deprecated: Use the GetDictionary() overload that accepts a base::Value
   // output parameter instead.
   bool GetDictionary(const std::string& path,
                      const base::DictionaryValue** out_value) const;
   bool GetDictionary(const std::string& path,
                      const base::Value** out_value) const;
+  // Deprecated: Use the GetList() overload that accepts a base::Value output
+  // parameter instead.
+  bool GetList(const std::string& path,
+               const base::ListValue** out_value) const;
   bool GetList(const std::string& path, const base::Value** out_value) const;
+
+  bool GetPathOfType(const std::string& path,
+                     base::Value::Type type,
+                     const base::Value** out_value) const;
 
   // Returns true if this equals the |other| manifest.
   bool EqualsForTesting(const Manifest& other) const;
@@ -224,6 +230,8 @@ class Manifest final {
   const Type type_;
 
   const int manifest_version_;
+
+  DISALLOW_COPY_AND_ASSIGN(Manifest);
 };
 
 }  // namespace extensions

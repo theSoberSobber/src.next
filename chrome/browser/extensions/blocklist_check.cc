@@ -1,4 +1,4 @@
-// Copyright 2017 The Chromium Authors
+// Copyright 2017 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -29,9 +29,9 @@ void BlocklistCheck::OnBlocklistedStateRetrieved(
     BlocklistState blocklist_state) {
   Errors errors;
   if (blocklist_state == BlocklistState::BLOCKLISTED_MALWARE)
-    errors.insert(PreloadCheck::Error::kBlocklistedId);
+    errors.insert(PreloadCheck::BLOCKLISTED_ID);
   else if (blocklist_state == BlocklistState::BLOCKLISTED_UNKNOWN)
-    errors.insert(PreloadCheck::Error::kBlocklistedUnknown);
+    errors.insert(PreloadCheck::BLOCKLISTED_UNKNOWN);
   std::move(callback_).Run(errors);
 }
 

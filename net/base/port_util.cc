@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -19,6 +19,35 @@
 namespace net {
 
 namespace {
+
+// Records ports that may need blocking to mitigate the ALPACA vulnerability.
+// See https://alpaca-attack.com/ and https://github.com/whatwg/fetch/pull/1250.
+void LogAlpacaPort(int port) {
+  // Unlike the obsolete Net.Port.SlipStreamRestricted histogram, we don't
+  // record an "Other" category. Instead, historical data from
+  // Net.Port.SlipStreamRestricted can be used as a baseline for comparisons.
+  enum class AlpacaPort {
+    k26 = 0,
+    k989 = 1,
+    k990 = 2,
+    k2525 = 3,
+    kMaxValue = k2525,
+  };
+
+  constexpr std::pair<int, AlpacaPort> kMap[] = {
+      {26, AlpacaPort::k26},
+      {989, AlpacaPort::k989},
+      {990, AlpacaPort::k990},
+      {2525, AlpacaPort::k2525},
+  };
+
+  for (const auto& pair : kMap) {
+    if (pair.first == port) {
+      base::UmaHistogramEnumeration("Net.Port.Alpaca", pair.second);
+      return;
+    }
+  }
+}
 
 // The general list of blocked ports. Will be blocked unless a specific
 // protocol overrides it. (Ex: ftp can use port 21)
@@ -116,7 +145,18 @@ base::LazyInstance<std::multiset<int>>::Leaky g_explicitly_allowed_ports =
 // should only remain in this list for about a year to give time for users to
 // migrate off while stopping them from becoming permanent parts of the web
 // platform.
-constexpr int kAllowablePorts[] = {};
+constexpr int kAllowablePorts[] = {
+    // TODO(https://crbug.com/1199642) Remove port 554 around 2021/10/15.
+    554,
+    // TODO(https://crbug.com/1220079) Remove ports 989 and 990 around
+    // 2022/02/01.
+    989,
+    990,
+    // TODO(https://crbig.com/1210779) Remove port 6566 around 2021/08/12.
+    6566,
+    // TODO(https://crbug.com/1196846) Remove port 10080 around 2022/04/01.
+    10080,
+};
 
 int g_scoped_allowable_port = 0;
 
@@ -135,9 +175,16 @@ bool IsPortAllowedForScheme(int port, base::StringPiece url_scheme) {
   if (!IsPortValid(port))
     return false;
 
+  LogAlpacaPort(port);
+
   // Allow explicitly allowed ports for any scheme.
   if (g_explicitly_allowed_ports.Get().count(port) > 0)
     return true;
+
+  // FTP requests are permitted to use port 21.
+  if (base::LowerCaseEqualsASCII(url_scheme, url::kFtpScheme) && port == 21) {
+    return true;
+  }
 
   // Finally check against the generic list of restricted ports for all
   // schemes.

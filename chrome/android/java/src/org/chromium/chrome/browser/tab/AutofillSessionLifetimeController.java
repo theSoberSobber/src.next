@@ -1,13 +1,12 @@
-// Copyright 2020 The Chromium Authors
+// Copyright 2020 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 package org.chromium.chrome.browser.tab;
 
+import android.annotation.TargetApi;
 import android.app.Activity;
 import android.os.Build;
-
-import androidx.annotation.RequiresApi;
 
 import org.chromium.base.compat.ApiHelperForO;
 import org.chromium.chrome.browser.ActivityTabProvider;
@@ -38,23 +37,24 @@ import org.chromium.content_public.browser.NavigationHandle;
  * 3. when browser-initiated navigation occurs:
  *    As opposed to renderer-initiated navigation (e.g., submitting a form), navigation initiated by
  *    browser controls should never trigger save UI. In order to cancel the session before web
- *    content views become invisible, we have to use onDidStartNavigationInPrimaryMainFrame rather
- *    than one of the later events.
+ *    content views become invisible, we have to use onDidStartNavigation rather than one of the
+ *    later events.
  */
 public class AutofillSessionLifetimeController implements DestroyObserver {
     private Activity mActivity;
     private final ActivityTabProvider.ActivityTabTabObserver mActivityTabObserver;
 
-    @RequiresApi(Build.VERSION_CODES.O)
-    public AutofillSessionLifetimeController(Activity activity,
+    @TargetApi(Build.VERSION_CODES.O)
+    public AutofillSessionLifetimeController(
+            Activity activity,
             ActivityLifecycleDispatcher lifecycleDispatcher,
             ActivityTabProvider activityTabProvider) {
         mActivity = activity;
         mActivityTabObserver = new ActivityTabProvider.ActivityTabTabObserver(activityTabProvider) {
             @Override
-            public void onDidStartNavigationInPrimaryMainFrame(
-                    Tab tab, NavigationHandle navigationHandle) {
-                if (!navigationHandle.isRendererInitiated()) {
+            public void onDidStartNavigation(Tab tab, NavigationHandle navigationHandle) {
+                if (navigationHandle.isInPrimaryMainFrame()
+                        && !navigationHandle.isRendererInitiated()) {
                     ApiHelperForO.cancelAutofillSession(mActivity);
                 }
             }

@@ -65,26 +65,14 @@
   </message>
 
   <!-- Accuracy Tip strings -->
-  <message name="IDS_PAGE_INFO_ACCURACY_TIP_TITLE" meaning="Text for feature that encourages the user to think about how accurate the content is" desc="With this feature, the user will see a reminder on the page they're visiting that encourages the user to think about how accurate the content is. You may translate 'Accuracy' as 'Trustworthiness' or 'Reliability,' if those terms work better in your language. This text appears in the page info bubble when a user visits a page.">
-    Take a moment to consider accuracy
+  <message name="IDS_PAGE_INFO_ACCURACY_TIP_TITLE" desc="Message to display in the page info bubble when the page you are on triggered an accuracy tip.">
+    Is this website accurate?
   </message>
   <message name="IDS_PAGE_INFO_ACCURACY_TIP_LEARN_MORE_BUTTON" desc="Text of button to learn more about inaccurate pages. Shown on the accuracy tip page info bubble.">
     Learn more
   </message>
   <message name="IDS_PAGE_INFO_ACCURACY_TIP_IGNORE_BUTTON" desc="Text of button to close the accuracy tip page info bubble.">
     Ignore
-  </message>
-  <message name="IDS_PAGE_INFO_ACCURACY_TIP_OPT_OUT_BUTTON" desc="Text of button to close the accuracy tip page info bubble and not show it again.">
-    Don't show again
-  </message>
-  <message name="IDS_PAGE_INFO_ACCURACY_TIP_BODY_LINE_1" meaning="Text for feature that encourages the user to think about how accurate the content is" desc="With this feature, the user will see a reminder on the page they're visiting that encourages the user to think about how accurate the content is. This text appears in the page info bubble when a user visits a page. It is the first item in a bulleted list.">
-    Who’s behind this information?
-  </message>
-  <message name="IDS_PAGE_INFO_ACCURACY_TIP_BODY_LINE_2" meaning="Text for feature that encourages the user to think about how accurate the content is" desc="With this feature, the user will see a reminder on the page they're visiting that encourages the user to think about how accurate the content is. This text appears in the page info bubble when a user visits a page. It is the second item in a bulleted list.">
-    What evidence supports it?
-  </message>
-  <message name="IDS_PAGE_INFO_ACCURACY_TIP_BODY_LINE_3" meaning="Text for feature that encourages the user to think about how accurate the content is" desc="With this feature, the user will see a reminder on the page they're visiting that encourages the user to think about how accurate the content is. This text appears in the page info bubble when a user visits a page. It is the third item in a bulleted list.">
-    What do other sources say?
   </message>
 
   <!-- Viewing file strings -->
@@ -98,9 +86,6 @@
   </message>
   <message name="IDS_PAGE_INFO_SECURE_DETAILS_V2" desc="A short paragraph explaining a secure site to the user.">
     The site's connection is secure unless Chrome tells you otherwise.
-  </message>
-  <message name="IDS_PAGE_INFO_ADMIN_PROVIDED_CERT_DETAILS" desc="A short paragraph explaining a site using an administrator-provided certificate to the user.">
-    You have accessed content using an administrator-provided certificate. Data you provide to <ph name="DOMAIN">$1<ex>www.google.com</ex></ph> can be intercepted by your administrator.
   </message>
   <message name="IDS_PAGE_INFO_MIXED_CONTENT_DETAILS" desc="A short paragraph explaining a partially insecure site to the user.">
     Attackers might be able to see the images you’re looking at on this site and trick you by modifying them.
@@ -123,24 +108,39 @@
 
   <!-- Identity detail strings shared with iOS -->
   <message name="IDS_PAGE_INFO_SECURITY_TAB_INSECURE_IDENTITY" desc="The text of the identity section when the page is not secure.">
-    The identity of this website isn't verified.
+    The identity of this website has not been verified.
   </message>
 
   <!-- Password Protection strings shared with iOS -->
   <message name="IDS_PAGE_INFO_CHANGE_PASSWORD_SUMMARY" desc="A one-line summary at the top of the Page Info bubble (which shows when you click the security indicator) if user has reuse their google password on current website.">
     Your password may be compromised
   </message>
-  <message name="IDS_PAGE_INFO_CHANGE_PASSWORD_SAVED_PASSWORD_SUMMARY" desc="A one-line summary at the top of the Page Info bubble (which shows when you click the security indicator) if user has reuse a saved password on current website.">
-    Check your passwords
-  </message>
   <if expr="_google_chrome">
     <message name="IDS_PAGE_INFO_CHANGE_PASSWORD_DETAILS_SAVED" desc="A short paragraph explaining to a Chrome user that they have reused their saved password on the current website.">
-      You just entered your password on a deceptive site. To secure your accounts, Chrome recommends checking your saved passwords.
+      You just entered your password on a deceptive site. Chrome recommends changing your password now.
+    </message>
+    <message name="IDS_PAGE_INFO_CHECK_PASSWORD_DETAILS_SAVED_1_DOMAIN" desc="A short paragraph explaining to a Chrome user that they have reused their saved password on the current website and to check their password on one domain.">
+      You just entered your password on a deceptive site. Chrome recommends checking your saved passwords for <ph name="WEBSITE_1">$1<ex>www.google.com</ex></ph> and other sites where you use this password now.
+    </message>
+    <message name="IDS_PAGE_INFO_CHECK_PASSWORD_DETAILS_SAVED_2_DOMAIN" desc="A short paragraph explaining to a Chrome user that they have reused their saved password on the current website and to check their password on two domains.">
+      You just entered your password on a deceptive site. Chrome recommends checking your saved passwords for <ph name="WEBSITE_1">$1<ex>www.google.com</ex></ph>, <ph name="WEBSITE_2">$2<ex>www.reddit.com</ex></ph>, and other sites where you use this password now.
+    </message>
+    <message name="IDS_PAGE_INFO_CHECK_PASSWORD_DETAILS_SAVED_3_DOMAIN" desc="A short paragraph explaining to a Chrome user that they have reused their saved password on the current website and to check their password on three domains.">
+      You just entered your password on a deceptive site. Chrome recommends checking your saved passwords for <ph name="WEBSITE_1">$1<ex>www.google.com</ex></ph>, <ph name="WEBSITE_2">$2<ex>www.reddit.com</ex></ph>, <ph name="WEBSITE_3">$3<ex>www.amazon.com</ex></ph>, and other sites where you use this password now.
     </message>
   </if>
   <if expr="not _google_chrome">
     <message name="IDS_PAGE_INFO_CHANGE_PASSWORD_DETAILS_SAVED" desc="A short paragraph explaining to a Chromium user that they have reused their saved password on the current website.">
-      You just entered your password on a deceptive site. To secure your accounts, Chromium recommends checking your saved passwords.
+      You just entered your password on a deceptive site. Chromium recommends changing your password now.
+    </message>
+    <message name="IDS_PAGE_INFO_CHECK_PASSWORD_DETAILS_SAVED_1_DOMAIN" desc="A short paragraph explaining to a Chromium user that they have reused their saved password on the current website and to check their password on one domain.">
+      You just entered your password on a deceptive site. Chromium recommends checking your saved passwords for <ph name="WEBSITE_1">$1<ex>www.google.com</ex></ph> and other sites where you use this password now.
+    </message>
+    <message name="IDS_PAGE_INFO_CHECK_PASSWORD_DETAILS_SAVED_2_DOMAIN" desc="A short paragraph explaining to a Chromium user that they have reused their saved password on the current website and to check their password on two domains.">
+      You just entered your password on a deceptive site. Chromium recommends checking your saved passwords for <ph name="WEBSITE_1">$1<ex>www.google.com</ex></ph>, <ph name="WEBSITE_2">$2<ex>www.reddit.com</ex></ph>, and other sites where you use this password now.
+    </message>
+    <message name="IDS_PAGE_INFO_CHECK_PASSWORD_DETAILS_SAVED_3_DOMAIN" desc="A short paragraph explaining to a Chromium user that they have reused their saved password on the current website and to check their password on three domains.">
+      You just entered your password on a deceptive site. Chromium recommends checking your saved passwords for <ph name="WEBSITE_1">$1<ex>www.google.com</ex></ph>, <ph name="WEBSITE_2">$2<ex>www.reddit.com</ex></ph>, <ph name="WEBSITE_3">$3<ex>www.amazon.com</ex></ph>, and other sites where you use this password now.
     </message>
   </if>
   <if expr="use_titlecase">
@@ -154,17 +154,31 @@
     </message>
   </if>
 
+  <if expr="chromeos">
+    <!-- Administrator-provided certificate notifications -->
+    <message name="IDS_CERT_POLICY_PROVIDED_CERT_MESSAGE" desc="Text that is displayed in the Page Info popup when using an administrator-provided certificate">
+      You have accessed content using an administrator-provided certificate. Data you provide to <ph name="DOMAIN">$1<ex>www.google.com</ex></ph> can be intercepted by your administrator.
+    </message>
+  </if>
+
   <!-- Strings below are not used on iOS. -->
   <if expr="not is_ios">
 
     <!-- Certificate exception decision UI (after clicking through an SSL certificate error) -->
     <!-- TODO(crbug.com/502473): Support revoking certificate overrides on iOS Page Info. -->
     <message name="IDS_PAGE_INFO_INVALID_CERTIFICATE_DESCRIPTION" desc="A short paragraph to the user that security warnings are disabled. This is the case when the user has encountered a certificate error for the current site and chosen to override it.">
-      You have chosen to turn off security warnings for this site.
+      You have chosen to disable security warnings for this site.
     </message>
-    <message name="IDS_PAGE_INFO_RESET_INVALID_CERTIFICATE_DECISIONS_BUTTON" desc="Text of button in the page info that resets allow/deny decisions of invalid certificates, which will start showing security warnings for the page again.">
-      Turn on warnings
-    </message>
+    <if expr="is_android">
+      <message name="IDS_PAGE_INFO_RESET_INVALID_CERTIFICATE_DECISIONS_BUTTON" desc="Text of button in the page info that resets allow/deny decisions of invalid certificates, which will start showing security warnings for the page again.">
+        Stop using an invalid certificate
+      </message>
+    </if>
+    <if expr="not is_android">
+      <message name="IDS_PAGE_INFO_RESET_INVALID_CERTIFICATE_DECISIONS_BUTTON" desc="Text of button in the page info that resets allow/deny decisions of invalid certificates, which will start showing security warnings for the page again.">
+        Re-enable warnings
+      </message>
+    </if>
 
     <!-- Old connection info UI. Only used on Android, but still compiled on desktop. -->
     <message name="IDS_PAGE_INFO_HELP_CENTER_LINK" desc="This is the text of the link pointing to the Help Center. This appears at the bottom of the SSL dialog and 'this' refers to the sections within the bubble.">
@@ -289,6 +303,96 @@
         Show cookies
       </message>
     </if>
+
+    <!-- Permission names -->
+    <message name="IDS_PAGE_INFO_TYPE_ADS" desc="The label used for the ads permission controls in the Page Info popup.">
+      Ads
+    </message>
+    <message name="IDS_PAGE_INFO_TYPE_PROTECTED_MEDIA_IDENTIFIER" desc="The label used for the protected media identifier permission that controls content controlled by DRM (e.g. paid subscriptions). Appears in the Page Info popover when you click the icon next to the URL. Protected content refers to DRM-controlled content. IDs is short for identifiers; use abbreviation to avoid truncation.">
+      Protected content IDs
+    </message>
+    <message name="IDS_PAGE_INFO_TYPE_BACKGROUND_SYNC" desc="The label used for the background sync permission controls in the Page Info popup.">
+      Background Sync
+    </message>
+    <message name="IDS_PAGE_INFO_TYPE_IDLE_DETECTION" desc="The label used for the idle detection permission controlls in the Page Info popup.">
+      Your device use
+    </message>
+    <message name="IDS_PAGE_INFO_TYPE_IMAGES" desc="The label used for images permission controls in the Page Info popup.">
+      Images
+    </message>
+    <message name="IDS_PAGE_INFO_TYPE_JAVASCRIPT" desc="The label used for JavaScript permission controls in the Page Info popup.">
+      JavaScript
+    </message>
+    <message name="IDS_PAGE_INFO_TYPE_POPUPS_REDIRECTS" desc="The label used for the popup/redirect permission controls in the Page Info popup.">
+      Pop-ups and redirects
+    </message>
+    <message name="IDS_PAGE_INFO_TYPE_LOCATION" desc="The label used for geolocation permission controls in the Page Info popup." meaning="Geolocation">
+      Location
+    </message>
+    <message name="IDS_PAGE_INFO_TYPE_NOTIFICATIONS" desc="The label used for notifications permission controls in the Page Info popup.">
+      Notifications
+    </message>
+    <message name="IDS_PAGE_INFO_TYPE_MIC" desc="The label used for the microphone permission controls in the Page Info popup.">
+      Microphone
+    </message>
+    <message name="IDS_PAGE_INFO_TYPE_CAMERA" desc="The label used for the camera permission controls in the Page Info popup.">
+      Camera
+    </message>
+    <message name="IDS_PAGE_INFO_TYPE_MIDI_SYSEX" desc="The label used for MIDI system exclusive message permission controls in the Page Info popup.">
+      MIDI devices full control
+    </message>
+    <message name="IDS_PAGE_INFO_TYPE_SOUND" desc="The label used for the sound permission controls in the Page Info popup.">
+      Sound
+    </message>
+    <message name="IDS_PAGE_INFO_TYPE_CLIPBOARD" desc="The label used for the clipboard permission controls in the Page Info popup.">
+      Clipboard
+    </message>
+    <message name="IDS_PAGE_INFO_TYPE_SENSORS" desc="The label used for the sensor permission controls in the Page Info popup. Title case format.">
+      Motion or Light Sensors
+    </message>
+    <message name="IDS_PAGE_INFO_TYPE_MOTION_SENSORS" desc="The label used for the motion sensor (accelerometer, gyroscope, magnetometer) permission controls in the Page Info popup. Title case format.">
+      Motion Sensors
+    </message>
+    <message name="IDS_PAGE_INFO_TYPE_USB" desc="The label used for the USB permission controls in the Page Info popup.">
+      USB devices
+    </message>
+    <message name="IDS_PAGE_INFO_TYPE_SERIAL" desc="The label used for the serial port permission controls in the Page Info popup.">
+      Serial ports
+    </message>
+    <message name="IDS_PAGE_INFO_TYPE_BLUETOOTH" desc="The label used for the Bluetooth permission controls in the Page Info popup.">
+      Bluetooth devices
+    </message>
+    <message name="IDS_PAGE_INFO_TYPE_FILE_SYSTEM_ACCESS_WRITE" desc="The label used for the File System Access write permission controls in the Page Info popup. The write permission determines whether sites are allowed to save to the original file that was selected by the user through the File System Access API.">
+      File editing
+    </message>
+    <message name="IDS_PAGE_INFO_TYPE_BLUETOOTH_SCANNING" desc="The label used for the Bluetooth scanning controls in the Page Info popup.">
+      Bluetooth scanning
+    </message>
+    <message name="IDS_PAGE_INFO_TYPE_NFC" desc="The label used for the NFC permission controls in the Page Info popup.">
+      NFC devices
+    </message>
+    <message name="IDS_PAGE_INFO_TYPE_VR" desc="The label used for the VR permission controls in the Page Info popup.">
+      Virtual reality
+    </message>
+    <message name="IDS_PAGE_INFO_TYPE_AR" desc="The label used for the AR permission controls in the Page Info popup.">
+      Augmented reality
+    </message>
+    <message name="IDS_PAGE_INFO_TYPE_CAMERA_PAN_TILT_ZOOM" desc="The label used for the Camera PTZ permission controls in the Page Info popup.">
+      Camera use &amp; movement
+    </message>
+    <message name="IDS_PAGE_INFO_TYPE_WINDOW_PLACEMENT" desc="The label used for the Window Placement permission controls in the Page Info popup.">
+      Window placement
+    </message>
+    <message name="IDS_PAGE_INFO_TYPE_FONT_ACCESS" desc="The label used for the Font Access permission controls in the Page Info popup.">
+      Fonts
+    </message>
+    <message name="IDS_PAGE_INFO_TYPE_HID" desc="The label used for the HID permission controls in the Page Info popup.">
+      HID devices
+    </message>
+    <message name="IDS_PAGE_INFO_TYPE_FILE_HANDLING" desc="The label used for the File Handling permission controls in the Page Info popup.">
+      File Handlers
+    </message>
+    <!-- TODO(crbug.com/716303): A few permissions are missing here. -->
 
     <!-- Permission values -->
     <message name="IDS_PAGE_INFO_BUTTON_TEXT_ALLOWED_BY_USER" desc="The Page Info popup contains several buttons for opening dropdown menus and changing site permissions. This is the text of such a button if the permission controlled by the button was explicitly set to allow by the user.">
@@ -441,14 +545,17 @@
     <message name="IDS_PAGE_INFO_STATE_TEXT_FONT_ACCESS_ASK" desc="The Page Info permission subpage and the main page info page contain a label which shows the state of the site permission. This is the text shown if the fonts permission is in the ask state and the site can prompt the user to ask if they allow the site to use fonts installed on your device.">
       Can ask to use fonts installed on your device
     </message>
+    <message name="IDS_PAGE_INFO_STATE_TEXT_FILE_HANDLING_ASK" desc="The Page Info permission subpage and the main page info page contain a label which shows the state of the site permission. This is the text shown if the file handling permission is in the ask state and the site can prompt the user to ask if they allow the site to open types of files.">
+      Can ask to open types of files
+    </message>
     <message name="IDS_PAGE_INFO_STATE_TEXT_SERIAL_ASK" desc="The Page Info permission subpage and the main page info page contain a label which shows the state of the site permission. This is the text shown if the serial permission is in the ask state and the site can prompt the user to ask if they allow the site to connect to serial ports.">
       Can ask to connect to serial ports
     </message>
     <message name="IDS_PAGE_INFO_STATE_TEXT_IDLE_DETECTION_ASK" desc="The Page Info permission subpage and the main page info page contain a label which shows the state of the site permission. This is the text shown if the idle detection permission is in the ask state and the site can prompt the user to ask if they allow the site to know when you're actively using this device.">
       Can ask to know when you're actively using this device
     </message>
-    <message name="IDS_PAGE_INFO_STATE_TEXT_WINDOW_MANAGEMENT_ASK" desc="The Page Info permission subpage and the main page info page contain a label which shows the state of the site permission. This is the text shown if the window management permission is in the ask state and the site can prompt the user to ask if they allow the site to manage windows on all your displays.">
-      Can ask to manage windows on all your displays
+    <message name="IDS_PAGE_INFO_STATE_TEXT_WINDOW_PLACEMENT_ASK" desc="The Page Info permission subpage and the main page info page contain a label which shows the state of the site permission. This is the text shown if the window placement permission is in the ask state and the site can prompt the user to ask if they allow the site to open and place windows on your screens.">
+      Can ask to open and place windows on your screens
     </message>
     <message name="IDS_PAGE_INFO_STATE_TEXT_BLUETOOTH_SCANNING_ASK" desc="The Page Info permission subpage and the main page info page contain a label which shows the state of the site permission. This is the text shown if the bluetooth scanning permission is in the ask state and the site can prompt the user to ask if they allow the site to discover nearby Bluetooth devices.">
       Can ask to discover nearby Bluetooth devices
@@ -481,9 +588,6 @@
     </message>
     <message name="IDS_PAGE_INFO_HID_DEVICE_SECONDARY_LABEL" desc="The label displayed underneath the device name to inform the user that the permission listed refers to a HID device.">
       HID device
-    </message>
-    <message name="IDS_PAGE_INFO_HID_DEVICE_ALLOWED_BY_POLICY_LABEL" desc="The label displayed underneath the device name to inform the user that the item listed is refering to a HID device explicitly allowed by the user's enterprise policy.">
-      HID device allowed by your administrator
     </message>
     <message name="IDS_PAGE_INFO_DELETE_HID_DEVICE" desc="The tooltip displayed when hovering over the button that will remove permission to access a HID device that the user previously granted to the site.">
       Revoke access
@@ -544,6 +648,15 @@
       <message name="IDS_PAGE_INFO_CHANGE_PASSWORD_DETAILS" desc="A short paragraph explaining to the user that they has reuse their google password on current website.">
         You could lose access to your Google Account. Chrome recommends changing your password now. You'll be asked to sign in.
       </message>
+      <message name="IDS_PAGE_INFO_CHANGE_PASSWORD_DETAILS_SAVED_1_DOMAIN" desc="A short paragraph explaining to a Chrome user that they have reused their saved password on the current website and to change their password on one domain.">
+        You just entered your password on a deceptive site. Chrome recommends going to <ph name="WEBSITE_1">$1<ex>www.google.com</ex></ph> and other sites where you use this password and changing it now.
+      </message>
+      <message name="IDS_PAGE_INFO_CHANGE_PASSWORD_DETAILS_SAVED_2_DOMAINS" desc="A short paragraph explaining to a Chrome user that they have reused their saved password on the current website and to change their password on two domains.">
+        You just entered your password on a deceptive site. Chrome recommends going to <ph name="WEBSITE_1">$1<ex>www.google.com</ex></ph>, <ph name="WEBSITE_2">$2<ex>www.reddit.com</ex></ph>, and other sites where you use this password and changing it now.
+      </message>
+      <message name="IDS_PAGE_INFO_CHANGE_PASSWORD_DETAILS_SAVED_3_DOMAINS" desc="A short paragraph explaining to a Chrome user that they have reused their saved password on the current website and to change their password on three domains.">
+        You just entered your password on a deceptive site. Chrome recommends going to <ph name="WEBSITE_1">$1<ex>www.google.com</ex></ph>, <ph name="WEBSITE_2">$2<ex>www.reddit.com</ex></ph>, <ph name="WEBSITE_3">$3<ex>www.amazon.com</ex></ph>, and other sites where you use this password and changing it now.
+      </message>
       <message name="IDS_PAGE_INFO_CHANGE_PASSWORD_DETAILS_SYNC" desc="A short paragraph explaining to a Chrome sync user that they have reused their Google password on the current website.">
         Chrome can help you protect your Google Account and change your password.
       </message>
@@ -560,6 +673,15 @@
     <if expr="not _google_chrome">
       <message name="IDS_PAGE_INFO_CHANGE_PASSWORD_DETAILS" desc="A short paragraph explaining to the user that they has reuse their google password on current website.">
         You could lose access to your Google Account. Chromium recommends changing your password now. You'll be asked to sign in.
+      </message>
+      <message name="IDS_PAGE_INFO_CHANGE_PASSWORD_DETAILS_SAVED_1_DOMAIN" desc="A short paragraph explaining to a Chromium user that they have reused their saved password on the current website and to change their password on one domain.">
+        You just entered your password on a deceptive site. Chromium recommends going to <ph name="WEBSITE_1">$1<ex>www.google.com</ex></ph> and other sites where you use this password and changing it now.
+      </message>
+      <message name="IDS_PAGE_INFO_CHANGE_PASSWORD_DETAILS_SAVED_2_DOMAINS" desc="A short paragraph explaining to a Chromium user that they have reused their saved password on the current website and to change their password on two domains.">
+        You just entered your password on a deceptive site. Chromium recommends going to <ph name="WEBSITE_1">$1<ex>www.google.com</ex></ph>, <ph name="WEBSITE_2">$2<ex>www.reddit.com</ex></ph>, and other sites where you use this password and changing it now.
+      </message>
+      <message name="IDS_PAGE_INFO_CHANGE_PASSWORD_DETAILS_SAVED_3_DOMAINS" desc="A short paragraph explaining to a Chromium user that they have reused their saved password on the current website and to change their password on three domains.">
+        You just entered your password on a deceptive site. Chromium recommends going to <ph name="WEBSITE_1">$1<ex>www.google.com</ex></ph>, <ph name="WEBSITE_2">$2<ex>www.reddit.com</ex></ph>, <ph name="WEBSITE_3">$3<ex>www.amazon.com</ex></ph>, and other sites where you use this password and changing it now.
       </message>
       <message name="IDS_PAGE_INFO_CHANGE_PASSWORD_DETAILS_SYNC" desc="A short paragraph explaining to a Chrome sync user that they have reused their Google password on the current website.">
         Chromium can help you protect your Google Account and change your password.
@@ -686,106 +808,5 @@
   </message>
   <message name="IDS_PAGE_INFO_RESET_PERMISSIONS" desc="The label of the button to reset permissions for a site.">
     {NUM_PERMISSIONS, plural, =1 {Reset permission} other {Reset permissions}}
-  </message>
-
-  <!-- About this site strings -->
-  <message name="IDS_PAGE_INFO_ABOUT_THIS_SITE_HEADER" desc="The header label of the 'About this site' subpage in Page Info bubble.">
-    From the web
-  </message>
-  <message name="IDS_PAGE_INFO_ABOUT_THIS_PAGE_TITLE" desc="The title of the 'About this page' row in the Page Info bubble.">
-    About this page
-  </message>
-  <message name="IDS_PAGE_INFO_ABOUT_THIS_PAGE_DESCRIPTION_PLACEHOLDER" desc="The description of the 'About this page' row in the Page Info bubble if no more detailed description is available. 'It' refers to the page the user is currently visiting.">
-    Learn about its source and topic
-  </message>
-  <message name="IDS_PAGE_INFO_ABOUT_THIS_SITE_TOOLTIP" desc="The tooltip of the button that opens 'About this site' subpage in Page Info bubble.">
-    Show information from the web
-  </message>
-  <message name="IDS_PAGE_INFO_ABOUT_THIS_PAGE_TOOLTIP" desc="The tooltip of the button that opens 'About this page' details in Page Info bubble.">
-    Learn about this page's source &amp; topic
-  </message>
-  <message name="IDS_PAGE_INFO_ABOUT_THIS_SITE_SUBPAGE_FROM_LABEL" desc="The label containing the source of the description in the 'About this site' subpage in Page Info bubble.">
-    From <ph name="SOURCE_NAME">$1<ex>Wikipedia</ex></ph>
-  </message>
-
-  <!-- Cookies subpage -->
-  <message name="IDS_PAGE_INFO_COOKIES_HEADER" desc="The header label of cookies subpage in Page Info bubble." translateable="false">
-  Cookies and site data
-  </message>
-  <message name="IDS_PAGE_INFO_COOKIES_DESCRIPTION" desc="The descritpion of cookies in Cookies Subpage with placeholder for link to settings." translateable="false">
-    Cookies and other site data are used to remember you, for example to sign you in or to personalize ads. To manage cookies for all sites, see <ph name="SETTINGS">$1<ex>Settings</ex></ph>.
-  </message>
-  <message name="IDS_PAGE_INFO_COOKIES_SETTINGS_LINK" desc="The text of the link to cookies settings." translateable="false">
-    Settings
-  </message>
-  <message name="IDS_PAGE_INFO_BLOCK_THIRD_PARTY_COOKIES_TITLE" desc="The title on the blocking third-party cookies toggle in cookies subpage." translateable="false">
-    Block third-party cookies
-  </message>
-  <message name="IDS_PAGE_INFO_BLOCK_THIRD_PARTY_COOKIES_TOGGLE_TOOLTIP" desc="The tooltip on the blocking third-party cookies toggle in cookies subpage." translateable="false">
-    Block third-party cookies
-  </message>
-  <message name="IDS_PAGE_INFO_BLOCK_THIRD_PARTY_COOKIES_MANAGED_BY_SETTINGS_TOOLTIP" desc="The tooltip on the blocking third-party cookies icon in cookies subpage if blocking is explicitly set by user in cookies settings." translateable="false">
-    Managed by cookies settings
-  </message>
-  <message name="IDS_PAGE_INFO_COOKIES_BLOCKED_SITES_COUNT" desc="The label of the count for sites that have blocked access to cookies on the page. This text will be shown on the blocking third-party cookies toggle." translateable="false">
-        {NUM_COOKIES, plural, =0 {No sites} =1 {1 site} other {# sites}} blocked
-  </message>
-  <message name="IDS_PAGE_INFO_COOKIES_BLOCKED_SITES_COUNT_WHEN_FPS_BLOCKED" desc="The label of the count for sites that have blocked access to cookies on the page when fps is blocked. This text will be shown on the blocking third-party cookies toggle." translateable="false">
-        {NUM_COOKIES, plural, =0 {No sites} =1 {1 site} other {# sites}} blocked, including related sites
-  </message>
-  <message name="IDS_PAGE_INFO_COOKIES_ALLOWED_SITES_COUNT" desc="The label of the count for sites with allowed cookies on the page. This text will be shown on the cookies dialog button." translateable="false">
-        {NUM_COOKIES, plural,=0 {No sites} =1 {1 site} other {# sites}} allowed
-  </message>
-   <message name="IDS_PAGE_INFO_COOKIES_DIALOG_BUTTON_TITLE" desc="The title on the button opening cookies in use dialog in cookies subpage." translateable="false">
-    Manage cookies and site data
-  </message>
-  <message name="IDS_PAGE_INFO_COOKIES_DIALOG_BUTTON_TOOLTIP" desc="The text of the tooltip on the button opening cookies in use dialog in cookies subpage." translateable="false">
-    Show cookies
-  </message>
-  <message name="IDS_PAGE_INFO_FPS_BUTTON_TOOLTIP" desc="The tooltip of first-party sets button in cookies subpage, which opens 'All Sites' settings page with a filter for this sets' pages." translateable="false">
-    Show sites
-  </message>
-  <message name="IDS_PAGE_INFO_FPS_BUTTON_TITLE" desc="The title of first-party sets button in cookies subpage with placeholder for name of the owner of this set." translateable="false">
-    See sites related to <ph name="SET_OWNER">$1<ex>gannett.com</ex></ph>
-  </message>
-  <message name="IDS_PAGE_INFO_FPS_BUTTON_SUBTITLE" desc="The subtitle of first-party sets button in cookies subpage with placeholder for name of the owner of this set." translateable="false">
-    <ph name="SET_OWNER">$1<ex>gannett.com</ex></ph> says these sites are related
-  </message>
-
-  <!-- History strings -->
-  <message name="IDS_PAGE_INFO_HISTORY" desc="The button label of the 'History' row in Page Info bubble. The button opens history page for the site.">
-    History
-  </message>
-  <message name="IDS_PAGE_INFO_HISTORY_LAST_VISIT_TODAY" desc="Summary string for page info history row. The site was last visited today.">
-    Last visited today
-  </message>
-  <message name="IDS_PAGE_INFO_HISTORY_LAST_VISIT_YESTERDAY" desc="Summary string for page info history row. The site was last visited yesterday.">
-    Last visited yesterday
-  </message>
-  <message name="IDS_PAGE_INFO_HISTORY_LAST_VISIT_DAYS" desc="Summary string for page info history row. The site was last visited NUM_DAYS days ago.">
-    Last visited <ph name="NUM_DAYS">$1<ex>2</ex></ph> days ago
-  </message>
-  <message name="IDS_PAGE_INFO_HISTORY_LAST_VISIT_DATE" desc="Summary string for page info history row. The site was last visited on a particular date.">
-    Last visited <ph name="DATE">$1<ex>Apr 4, 2021</ex></ph>
-  </message>
-
-  <!-- Ad personalization strings -->
-  <message name="IDS_PAGE_INFO_AD_PERSONALIZATION_HEADER" desc="The header label of the 'Ad personalization' subpage in Page Info bubble.">
-    Ad personalization
-  </message>
-  <message name="IDS_PAGE_INFO_AD_PERSONALIZATION_TOOLTIP" desc="The tooltip of the button that opens the 'Ad personalization' subpage in Page Info bubble.">
-    Show ad personalization details
-  </message>
-  <message name="IDS_PAGE_INFO_AD_PERSONALIZATION_TOPICS_AND_INTEREST_GROUP_DESCRIPTION" desc="The description label that explains to the user that the current site has accessed the Topics API and joined the user to an interest group. The label is located in 'Ad personalization' subpage in page info bubble.">
-    This site defines interests other sites can use to show you ads. This site also gets your interests from Chrome to show you more relevant ads.
-  </message>
-  <message name="IDS_PAGE_INFO_AD_PERSONALIZATION_TOPICS_DESCRIPTION"  desc="The description label that explains to the user that the current site has accessed the Topics API. The label is located in 'Ad personalization' subpage in page info bubble.">
-   This site gets your interests from Chrome to show you more relevant ads
-  </message>
-  <message name="IDS_PAGE_INFO_AD_PERSONALIZATION_INTEREST_GROUP_DESCRIPTION" desc="The description label that explains to the user that the current site has joined the user to an interest group. The label is located in 'Ad personalization' subpage in page info bubble.">
-    This site defines interests other sites can use to show you ads
-  </message>
-  <message name="IDS_PAGE_INFO_AD_PERSONALIZATION_SUBPAGE_MANAGE_BUTTON" desc="The text on the button, that opens privacy sandbox settings page, in 'Ad personalization' subpage in page info bubble. ">
-    Manage interests
   </message>
 </grit-part>

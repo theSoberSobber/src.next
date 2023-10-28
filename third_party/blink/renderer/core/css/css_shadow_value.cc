@@ -67,16 +67,14 @@ String CSSShadowValue::CustomCSSText() const {
     text.Append(style->CssText());
   }
 
-  return text.ReleaseString();
+  return text.ToString();
 }
 
 bool CSSShadowValue::Equals(const CSSShadowValue& other) const {
-  return base::ValuesEquivalent(color, other.color) &&
-         base::ValuesEquivalent(x, other.x) &&
-         base::ValuesEquivalent(y, other.y) &&
-         base::ValuesEquivalent(blur, other.blur) &&
-         base::ValuesEquivalent(spread, other.spread) &&
-         base::ValuesEquivalent(style, other.style);
+  return DataEquivalent(color, other.color) && DataEquivalent(x, other.x) &&
+         DataEquivalent(y, other.y) && DataEquivalent(blur, other.blur) &&
+         DataEquivalent(spread, other.spread) &&
+         DataEquivalent(style, other.style);
 }
 
 void CSSShadowValue::TraceAfterDispatch(blink::Visitor* visitor) const {

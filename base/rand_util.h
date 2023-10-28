@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -12,29 +12,17 @@
 #include <string>
 
 #include "base/base_export.h"
-#include "base/compiler_specific.h"
 #include "base/gtest_prod_util.h"
 #include "build/build_config.h"
 
-namespace partition_alloc {
-class RandomGenerator;
-}  // namespace partition_alloc
+namespace blink {
+namespace scheduler {
+class UkmTaskSampler;
+class MainThreadMetricsHelper;
+}
+}  // namespace blink
 
 namespace base {
-
-namespace internal {
-
-#if BUILDFLAG(IS_ANDROID)
-// Sets the implementation of RandBytes according to the corresponding
-// base::Feature. Thread safe: allows to switch while RandBytes() is in use.
-void ConfigureRandBytesFieldTrial();
-#endif
-
-#if !BUILDFLAG(IS_NACL)
-void ConfigureBoringSSLBackedRandBytesFieldTrial();
-#endif
-
-}  // namespace internal
 
 // Returns a random number in range [0, UINT64_MAX]. Thread-safe.
 BASE_EXPORT uint64_t RandUint64();
@@ -89,11 +77,19 @@ void RandomShuffle(Itr first, Itr last) {
   std::shuffle(first, last, RandomBitGenerator());
 }
 
-#if BUILDFLAG(IS_POSIX)
+#if defined(OS_POSIX)
 BASE_EXPORT int GetUrandomFD();
 #endif
 
-class MetricsSubSampler;
+namespace partition_alloc {
+class RandomGenerator;
+}
+
+namespace sequence_manager {
+namespace internal {
+class SequenceManagerImpl;
+}
+}  // namespace sequence_manager
 
 // Fast, insecure pseudo-random number generator.
 //
@@ -115,16 +111,19 @@ class MetricsSubSampler;
 // system call to generate a new number, except to seed it.  This should *never*
 // be used for cryptographic applications, and is not thread-safe.
 //
-// It is seeded using base::RandUint64() in the constructor, meaning that it
-// doesn't need to be seeded. It can be re-seeded though, with
-// ReseedForTesting(). Its period is long enough that it should not need to be
-// re-seeded during use.
+// It must be seeded before use with |Seed()|, but the period is long enough to
+// not require re-seeding. Nevertheless, seeding the generator multiple times is
+// harmless.
 //
 // Uses the XorShift128+ generator under the hood.
 class BASE_EXPORT InsecureRandomGenerator {
  public:
+  // Sets the seed by calling RandUint64() to initialize internal state.
+  void Seed();
+  bool seeded() const { return seeded_; }
+
   // Never use outside testing, not enough entropy.
-  void ReseedForTesting(uint64_t seed);
+  void SeedForTesting(uint64_t seed);
 
   uint32_t RandUint32();
   uint64_t RandUint64();
@@ -132,7 +131,9 @@ class BASE_EXPORT InsecureRandomGenerator {
   double RandDouble();
 
  private:
-  InsecureRandomGenerator();
+  InsecureRandomGenerator() = default;
+
+  bool seeded_ = false;
   // State.
   uint64_t a_ = 0, b_ = 0;
 
@@ -144,25 +145,21 @@ class BASE_EXPORT InsecureRandomGenerator {
   // malloc()/free() pair, otherwise high-level benchmarks regress, and does not
   // need a secure PRNG, as it's used for ASLR and zeroing some allocations at
   // free() time.
-  friend class ::partition_alloc::RandomGenerator;
+  friend class partition_alloc::RandomGenerator;
 
-  // Uses the generator to sub-sample metrics.
-  friend class MetricsSubSampler;
+  // Friend classes below are using the generator to sub-sample metrics after
+  // task execution. Task execution overhead is ~1us on a Linux desktop, and yet
+  // accounts for multiple percentage points of total CPU usage. Keeping it low
+  // is thus important.
+  friend class sequence_manager::internal::SequenceManagerImpl;
+  friend class blink::scheduler::UkmTaskSampler;
+  friend class blink::scheduler::MainThreadMetricsHelper;
 
   FRIEND_TEST_ALL_PREFIXES(RandUtilTest,
                            InsecureRandomGeneratorProducesBothValuesOfAllBits);
   FRIEND_TEST_ALL_PREFIXES(RandUtilTest, InsecureRandomGeneratorChiSquared);
   FRIEND_TEST_ALL_PREFIXES(RandUtilTest, InsecureRandomGeneratorRandDouble);
   FRIEND_TEST_ALL_PREFIXES(RandUtilPerfTest, InsecureRandomRandUint64);
-};
-
-class BASE_EXPORT MetricsSubSampler {
- public:
-  MetricsSubSampler();
-  bool ShouldSample(double probability);
-
- private:
-  InsecureRandomGenerator generator_;
 };
 
 }  // namespace base

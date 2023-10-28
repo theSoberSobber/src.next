@@ -1,9 +1,8 @@
-// Copyright 2018 The Chromium Authors
+// Copyright (c) 2018 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include "base/bind.h"
-#include "base/memory/raw_ptr.h"
 #include "base/test/bind.h"
 #include "build/build_config.h"
 #include "chrome/browser/devtools/devtools_window_testing.h"
@@ -33,9 +32,6 @@ class WebAuthFocusTest : public InProcessBrowserTest,
       : https_server_(net::EmbeddedTestServer::TYPE_HTTPS),
         permission_requested_(false) {}
 
-  WebAuthFocusTest(const WebAuthFocusTest&) = delete;
-  WebAuthFocusTest& operator=(const WebAuthFocusTest&) = delete;
-
   void SetUpOnMainThread() override {
     host_resolver()->AddRule("*", "127.0.0.1");
     https_server_.ServeFilesFromSourceDirectory("content/test/data");
@@ -49,7 +45,7 @@ class WebAuthFocusTest : public InProcessBrowserTest,
 
   bool permission_requested() { return permission_requested_; }
 
-  raw_ptr<AuthenticatorRequestDialogModel> dialog_model_;
+  AuthenticatorRequestDialogModel* dialog_model_;
 
  private:
   void SetUpCommandLine(base::CommandLine* command_line) override {
@@ -73,6 +69,8 @@ class WebAuthFocusTest : public InProcessBrowserTest,
 
   // Set to true when the permission sheet is triggered.
   bool permission_requested_;
+
+  DISALLOW_COPY_AND_ASSIGN(WebAuthFocusTest);
 };
 
 // TODO(crbug.com/1222768): Disabled for being flaky.
@@ -85,8 +83,8 @@ IN_PROC_BROWSER_TEST_F(WebAuthFocusTest, DISABLED_Focus) {
   // the frame be in the foreground in a focused window.
 
   ASSERT_TRUE(ui_test_utils::BringBrowserWindowToFront(browser()));
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(
-      browser(), GetHttpsURL("www.example.com", "/title1.html")));
+  ui_test_utils::NavigateToURL(browser(),
+                               GetHttpsURL("www.example.com", "/title1.html"));
 
   auto owned_virtual_device_factory =
       std::make_unique<device::test::VirtualFidoDeviceFactory>();

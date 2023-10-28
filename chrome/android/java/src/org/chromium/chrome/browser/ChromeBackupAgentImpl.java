@@ -1,4 +1,4 @@
-// Copyright 2016 The Chromium Authors
+// Copyright 2016 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -93,11 +93,12 @@ public class ChromeBackupAgentImpl extends ChromeBackupAgent.Impl {
 
     // List of preferences that should be restored unchanged.
     static final String[] BACKUP_ANDROID_BOOL_PREFS = {
+            ChromePreferenceKeys.DATA_REDUCTION_ENABLED,
             ChromePreferenceKeys.FIRST_RUN_CACHED_TOS_ACCEPTED,
             ChromePreferenceKeys.FIRST_RUN_FLOW_COMPLETE,
             ChromePreferenceKeys.FIRST_RUN_LIGHTWEIGHT_FLOW_COMPLETE,
-            ChromePreferenceKeys.PRIVACY_METRICS_REPORTING_PERMITTED_BY_POLICY,
-            ChromePreferenceKeys.PRIVACY_METRICS_REPORTING_PERMITTED_BY_USER,
+            ChromePreferenceKeys.FIRST_RUN_FLOW_SIGNIN_SETUP,
+            ChromePreferenceKeys.PRIVACY_METRICS_REPORTING,
     };
 
     // Key used to store the email of the signed in account. This email is obtained from

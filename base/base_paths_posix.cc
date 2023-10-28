@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -25,10 +25,10 @@
 #include "base/process/process_metrics.h"
 #include "build/build_config.h"
 
-#if BUILDFLAG(IS_FREEBSD)
+#if defined(OS_FREEBSD)
 #include <sys/param.h>
 #include <sys/sysctl.h>
-#elif BUILDFLAG(IS_SOLARIS) || BUILDFLAG(IS_AIX)
+#elif defined(OS_SOLARIS) || defined(OS_AIX)
 #include <stdlib.h>
 #endif
 
@@ -38,7 +38,7 @@ bool PathProviderPosix(int key, FilePath* result) {
   switch (key) {
     case FILE_EXE:
     case FILE_MODULE: {  // TODO(evanm): is this correct?
-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
+#if defined(OS_LINUX) || defined(OS_CHROMEOS)
       FilePath bin_dir;
       if (!ReadSymbolicLink(FilePath(kProcSelfExe), &bin_dir)) {
         NOTREACHED() << "Unable to resolve " << kProcSelfExe << ".";
@@ -46,7 +46,7 @@ bool PathProviderPosix(int key, FilePath* result) {
       }
       *result = bin_dir;
       return true;
-#elif BUILDFLAG(IS_FREEBSD)
+#elif defined(OS_FREEBSD)
       int name[] = { CTL_KERN, KERN_PROC, KERN_PROC_PATHNAME, -1 };
       char bin_dir[PATH_MAX + 1];
       size_t length = sizeof(bin_dir);
@@ -59,7 +59,7 @@ bool PathProviderPosix(int key, FilePath* result) {
       }
       *result = FilePath(FilePath::StringType(bin_dir, length - 1));
       return true;
-#elif BUILDFLAG(IS_SOLARIS)
+#elif defined(OS_SOLARIS)
       char bin_dir[PATH_MAX + 1];
       if (realpath(getexecname(), bin_dir) == NULL) {
         NOTREACHED() << "Unable to resolve " << getexecname() << ".";
@@ -67,7 +67,7 @@ bool PathProviderPosix(int key, FilePath* result) {
       }
       *result = FilePath(bin_dir);
       return true;
-#elif BUILDFLAG(IS_OPENBSD) || BUILDFLAG(IS_AIX)
+#elif defined(OS_OPENBSD) || defined(OS_AIX)
       // There is currently no way to get the executable path on OpenBSD
       char* cpath;
       if ((cpath = getenv("CHROME_EXE_PATH")) != NULL)
@@ -77,7 +77,7 @@ bool PathProviderPosix(int key, FilePath* result) {
       return true;
 #endif
     }
-    case DIR_SRC_TEST_DATA_ROOT: {
+    case DIR_SOURCE_ROOT: {
       // Allow passing this in the environment, for more flexibility in build
       // tree configurations (sub-project builds, gyp --output_dir, etc.)
       std::unique_ptr<Environment> env(Environment::Create());

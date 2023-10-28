@@ -1,11 +1,11 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_EXTENSIONS_BROWSER_EXTENSION_WINDOW_CONTROLLER_H_
 #define CHROME_BROWSER_EXTENSIONS_BROWSER_EXTENSION_WINDOW_CONTROLLER_H_
 
-#include "base/memory/raw_ptr.h"
+#include "base/macros.h"
 #include "chrome/browser/extensions/window_controller.h"
 
 class Browser;
@@ -17,12 +17,6 @@ class Extension;
 class BrowserExtensionWindowController : public WindowController {
  public:
   explicit BrowserExtensionWindowController(Browser* browser);
-
-  BrowserExtensionWindowController(const BrowserExtensionWindowController&) =
-      delete;
-  BrowserExtensionWindowController& operator=(
-      const BrowserExtensionWindowController&) = delete;
-
   ~BrowserExtensionWindowController() override;
 
   // Sets the window's fullscreen state. |extension_url| provides the url
@@ -39,7 +33,9 @@ class BrowserExtensionWindowController : public WindowController {
       bool allow_dev_tools_windows) const override;
 
  private:
-  const raw_ptr<Browser> browser_;
+  Browser* const browser_;
+
+  DISALLOW_COPY_AND_ASSIGN(BrowserExtensionWindowController);
 };
 
 }  // namespace extensions

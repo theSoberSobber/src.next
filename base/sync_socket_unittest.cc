@@ -1,10 +1,9 @@
-// Copyright 2013 The Chromium Authors
+// Copyright 2013 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include "base/sync_socket.h"
 
-#include "base/memory/raw_ptr.h"
 #include "base/synchronization/waitable_event.h"
 #include "base/threading/platform_thread.h"
 #include "base/threading/simple_thread.h"
@@ -15,7 +14,7 @@ namespace base {
 
 namespace {
 
-constexpr TimeDelta kReceiveTimeout = base::Milliseconds(750);
+constexpr TimeDelta kReceiveTimeout = base::TimeDelta::FromMilliseconds(750);
 
 class HangingReceiveThread : public DelegateSimpleThread::Delegate {
  public:
@@ -58,7 +57,7 @@ class HangingReceiveThread : public DelegateSimpleThread::Delegate {
   WaitableEvent* done_event() { return &done_event_; }
 
  private:
-  raw_ptr<SyncSocket> socket_;
+  SyncSocket* socket_;
   DelegateSimpleThread thread_;
   bool with_timeout_;
   WaitableEvent started_event_;

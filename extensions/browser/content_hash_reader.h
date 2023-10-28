@@ -1,4 +1,4 @@
-// Copyright 2014 The Chromium Authors
+// Copyright 2014 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "base/files/file_path.h"
+#include "base/macros.h"
 #include "base/memory/ref_counted.h"
 #include "base/version.h"
 #include "extensions/browser/computed_hashes.h"
@@ -43,9 +44,6 @@ class ContentHashReader {
     SUCCESS
   };
 
-  ContentHashReader(const ContentHashReader&) = delete;
-  ContentHashReader& operator=(const ContentHashReader&) = delete;
-
   ~ContentHashReader();
 
   // Factory to create ContentHashReader to get expected hashes for the file at
@@ -77,6 +75,8 @@ class ContentHashReader {
   int block_size_ = 0;
 
   std::vector<std::string> hashes_;
+
+  DISALLOW_COPY_AND_ASSIGN(ContentHashReader);
 };
 
 }  // namespace extensions

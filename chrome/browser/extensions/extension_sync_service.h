@@ -1,4 +1,4 @@
-// Copyright 2013 The Chromium Authors
+// Copyright 2013 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -11,7 +11,7 @@
 #include <vector>
 
 #include "base/gtest_prod_util.h"
-#include "base/memory/raw_ptr.h"
+#include "base/macros.h"
 #include "base/scoped_observation.h"
 #include "base/version.h"
 #include "chrome/browser/extensions/sync_bundle.h"
@@ -41,10 +41,6 @@ class ExtensionSyncService : public syncer::SyncableService,
                              public extensions::ExtensionPrefsObserver {
  public:
   explicit ExtensionSyncService(Profile* profile);
-
-  ExtensionSyncService(const ExtensionSyncService&) = delete;
-  ExtensionSyncService& operator=(const ExtensionSyncService&) = delete;
-
   ~ExtensionSyncService() override;
 
   // Convenience function to get the ExtensionSyncService for a BrowserContext.
@@ -126,9 +122,9 @@ class ExtensionSyncService : public syncer::SyncableService,
   bool ShouldSync(const extensions::Extension& extension) const;
 
   // The normal profile associated with this ExtensionSyncService.
-  raw_ptr<Profile> profile_;
+  Profile* profile_;
 
-  raw_ptr<extensions::ExtensionSystem> system_;
+  extensions::ExtensionSystem* system_;
 
   base::ScopedObservation<extensions::ExtensionRegistry,
                           extensions::ExtensionRegistryObserver>
@@ -157,6 +153,8 @@ class ExtensionSyncService : public syncer::SyncableService,
   // have started happening. It will cause sync to call us back
   // asynchronously via MergeDataAndStartSyncing as soon as possible.
   syncer::SyncableService::StartSyncFlare flare_;
+
+  DISALLOW_COPY_AND_ASSIGN(ExtensionSyncService);
 };
 
 #endif  // CHROME_BROWSER_EXTENSIONS_EXTENSION_SYNC_SERVICE_H_

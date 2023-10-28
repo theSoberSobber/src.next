@@ -23,6 +23,7 @@
 #include "third_party/blink/renderer/core/timing/dom_window_performance.h"
 #include "third_party/blink/renderer/core/timing/performance_entry.h"
 #include "third_party/blink/renderer/core/timing/window_performance.h"
+#include "third_party/blink/renderer/platform/graphics/graphics_layer.h"
 #include "third_party/blink/renderer/platform/graphics/paint/geometry_mapper.h"
 #include "third_party/blink/renderer/platform/graphics/paint/property_tree_state.h"
 #include "ui/gfx/geometry/rect.h"
@@ -37,7 +38,7 @@ ContainingBlockScope* ContainingBlockScope::top_ = nullptr;
 
 namespace {
 
-constexpr base::TimeDelta kTimerDelay = base::Milliseconds(500);
+constexpr base::TimeDelta kTimerDelay = base::TimeDelta::FromMilliseconds(500);
 const float kMovementThreshold = 3.0;  // CSS pixels.
 
 // Calculates the physical coordinates of the starting point in the current
@@ -46,9 +47,9 @@ const float kMovementThreshold = 3.0;  // CSS pixels.
 // depending on the writing mode and text direction. Note that the result is
 // still in physical coordinates, just may be of a different corner.
 // See https://wicg.github.io/layout-instability/#starting-point.
-gfx::PointF StartingPoint(const PhysicalOffset& paint_offset,
-                          const LayoutBox& box,
-                          const LayoutSize& size) {
+FloatPoint StartingPoint(const PhysicalOffset& paint_offset,
+                         const LayoutBox& box,
+                         const LayoutSize& size) {
   PhysicalOffset starting_point = paint_offset;
   auto writing_direction = box.StyleRef().GetWritingDirection();
   if (UNLIKELY(writing_direction.IsFlippedBlocks()))
@@ -59,7 +60,7 @@ gfx::PointF StartingPoint(const PhysicalOffset& paint_offset,
     else
       starting_point.top += size.Height();
   }
-  return gfx::PointF(starting_point);
+  return FloatPoint(starting_point);
 }
 
 // Returns the part a rect logically below a starting point.
@@ -81,17 +82,17 @@ PhysicalRect RectBelowStartingPoint(const PhysicalRect& rect,
   return result;
 }
 
-float GetMoveDistance(const gfx::PointF& old_starting_point,
-                      const gfx::PointF& new_starting_point) {
-  gfx::Vector2dF location_delta = new_starting_point - old_starting_point;
-  return std::max(fabs(location_delta.x()), fabs(location_delta.y()));
+float GetMoveDistance(const FloatPoint& old_starting_point,
+                      const FloatPoint& new_starting_point) {
+  FloatSize location_delta = new_starting_point - old_starting_point;
+  return std::max(fabs(location_delta.Width()), fabs(location_delta.Height()));
 }
 
-bool EqualWithinMovementThreshold(const gfx::PointF& a,
-                                  const gfx::PointF& b,
+bool EqualWithinMovementThreshold(const FloatPoint& a,
+                                  const FloatPoint& b,
                                   float threshold_physical_px) {
-  return fabs(a.x() - b.x()) < threshold_physical_px &&
-         fabs(a.y() - b.y()) < threshold_physical_px;
+  return fabs(a.X() - b.X()) < threshold_physical_px &&
+         fabs(a.Y() - b.Y()) < threshold_physical_px;
 }
 
 bool SmallerThanRegionGranularity(const LayoutRect& rect) {
@@ -100,27 +101,27 @@ bool SmallerThanRegionGranularity(const LayoutRect& rect) {
   return rect.Width() < 0.5 || rect.Height() < 0.5;
 }
 
-void RectToTracedValue(const gfx::Rect& rect,
+void RectToTracedValue(const IntRect& rect,
                        TracedValue& value,
                        const char* key = nullptr) {
   if (key)
     value.BeginArray(key);
   else
     value.BeginArray();
-  value.PushInteger(rect.x());
-  value.PushInteger(rect.y());
-  value.PushInteger(rect.width());
-  value.PushInteger(rect.height());
+  value.PushInteger(rect.X());
+  value.PushInteger(rect.Y());
+  value.PushInteger(rect.Width());
+  value.PushInteger(rect.Height());
   value.EndArray();
 }
 
 void RegionToTracedValue(const LayoutShiftRegion& region, TracedValue& value) {
-  cc::Region blink_region;
-  for (const gfx::Rect& rect : region.GetRects())
-    blink_region.Union(rect);
+  Region blink_region;
+  for (IntRect rect : region.GetRects())
+    blink_region.Unite(Region(rect));
 
   value.BeginArray("region_rects");
-  for (gfx::Rect rect : blink_region)
+  for (const IntRect& rect : blink_region.Rects())
     RectToTracedValue(rect, value);
   value.EndArray();
 }
@@ -230,11 +231,11 @@ void LayoutShiftTracker::ObjectShifted(
     const PropertyTreeStateOrAlias& property_tree_state,
     const PhysicalRect& old_rect,
     const PhysicalRect& new_rect,
-    const gfx::PointF& old_starting_point,
-    const gfx::Vector2dF& translation_delta,
-    const gfx::Vector2dF& scroll_delta,
-    const gfx::Vector2dF& scroll_anchor_adjustment,
-    const gfx::PointF& new_starting_point) {
+    const FloatPoint& old_starting_point,
+    const FloatSize& translation_delta,
+    const FloatSize& scroll_delta,
+    const FloatSize& scroll_anchor_adjustment,
+    const FloatPoint& new_starting_point) {
   // The caller should ensure these conditions.
   DCHECK(!old_rect.IsEmpty());
   DCHECK(!new_rect.IsEmpty());
@@ -268,8 +269,7 @@ void LayoutShiftTracker::ObjectShifted(
     return;
 
   // Check shift of 2d-translation-and-scroll-indifferent starting point.
-  gfx::Vector2dF translation_and_scroll_delta =
-      scroll_delta + translation_delta;
+  FloatSize translation_and_scroll_delta = scroll_delta + translation_delta;
   if (!translation_and_scroll_delta.IsZero() &&
       EqualWithinMovementThreshold(
           old_starting_point + translation_and_scroll_delta, new_starting_point,
@@ -295,9 +295,9 @@ void LayoutShiftTracker::ObjectShifted(
       property_tree_state.Transform(), root_state.Transform());
   // TODO(crbug.com/1187979): Shift by |scroll_delta| to keep backward
   // compatibility in https://crrev.com/c/2754969. See the bug for details.
-  gfx::PointF old_starting_point_in_root =
+  FloatPoint old_starting_point_in_root =
       transform.MapPoint(old_starting_point + scroll_delta);
-  gfx::PointF new_starting_point_in_root =
+  FloatPoint new_starting_point_in_root =
       transform.MapPoint(new_starting_point);
 
   if (EqualWithinMovementThreshold(old_starting_point_in_root,
@@ -305,32 +305,32 @@ void LayoutShiftTracker::ObjectShifted(
                                    threshold_physical_px))
     return;
 
-  gfx::RectF old_rect_in_root(old_rect);
+  FloatRect old_rect_in_root(old_rect);
   // TODO(crbug.com/1187979): Shift by |scroll_delta| to keep backward
   // compatibility in https://crrev.com/c/2754969. See the bug for details.
-  old_rect_in_root.Offset(scroll_delta);
+  old_rect_in_root.Move(scroll_delta);
   transform.MapRect(old_rect_in_root);
-  gfx::RectF new_rect_in_root(new_rect);
+  FloatRect new_rect_in_root(new_rect);
   transform.MapRect(new_rect_in_root);
 
-  gfx::Rect visible_old_rect = gfx::ToRoundedRect(
-      gfx::IntersectRects(old_rect_in_root, clip_rect.Rect()));
-  gfx::Rect visible_new_rect = gfx::ToRoundedRect(
-      gfx::IntersectRects(new_rect_in_root, clip_rect.Rect()));
+  IntRect visible_old_rect =
+      RoundedIntRect(Intersection(old_rect_in_root, clip_rect.Rect()));
+  IntRect visible_new_rect =
+      RoundedIntRect(Intersection(new_rect_in_root, clip_rect.Rect()));
   if (visible_old_rect.IsEmpty() && visible_new_rect.IsEmpty())
     return;
 
   // If the object moved from or to out of view, ignore the shift if it's in
   // the inline direction only.
   if (visible_old_rect.IsEmpty() || visible_new_rect.IsEmpty()) {
-    gfx::PointF old_inline_direction_indifferent_starting_point_in_root =
+    FloatPoint old_inline_direction_indifferent_starting_point_in_root =
         old_starting_point_in_root;
     if (object.IsHorizontalWritingMode()) {
-      old_inline_direction_indifferent_starting_point_in_root.set_x(
-          new_starting_point_in_root.x());
+      old_inline_direction_indifferent_starting_point_in_root.SetX(
+          new_starting_point_in_root.X());
     } else {
-      old_inline_direction_indifferent_starting_point_in_root.set_y(
-          new_starting_point_in_root.y());
+      old_inline_direction_indifferent_starting_point_in_root.SetY(
+          new_starting_point_in_root.Y());
     }
     if (EqualWithinMovementThreshold(
             old_inline_direction_indifferent_starting_point_in_root,
@@ -350,18 +350,16 @@ void LayoutShiftTracker::ObjectShifted(
 
   LocalFrame& frame = frame_view_->GetFrame();
   if (ShouldLog(frame)) {
-    VLOG(1) << "in " << (frame.IsOutermostMainFrame() ? "" : "subframe ")
+    VLOG(1) << "in " << (frame.IsMainFrame() ? "" : "subframe ")
             << frame.GetDocument()->Url() << ", " << object << " moved from "
-            << old_rect_in_root.ToString() << " to "
-            << new_rect_in_root.ToString() << " (visible from "
-            << visible_old_rect.ToString() << " to "
-            << visible_new_rect.ToString() << ")";
-    if (old_starting_point_in_root != old_rect_in_root.origin() ||
-        new_starting_point_in_root != new_rect_in_root.origin() ||
+            << old_rect_in_root << " to " << new_rect_in_root
+            << " (visible from " << visible_old_rect << " to "
+            << visible_new_rect << ")";
+    if (old_starting_point_in_root != old_rect_in_root.Location() ||
+        new_starting_point_in_root != new_rect_in_root.Location() ||
         !translation_delta.IsZero() || !scroll_delta.IsZero()) {
-      VLOG(1) << " (starting point from "
-              << old_starting_point_in_root.ToString() << " to "
-              << new_starting_point_in_root.ToString() << ")";
+      VLOG(1) << " (starting point from " << old_starting_point_in_root
+              << " to " << new_starting_point_in_root << ")";
     }
   }
 
@@ -374,6 +372,14 @@ void LayoutShiftTracker::ObjectShifted(
   }
 }
 
+LayoutShiftTracker::Attribution::Attribution() : node_id(kInvalidDOMNodeId) {}
+LayoutShiftTracker::Attribution::Attribution(DOMNodeId node_id_arg,
+                                             IntRect old_visual_rect_arg,
+                                             IntRect new_visual_rect_arg)
+    : node_id(node_id_arg),
+      old_visual_rect(old_visual_rect_arg),
+      new_visual_rect(new_visual_rect_arg) {}
+
 LayoutShiftTracker::Attribution::operator bool() const {
   return node_id != kInvalidDOMNodeId;
 }
@@ -383,13 +389,12 @@ bool LayoutShiftTracker::Attribution::Encloses(const Attribution& other) const {
          new_visual_rect.Contains(other.new_visual_rect);
 }
 
-uint64_t LayoutShiftTracker::Attribution::Area() const {
-  uint64_t old_area = old_visual_rect.size().Area64();
-  uint64_t new_area = new_visual_rect.size().Area64();
+int LayoutShiftTracker::Attribution::Area() const {
+  int old_area = old_visual_rect.Width() * old_visual_rect.Height();
+  int new_area = new_visual_rect.Width() * new_visual_rect.Height();
 
-  gfx::Rect intersection =
-      gfx::IntersectRects(old_visual_rect, new_visual_rect);
-  uint64_t shared_area = intersection.size().Area64();
+  IntRect intersection = Intersection(old_visual_rect, new_visual_rect);
+  int shared_area = intersection.Width() * intersection.Height();
   return old_area + new_area - shared_area;
 }
 
@@ -422,9 +427,9 @@ void LayoutShiftTracker::NotifyBoxPrePaint(
     const PhysicalRect& old_rect,
     const PhysicalRect& new_rect,
     const PhysicalOffset& old_paint_offset,
-    const gfx::Vector2dF& translation_delta,
-    const gfx::Vector2dF& scroll_delta,
-    const gfx::Vector2dF& scroll_anchor_adjustment,
+    const FloatSize& translation_delta,
+    const FloatSize& scroll_delta,
+    const FloatSize& scroll_anchor_adjustment,
     const PhysicalOffset& new_paint_offset) {
   DCHECK(NeedsToTrack(box));
   ObjectShifted(box, property_tree_state, old_rect, new_rect,
@@ -439,9 +444,9 @@ void LayoutShiftTracker::NotifyTextPrePaint(
     const LogicalOffset& old_starting_point,
     const LogicalOffset& new_starting_point,
     const PhysicalOffset& old_paint_offset,
-    const gfx::Vector2dF& translation_delta,
-    const gfx::Vector2dF& scroll_delta,
-    const gfx::Vector2dF& scroll_anchor_adjustment,
+    const FloatSize& translation_delta,
+    const FloatSize& scroll_delta,
+    const FloatSize& scroll_anchor_adjustment,
     const PhysicalOffset& new_paint_offset,
     LayoutUnit logical_height) {
   DCHECK(NeedsToTrack(text));
@@ -470,28 +475,19 @@ void LayoutShiftTracker::NotifyTextPrePaint(
     return;
 
   ObjectShifted(text, property_tree_state, old_rect, new_rect,
-                gfx::PointF(old_physical_starting_point), translation_delta,
+                FloatPoint(old_physical_starting_point), translation_delta,
                 scroll_delta, scroll_anchor_adjustment,
-                gfx::PointF(new_physical_starting_point));
+                FloatPoint(new_physical_starting_point));
 }
 
 double LayoutShiftTracker::SubframeWeightingFactor() const {
   LocalFrame& frame = frame_view_->GetFrame();
-  if (frame.IsOutermostMainFrame())
+  if (frame.IsMainFrame())
     return 1;
-
-  // TODO(crbug.com/1346602): Enabling frames from a fenced frame tree to map
-  // to the outermost main frame enables fenced content to learn about its
-  // position in the embedder which can be used to communicate from embedder to
-  // embeddee. For now, assume any frame in a fenced frame is fully visible to
-  // avoid introducing a side channel but this will require design work to fix
-  // in the long term.
-  if (frame.IsInFencedFrameTree()) {
-    return 1;
-  }
 
   // Map the subframe view rect into the coordinate space of the local root.
-  FloatClipRect subframe_cliprect(gfx::RectF(gfx::SizeF(frame_view_->Size())));
+  FloatClipRect subframe_cliprect =
+      FloatClipRect(FloatRect(FloatPoint(), FloatSize(frame_view_->Size())));
   const LocalFrame& local_root = frame.LocalFrameRoot();
   GeometryMapper::LocalToAncestorVisualRect(
       frame_view_->GetLayoutView()->FirstFragment().LocalBorderBoxProperties(),
@@ -503,16 +499,13 @@ double LayoutShiftTracker::SubframeWeightingFactor() const {
 
   // Intersect with the portion of the local root that overlaps the main frame.
   local_root.View()->MapToVisualRectInRemoteRootFrame(subframe_rect);
-  gfx::Size subframe_visible_size = subframe_rect.PixelSnappedSize();
-  gfx::Size main_frame_size = frame.GetPage()->GetVisualViewport().Size();
+  IntSize subframe_visible_size = subframe_rect.PixelSnappedSize();
+  IntSize main_frame_size = frame.GetPage()->GetVisualViewport().Size();
 
-  if (main_frame_size.Area64() == 0) {
-    return 0;
-  }
   // TODO(crbug.com/940711): This comparison ignores page scale and CSS
   // transforms above the local root.
-  return static_cast<double>(subframe_visible_size.Area64()) /
-         main_frame_size.Area64();
+  return static_cast<double>(subframe_visible_size.Area()) /
+         main_frame_size.Area();
 }
 
 void LayoutShiftTracker::NotifyPrePaintFinishedInternal() {
@@ -521,16 +514,16 @@ void LayoutShiftTracker::NotifyPrePaintFinishedInternal() {
   if (region_.IsEmpty())
     return;
 
-  gfx::Rect viewport = frame_view_->GetScrollableArea()->VisibleContentRect();
+  IntRect viewport = frame_view_->GetScrollableArea()->VisibleContentRect();
   if (viewport.IsEmpty())
     return;
 
-  double viewport_area = double(viewport.width()) * double(viewport.height());
+  double viewport_area = double(viewport.Width()) * double(viewport.Height());
   double impact_fraction = region_.Area() / viewport_area;
   DCHECK_GT(impact_fraction, 0);
 
   DCHECK_GT(frame_max_distance_, 0.0);
-  double viewport_max_dimension = std::max(viewport.width(), viewport.height());
+  double viewport_max_dimension = std::max(viewport.Width(), viewport.Height());
   double move_distance_factor =
       (frame_max_distance_ < viewport_max_dimension)
           ? double(frame_max_distance_) / viewport_max_dimension
@@ -542,7 +535,7 @@ void LayoutShiftTracker::NotifyPrePaintFinishedInternal() {
 
   LocalFrame& frame = frame_view_->GetFrame();
   if (ShouldLog(frame)) {
-    VLOG(1) << "in " << (frame.IsOutermostMainFrame() ? "" : "subframe ")
+    VLOG(1) << "in " << (frame.IsMainFrame() ? "" : "subframe ")
             << frame.GetDocument()->Url() << ", viewport was "
             << (impact_fraction * 100) << "% impacted with distance fraction "
             << move_distance_factor << " and subframe weighting factor "
@@ -577,8 +570,8 @@ LayoutShift::AttributionList LayoutShiftTracker::CreateAttributionList() const {
       break;
     list.push_back(LayoutShiftAttribution::Create(
         DOMNodeIds::NodeForId(att.node_id),
-        DOMRectReadOnly::FromRect(att.old_visual_rect),
-        DOMRectReadOnly::FromRect(att.new_visual_rect)));
+        DOMRectReadOnly::FromIntRect(att.old_visual_rect),
+        DOMRectReadOnly::FromIntRect(att.new_visual_rect)));
   }
   return list;
 }
@@ -592,12 +585,9 @@ void LayoutShiftTracker::SubmitPerformanceEntry(double score_delta,
   DCHECK(performance);
 
   double input_timestamp = LastInputTimestamp();
-  LayoutShift* entry = LayoutShift::Create(
-      performance->now(), score_delta, had_recent_input, input_timestamp,
-      CreateAttributionList(),
-      PerformanceEntry::GetNavigationId(window));  // Add WPT for
-                                                   //  LayoutShift. See
-                                                   //  crbug.com/1320878.
+  LayoutShift* entry =
+      LayoutShift::Create(performance->now(), score_delta, had_recent_input,
+                          input_timestamp, CreateAttributionList());
 
   performance->AddLayoutShiftEntry(entry);
 }
@@ -624,7 +614,7 @@ void LayoutShiftTracker::ReportShift(double score_delta,
       "frame", ToTraceValue(&frame));
 
   if (ShouldLog(frame)) {
-    VLOG(1) << "in " << (frame.IsOutermostMainFrame() ? "" : "subframe ")
+    VLOG(1) << "in " << (frame.IsMainFrame() ? "" : "subframe ")
             << frame.GetDocument()->Url().GetString() << ", layout shift of "
             << score_delta
             << (had_recent_input ? " excluded by recent input" : " reported")
@@ -721,10 +711,6 @@ void LayoutShiftTracker::NotifyZoomLevelChanged() {
   UpdateTimerAndInputTimestamp();
 }
 
-void LayoutShiftTracker::NotifyBrowserInitiatedSameDocumentNavigation() {
-  UpdateTimerAndInputTimestamp();
-}
-
 void LayoutShiftTracker::UpdateTimerAndInputTimestamp() {
   // This cancels any previously scheduled task from the same timer.
   timer_.StartOneShot(kTimerDelay, FROM_HERE);
@@ -755,8 +741,7 @@ std::unique_ptr<TracedValue> LayoutShiftTracker::PerFrameTraceData(
   value->SetDouble("overall_max_distance", overall_max_distance_);
   value->SetDouble("frame_max_distance", frame_max_distance_);
   RegionToTracedValue(region_, *value);
-  value->SetBoolean("is_main_frame",
-                    frame_view_->GetFrame().IsOutermostMainFrame());
+  value->SetBoolean("is_main_frame", frame_view_->GetFrame().IsMainFrame());
   value->SetBoolean("had_recent_input", input_detected);
   value->SetDouble("last_input_timestamp", LastInputTimestamp());
   AttributionsToTracedValue(*value);
@@ -789,7 +774,7 @@ void LayoutShiftTracker::AttributionsToTracedValue(TracedValue& value) const {
 }
 
 void LayoutShiftTracker::SendLayoutShiftRectsToHud(
-    const Vector<gfx::Rect>& int_rects) {
+    const Vector<IntRect>& int_rects) {
   // Store the layout shift rects in the HUD layer.
   auto* cc_layer = frame_view_->RootCcLayer();
   if (cc_layer && cc_layer->layer_tree_host()) {
@@ -797,10 +782,10 @@ void LayoutShiftTracker::SendLayoutShiftRectsToHud(
       return;
     if (cc_layer->layer_tree_host()->hud_layer()) {
       WebVector<gfx::Rect> rects;
-      cc::Region blink_region;
-      for (const gfx::Rect& rect : int_rects)
-        blink_region.Union(rect);
-      for (gfx::Rect rect : blink_region)
+      Region blink_region;
+      for (IntRect rect : int_rects)
+        blink_region.Unite(Region(rect));
+      for (const IntRect& rect : blink_region.Rects())
         rects.emplace_back(rect);
       cc_layer->layer_tree_host()->hud_layer()->SetLayoutShiftRects(
           rects.ReleaseVector());

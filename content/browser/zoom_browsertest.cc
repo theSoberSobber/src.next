@@ -1,10 +1,9 @@
-// Copyright 2016 The Chromium Authors
+// Copyright 2016 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include <vector>
 
-#include "base/memory/raw_ptr.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "build/build_config.h"
@@ -13,6 +12,8 @@
 #include "content/browser/web_contents/web_contents_impl.h"
 #include "content/public/browser/host_zoom_map.h"
 #include "content/public/browser/navigation_entry.h"
+#include "content/public/browser/notification_service.h"
+#include "content/public/browser/notification_types.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/content_browser_test.h"
@@ -138,7 +139,7 @@ struct FrameResizeObserver {
 
   FrameResizeObserver* toThis() {return this;}
 
-  raw_ptr<RenderFrameHost> frame_host;
+  RenderFrameHost* frame_host;
   std::string msg_label;
   bool zoomed_correctly;
   double expected_inner_width;
@@ -164,7 +165,7 @@ struct ResizeObserver {
     return status_msg == "Resized";
   }
 
-  raw_ptr<RenderFrameHost> frame_host;
+  RenderFrameHost* frame_host;
 };
 
 void WaitForResize(DOMMessageQueue& msg_queue, ResizeObserver& observer) {
@@ -213,9 +214,8 @@ IN_PROC_BROWSER_TEST_F(ZoomBrowserTest, DISABLED_ZoomPreservedOnReload) {
   GURL loaded_url = HostZoomMap::GetURLFromEntry(entry);
   EXPECT_EQ(top_level_host, loaded_url.host());
 
-  FrameTreeNode* root = static_cast<WebContentsImpl*>(web_contents())
-                            ->GetPrimaryFrameTree()
-                            .root();
+  FrameTreeNode* root =
+      static_cast<WebContentsImpl*>(web_contents())->GetFrameTree()->root();
   double main_frame_window_border = GetMainframeWindowBorder(web_contents());
 
   HostZoomMap* host_zoom_map = HostZoomMap::GetForWebContents(web_contents());
@@ -230,7 +230,7 @@ IN_PROC_BROWSER_TEST_F(ZoomBrowserTest, DISABLED_ZoomPreservedOnReload) {
   // Set the new zoom, wait for the page to be resized, and sanity-check that
   // the zoom was applied.
   {
-    DOMMessageQueue msg_queue(web_contents());
+    DOMMessageQueue msg_queue;
     ResizeObserver observer(root->current_frame_host());
 
     const double new_zoom_level =
@@ -249,7 +249,9 @@ IN_PROC_BROWSER_TEST_F(ZoomBrowserTest, DISABLED_ZoomPreservedOnReload) {
 
   // Now the actual test: Reload the page and check that the main frame is
   // still properly zoomed.
-  LoadStopObserver load_stop_observer(shell()->web_contents());
+  WindowedNotificationObserver load_stop_observer(
+      NOTIFICATION_LOAD_STOP,
+      NotificationService::AllSources());
   shell()->Reload();
   load_stop_observer.Wait();
 
@@ -271,9 +273,8 @@ IN_PROC_BROWSER_TEST_F(IFrameZoomBrowserTest, DISABLED_SubframesZoomProperly) {
   GURL loaded_url = HostZoomMap::GetURLFromEntry(entry);
   EXPECT_EQ(top_level_host, loaded_url.host());
 
-  FrameTreeNode* root = static_cast<WebContentsImpl*>(web_contents())
-                            ->GetPrimaryFrameTree()
-                            .root();
+  FrameTreeNode* root =
+      static_cast<WebContentsImpl*>(web_contents())->GetFrameTree()->root();
   RenderFrameHostImpl* child = root->child_at(0)->current_frame_host();
   RenderFrameHostImpl* grandchild =
       root->child_at(0)->child_at(0)->current_frame_host();
@@ -292,7 +293,7 @@ IN_PROC_BROWSER_TEST_F(IFrameZoomBrowserTest, DISABLED_SubframesZoomProperly) {
 
   const double new_zoom_factor = 2.5;
   {
-    DOMMessageQueue msg_queue(web_contents());
+    DOMMessageQueue msg_queue;
 
     std::vector<FrameResizeObserver> frame_observers;
     frame_observers.emplace_back(child, "child",
@@ -326,9 +327,8 @@ IN_PROC_BROWSER_TEST_F(IFrameZoomBrowserTest, SubframesDontZoomIndependently) {
   GURL loaded_url = HostZoomMap::GetURLFromEntry(entry);
   EXPECT_EQ(top_level_host, loaded_url.host());
 
-  FrameTreeNode* root = static_cast<WebContentsImpl*>(web_contents())
-                            ->GetPrimaryFrameTree()
-                            .root();
+  FrameTreeNode* root =
+      static_cast<WebContentsImpl*>(web_contents())->GetFrameTree()->root();
   RenderFrameHostImpl* child = root->child_at(0)->current_frame_host();
   RenderFrameHostImpl* grandchild =
       root->child_at(0)->child_at(0)->current_frame_host();
@@ -379,9 +379,8 @@ IN_PROC_BROWSER_TEST_F(IFrameZoomBrowserTest,
   GURL loaded_url = HostZoomMap::GetURLFromEntry(entry);
   EXPECT_EQ(top_level_host, loaded_url.host());
 
-  FrameTreeNode* root = static_cast<WebContentsImpl*>(web_contents())
-                            ->GetPrimaryFrameTree()
-                            .root();
+  FrameTreeNode* root =
+      static_cast<WebContentsImpl*>(web_contents())->GetFrameTree()->root();
   RenderFrameHostImpl* child = root->child_at(0)->current_frame_host();
   RenderFrameHostImpl* grandchild =
       root->child_at(0)->child_at(0)->current_frame_host();
@@ -400,7 +399,7 @@ IN_PROC_BROWSER_TEST_F(IFrameZoomBrowserTest,
 
   const double new_default_zoom_factor = 2.0;
   {
-    DOMMessageQueue msg_queue(web_contents());
+    DOMMessageQueue msg_queue;
 
     std::vector<FrameResizeObserver> frame_observers;
     frame_observers.emplace_back(child, "child",
@@ -427,7 +426,7 @@ IN_PROC_BROWSER_TEST_F(IFrameZoomBrowserTest,
 }
 
 // Flaky on mac, https://crbug.com/1055282
-#if BUILDFLAG(IS_MAC)
+#if defined(OS_MAC)
 #define MAYBE_SiblingFramesZoom DISABLED_SiblingFramesZoom
 #else
 #define MAYBE_SiblingFramesZoom SiblingFramesZoom
@@ -443,9 +442,8 @@ IN_PROC_BROWSER_TEST_F(IFrameZoomBrowserTest, MAYBE_SiblingFramesZoom) {
   GURL loaded_url = HostZoomMap::GetURLFromEntry(entry);
   EXPECT_EQ(top_level_host, loaded_url.host());
 
-  FrameTreeNode* root = static_cast<WebContentsImpl*>(web_contents())
-                            ->GetPrimaryFrameTree()
-                            .root();
+  FrameTreeNode* root =
+      static_cast<WebContentsImpl*>(web_contents())->GetFrameTree()->root();
   RenderFrameHostImpl* child1 = root->child_at(0)->current_frame_host();
   RenderFrameHostImpl* child2 = root->child_at(1)->current_frame_host();
 
@@ -463,7 +461,7 @@ IN_PROC_BROWSER_TEST_F(IFrameZoomBrowserTest, MAYBE_SiblingFramesZoom) {
 
   const double new_zoom_factor = 2.5;
   {
-    DOMMessageQueue msg_queue(web_contents());
+    DOMMessageQueue msg_queue;
 
     std::vector<FrameResizeObserver> frame_observers;
     frame_observers.emplace_back(child1, "child1",
@@ -497,9 +495,8 @@ IN_PROC_BROWSER_TEST_F(IFrameZoomBrowserTest, SubframeRetainsZoomOnNavigation) {
   GURL loaded_url = HostZoomMap::GetURLFromEntry(entry);
   EXPECT_EQ(top_level_host, loaded_url.host());
 
-  FrameTreeNode* root = static_cast<WebContentsImpl*>(web_contents())
-                            ->GetPrimaryFrameTree()
-                            .root();
+  FrameTreeNode* root =
+      static_cast<WebContentsImpl*>(web_contents())->GetFrameTree()->root();
   RenderFrameHostImpl* child = root->child_at(0)->current_frame_host();
 
   // The following calls must be made when the page's scale factor = 1.0.
@@ -515,7 +512,7 @@ IN_PROC_BROWSER_TEST_F(IFrameZoomBrowserTest, SubframeRetainsZoomOnNavigation) {
 
   const double new_zoom_factor = 0.5;
   {
-    DOMMessageQueue msg_queue(web_contents());
+    DOMMessageQueue msg_queue;
 
     std::vector<FrameResizeObserver> frame_observers;
     frame_observers.emplace_back(child, "child",

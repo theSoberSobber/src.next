@@ -19,17 +19,25 @@
 #include "third_party/blink/renderer/platform/graphics/canvas_resource_provider.h"
 #include "third_party/blink/renderer/platform/graphics/gpu/shared_gpu_context.h"
 #include "third_party/blink/renderer/platform/graphics/static_bitmap_image.h"
-#include "third_party/blink/renderer/platform/wtf/functional.h"
 #include "third_party/skia/include/core/SkColorSpace.h"
 #include "third_party/skia/include/core/SkImageInfo.h"
-#include "third_party/skia/include/gpu/GrDriverBugWorkarounds.h"
 #include "ui/gfx/color_space.h"
 #include "ui/gfx/geometry/rect_f.h"
-#include "ui/gfx/geometry/skia_conversions.h"
 
 namespace blink {
 
 namespace {
+
+scoped_refptr<viz::RasterContextProvider> GetRasterContextProvider() {
+  auto wrapper = SharedGpuContext::ContextProviderWrapper();
+  if (!wrapper)
+    return nullptr;
+
+  if (auto* provider = wrapper->ContextProvider())
+    return base::WrapRefCounted(provider->RasterContextProvider());
+
+  return nullptr;
+}
 
 bool CanUseZeroCopyImages(const media::VideoFrame& frame) {
   // SharedImage optimization: create AcceleratedStaticBitmapImage directly.
@@ -39,7 +47,7 @@ bool CanUseZeroCopyImages(const media::VideoFrame& frame) {
   // TODO(sandersd): Handle high bit depth formats.
   // TODO(crbug.com/1203713): Figure out why macOS zero copy ends up with y-flip
   // images in zero copy mode.
-#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_MAC)
+#if defined(OS_ANDROID) || defined(OS_MAC)
   return false;
 #else
   return frame.NumTextures() == 1 &&
@@ -178,12 +186,7 @@ scoped_refptr<StaticBitmapImage> CreateImageFromVideoFrame(
         // |is_cross_thread|.
         base::PlatformThreadRef(),
         // The task runner is only used for |release_callback|.
-        Thread::Current()->GetDeprecatedTaskRunner(),
-        std::move(release_callback),
-        /*supports_display_compositing=*/true,
-        // TODO(junov): Figure out how to determine whether frame is an
-        // overlay candidate. StorageType info seems insufficient.
-        /*is_overlay_candidate=*/false);
+        Thread::Current()->GetTaskRunner(), std::move(release_callback));
   }
 
   gfx::Rect final_dest_rect = dest_rect;
@@ -200,7 +203,8 @@ scoped_refptr<StaticBitmapImage> CreateImageFromVideoFrame(
     DLOG(ERROR) << "An external CanvasResourceProvider must be provided when "
                    "providing a custom destination rect.";
     return nullptr;
-  } else if (!gfx::Rect(resource_provider->Size()).Contains(final_dest_rect)) {
+  } else if (!gfx::Rect(gfx::Size(resource_provider->Size()))
+                  .Contains(final_dest_rect)) {
     DLOG(ERROR)
         << "Provided CanvasResourceProvider is too small. Expected at least "
         << final_dest_rect.ToString() << " got "
@@ -209,15 +213,11 @@ scoped_refptr<StaticBitmapImage> CreateImageFromVideoFrame(
   }
 
   auto raster_context_provider = GetRasterContextProvider();
-  // TODO(https://crbug.com/1341235): The choice of color type, alpha type,
-  // and color space is inappropriate in many circumstances.
-  const auto resource_provider_info =
-      SkImageInfo::Make(gfx::SizeToSkISize(final_dest_rect.size()),
-                        kN32_SkColorType, kPremul_SkAlphaType, nullptr);
+  const auto resource_provider_size = IntSize(final_dest_rect.size());
   std::unique_ptr<CanvasResourceProvider> local_resource_provider;
   if (!resource_provider) {
     local_resource_provider = CreateResourceProviderForVideoFrame(
-        resource_provider_info, raster_context_provider.get());
+        resource_provider_size, raster_context_provider.get());
     if (!local_resource_provider) {
       DLOG(ERROR) << "Failed to create CanvasResourceProvider.";
       return nullptr;
@@ -251,7 +251,7 @@ bool DrawVideoFrameIntoResourceProvider(
     bool ignore_video_transformation) {
   DCHECK(frame);
   DCHECK(resource_provider);
-  DCHECK(gfx::Rect(resource_provider->Size()).Contains(dest_rect));
+  DCHECK(gfx::Rect(gfx::Size(resource_provider->Size())).Contains(dest_rect));
 
   if (frame->HasTextures()) {
     if (!raster_context_provider) {
@@ -269,7 +269,7 @@ bool DrawVideoFrameIntoResourceProvider(
 
   cc::PaintFlags media_flags;
   media_flags.setAlpha(0xFF);
-  media_flags.setFilterQuality(cc::PaintFlags::FilterQuality::kLow);
+  media_flags.setFilterQuality(kLow_SkFilterQuality);
   media_flags.setBlendMode(SkBlendMode::kSrc);
 
   std::unique_ptr<media::PaintCanvasVideoRenderer> local_video_renderer;
@@ -283,10 +283,6 @@ bool DrawVideoFrameIntoResourceProvider(
   if (frame->HasGpuMemoryBuffer() && !frame->IsMappable() &&
       !resource_provider->IsAccelerated()) {
     frame = media::ConvertToMemoryMappedFrame(std::move(frame));
-    if (!frame) {
-      DLOG(ERROR) << "Failed to map VideoFrame.";
-      return false;
-    }
   }
 
   video_renderer->Paint(
@@ -299,49 +295,17 @@ bool DrawVideoFrameIntoResourceProvider(
   return true;
 }
 
-void DrawVideoFrameIntoCanvas(scoped_refptr<media::VideoFrame> frame,
-                              cc::PaintCanvas* canvas,
-                              cc::PaintFlags& flags,
-                              bool ignore_video_transformation) {
-  viz::RasterContextProvider* raster_context_provider = nullptr;
-  if (auto wrapper = SharedGpuContext::ContextProviderWrapper()) {
-    if (auto* context_provider = wrapper->ContextProvider())
-      raster_context_provider = context_provider->RasterContextProvider();
-  }
-
-  const gfx::RectF dest_rect(frame->natural_size().width(),
-                             frame->natural_size().height());
-
-  media::PaintCanvasVideoRenderer video_renderer;
-  auto transformation =
-      ignore_video_transformation
-          ? media::kNoTransformation
-          : frame->metadata().transformation.value_or(media::kNoTransformation);
-  video_renderer.Paint(frame, canvas, dest_rect, flags, transformation,
-                       raster_context_provider);
-}
-
-scoped_refptr<viz::RasterContextProvider> GetRasterContextProvider() {
-  auto wrapper = SharedGpuContext::ContextProviderWrapper();
-  if (!wrapper)
-    return nullptr;
-
-  if (auto* provider = wrapper->ContextProvider())
-    return base::WrapRefCounted(provider->RasterContextProvider());
-
-  return nullptr;
-}
-
 std::unique_ptr<CanvasResourceProvider> CreateResourceProviderForVideoFrame(
-    const SkImageInfo& info,
+    IntSize size,
     viz::RasterContextProvider* raster_context_provider) {
   if (!ShouldCreateAcceleratedImages(raster_context_provider)) {
     return CanvasResourceProvider::CreateBitmapProvider(
-        info, cc::PaintFlags::FilterQuality::kLow,
+        size, kLow_SkFilterQuality, CanvasResourceParams(),
         CanvasResourceProvider::ShouldInitialize::kNo);
   }
+
   return CanvasResourceProvider::CreateSharedImageProvider(
-      info, cc::PaintFlags::FilterQuality::kLow,
+      size, kLow_SkFilterQuality, CanvasResourceParams(),
       CanvasResourceProvider::ShouldInitialize::kNo,
       SharedGpuContext::ContextProviderWrapper(), RasterMode::kGPU,
       false,  // Origin of GL texture is bottom left on screen

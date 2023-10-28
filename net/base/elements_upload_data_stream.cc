@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -19,7 +19,9 @@ ElementsUploadDataStream::ElementsUploadDataStream(
     std::vector<std::unique_ptr<UploadElementReader>> element_readers,
     int64_t identifier)
     : UploadDataStream(false, identifier),
-      element_readers_(std::move(element_readers)) {}
+      element_readers_(std::move(element_readers)),
+      element_index_(0),
+      read_error_(OK) {}
 
 ElementsUploadDataStream::~ElementsUploadDataStream() = default;
 
@@ -28,8 +30,8 @@ std::unique_ptr<UploadDataStream> ElementsUploadDataStream::CreateWithReader(
     int64_t identifier) {
   std::vector<std::unique_ptr<UploadElementReader>> readers;
   readers.push_back(std::move(reader));
-  return std::make_unique<ElementsUploadDataStream>(std::move(readers),
-                                                    identifier);
+  return std::unique_ptr<UploadDataStream>(
+      new ElementsUploadDataStream(std::move(readers), identifier));
 }
 
 int ElementsUploadDataStream::InitInternal(const NetLogWithSource& net_log) {

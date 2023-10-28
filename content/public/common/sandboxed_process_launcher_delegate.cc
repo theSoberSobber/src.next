@@ -1,4 +1,4 @@
-// Copyright 2014 The Chromium Authors
+// Copyright 2014 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -9,12 +9,7 @@
 
 namespace content {
 
-#if BUILDFLAG(IS_WIN)
-std::string SandboxedProcessLauncherDelegate::GetSandboxTag() {
-  // This implies that policies will not share backing data.
-  return "";
-}
-
+#if defined(OS_WIN)
 bool SandboxedProcessLauncherDelegate::DisableDefaultPolicy() {
   return false;
 }
@@ -43,7 +38,7 @@ bool SandboxedProcessLauncherDelegate::ShouldUnsandboxedRunInJob() {
 bool SandboxedProcessLauncherDelegate::CetCompatible() {
   return true;
 }
-#endif  // BUILDFLAG(IS_WIN)
+#endif  // defined(OS_WIN)
 
 #if BUILDFLAG(USE_ZYGOTE_HANDLE)
 ZygoteHandle SandboxedProcessLauncherDelegate::GetZygote() {
@@ -53,13 +48,13 @@ ZygoteHandle SandboxedProcessLauncherDelegate::GetZygote() {
 }
 #endif  // BUILDFLAG(USE_ZYGOTE_HANDLE)
 
-#if BUILDFLAG(IS_POSIX)
+#if defined(OS_POSIX)
 base::EnvironmentMap SandboxedProcessLauncherDelegate::GetEnvironment() {
   return base::EnvironmentMap();
 }
-#endif  // BUILDFLAG(IS_POSIX)
+#endif  // defined(OS_POSIX)
 
-#if BUILDFLAG(IS_MAC)
+#if defined(OS_MAC)
 
 bool SandboxedProcessLauncherDelegate::DisclaimResponsibility() {
   return false;
@@ -69,6 +64,6 @@ bool SandboxedProcessLauncherDelegate::EnableCpuSecurityMitigations() {
   return false;
 }
 
-#endif  // BUILDFLAG(IS_MAC)
+#endif  // OS_MAC
 
 }  // namespace content

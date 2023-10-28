@@ -1,4 +1,4 @@
-// Copyright 2017 The Chromium Authors
+// Copyright 2017 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,6 +7,7 @@
 
 #include <memory>
 
+#include "base/macros.h"
 #include "components/keyed_service/core/simple_keyed_service_factory.h"
 
 class SimpleFactoryKey;
@@ -30,11 +31,6 @@ class BackgroundDownloadServiceFactory : public SimpleKeyedServiceFactory {
   // Returns the DownloadService associated with |key|.
   static download::BackgroundDownloadService* GetForKey(SimpleFactoryKey* key);
 
-  BackgroundDownloadServiceFactory(const BackgroundDownloadServiceFactory&) =
-      delete;
-  BackgroundDownloadServiceFactory& operator=(
-      const BackgroundDownloadServiceFactory&) = delete;
-
  private:
   friend struct base::DefaultSingletonTraits<BackgroundDownloadServiceFactory>;
 
@@ -45,6 +41,8 @@ class BackgroundDownloadServiceFactory : public SimpleKeyedServiceFactory {
   std::unique_ptr<KeyedService> BuildServiceInstanceFor(
       SimpleFactoryKey* key) const override;
   SimpleFactoryKey* GetKeyToUse(SimpleFactoryKey* key) const override;
+
+  DISALLOW_COPY_AND_ASSIGN(BackgroundDownloadServiceFactory);
 };
 
 #endif  // CHROME_BROWSER_DOWNLOAD_BACKGROUND_DOWNLOAD_SERVICE_FACTORY_H_

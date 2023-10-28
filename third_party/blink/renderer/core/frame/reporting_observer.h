@@ -17,7 +17,6 @@ namespace blink {
 
 class ExecutionContext;
 class Report;
-class V8ReportingObserverCallback;
 
 class CORE_EXPORT ReportingObserver final
     : public ScriptWrappable,

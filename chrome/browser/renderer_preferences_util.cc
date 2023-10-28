@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -9,6 +9,7 @@
 #include <string>
 #include <vector>
 
+#include "base/macros.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "build/build_config.h"
@@ -37,10 +38,14 @@
 #include "ui/views/controls/textfield/textfield.h"
 #endif
 
-#if defined(USE_AURA) && BUILDFLAG(IS_LINUX)
+#if defined(OS_MAC)
+#include "ui/base/cocoa/defaults_utils.h"
+#endif
+
+#if defined(USE_AURA) && (defined(OS_LINUX) || BUILDFLAG(IS_CHROMEOS_LACROS))
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/themes/theme_service_factory.h"
-#include "ui/linux/linux_ui.h"
+#include "ui/views/linux_ui/linux_ui.h"
 #endif
 
 namespace {
@@ -83,10 +88,13 @@ void ParsePortRange(const std::string& range,
 
 // Extracts the string representation of URLs allowed for local IP exposure.
 std::vector<std::string> GetLocalIpsAllowedUrls(
-    const base::Value::List& allowed_urls) {
+    const base::ListValue* allowed_urls) {
   std::vector<std::string> ret;
-  for (const auto& url : allowed_urls)
-    ret.push_back(url.GetString());
+  if (allowed_urls) {
+    const auto& urls = allowed_urls->GetList();
+    for (const auto& url : urls)
+      ret.push_back(url.GetString());
+  }
   return ret;
 }
 
@@ -120,7 +128,7 @@ void UpdateFromSystemSettings(blink::RendererPreferences* prefs,
   prefs->enable_encrypted_media =
       pref_service->GetBoolean(prefs::kEnableEncryptedMedia);
   prefs->webrtc_ip_handling_policy = std::string();
-#if !BUILDFLAG(IS_ANDROID)
+#if !defined(OS_ANDROID)
   prefs->caret_browsing_enabled =
       pref_service->GetBoolean(prefs::kCaretBrowsingEnabled);
   content::BrowserAccessibilityState::GetInstance()->SetCaretBrowsingState(
@@ -136,14 +144,14 @@ void UpdateFromSystemSettings(blink::RendererPreferences* prefs,
   ParsePortRange(webrtc_udp_port_range, &prefs->webrtc_udp_min_port,
                  &prefs->webrtc_udp_max_port);
 
-  const base::Value::List& allowed_urls =
+  const base::ListValue* allowed_urls =
       pref_service->GetList(prefs::kWebRtcLocalIpsAllowedUrls);
   prefs->webrtc_local_ips_allowed_urls = GetLocalIpsAllowedUrls(allowed_urls);
   prefs->webrtc_allow_legacy_tls_protocols =
       pref_service->GetBoolean(prefs::kWebRTCAllowLegacyTLSProtocols);
 #if defined(USE_AURA)
   prefs->focus_ring_color = SkColorSetRGB(0x4D, 0x90, 0xFE);
-#if BUILDFLAG(IS_CHROMEOS)
+#if BUILDFLAG(IS_CHROMEOS_ASH) || BUILDFLAG(IS_CHROMEOS_LACROS)
   // This color is 0x544d90fe modulated with 0xffffff.
   prefs->active_selection_bg_color = SkColorSetRGB(0xCB, 0xE4, 0xFA);
   prefs->active_selection_fg_color = SK_ColorBLACK;
@@ -156,34 +164,37 @@ void UpdateFromSystemSettings(blink::RendererPreferences* prefs,
   prefs->caret_blink_interval = views::Textfield::GetCaretBlinkInterval();
 #endif
 
-#if defined(USE_AURA) && BUILDFLAG(IS_LINUX)
-  auto* linux_ui_theme = ui::LinuxUiTheme::GetForProfile(profile);
-  if (linux_ui_theme) {
+#if defined(OS_MAC)
+  base::TimeDelta interval;
+  if (ui::TextInsertionCaretBlinkPeriod(&interval))
+    prefs->caret_blink_interval = interval;
+#endif
+
+#if defined(USE_AURA) && (defined(OS_LINUX) || BUILDFLAG(IS_CHROMEOS_LACROS))
+  views::LinuxUI* linux_ui = views::LinuxUI::instance();
+  if (linux_ui) {
     if (ThemeServiceFactory::GetForProfile(profile)->UsingSystemTheme()) {
-      prefs->focus_ring_color = linux_ui_theme->GetFocusRingColor();
-      prefs->active_selection_bg_color =
-          linux_ui_theme->GetActiveSelectionBgColor();
-      prefs->active_selection_fg_color =
-          linux_ui_theme->GetActiveSelectionFgColor();
+      prefs->focus_ring_color = linux_ui->GetFocusRingColor();
+      prefs->active_selection_bg_color = linux_ui->GetActiveSelectionBgColor();
+      prefs->active_selection_fg_color = linux_ui->GetActiveSelectionFgColor();
       prefs->inactive_selection_bg_color =
-          linux_ui_theme->GetInactiveSelectionBgColor();
+        linux_ui->GetInactiveSelectionBgColor();
       prefs->inactive_selection_fg_color =
-          linux_ui_theme->GetInactiveSelectionFgColor();
+        linux_ui->GetInactiveSelectionFgColor();
     }
-  }
 
     // If we have a linux_ui object, set the caret blink interval regardless of
     // whether we're in native theme mode.
-  if (auto* linux_ui = ui::LinuxUi::instance())
     prefs->caret_blink_interval = linux_ui->GetCursorBlinkInterval();
+  }
 #endif
 
-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) || \
-    BUILDFLAG(IS_WIN)
+#if defined(OS_LINUX) || defined(OS_CHROMEOS) || defined(OS_ANDROID) || \
+    defined(OS_WIN)
   content::UpdateFontRendererPreferencesFromSystemSettings(prefs);
 #endif
 
-#if !BUILDFLAG(IS_MAC)
+#if !defined(OS_MAC)
   prefs->plugin_fullscreen_allowed =
       pref_service->GetBoolean(prefs::kFullscreenAllowed);
 #endif
@@ -197,7 +208,7 @@ void UpdateFromSystemSettings(blink::RendererPreferences* prefs,
         ConvertExplicitlyAllowedNetworkPortsPref(local_state);
   }
 
-#if BUILDFLAG(IS_MAC)
+#if defined(OS_MAC)
   prefs->focus_ring_color = SkColorSetRGB(0x00, 0x5F, 0xCC);
 #else
   prefs->focus_ring_color = SkColorSetRGB(0x10, 0x10, 0x10);

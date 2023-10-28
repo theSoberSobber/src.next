@@ -1,17 +1,15 @@
-// Copyright 2012 The Chromium Authors
+// Copyright 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include "chrome/browser/search/search.h"
 
 #include <stddef.h>
-
 #include <string>
 
 #include "base/command_line.h"
 #include "base/feature_list.h"
 #include "base/metrics/histogram_macros.h"
-#include "build/build_config.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/browser/search_engines/ui_thread_search_terms_data.h"
@@ -31,10 +29,10 @@
 #if BUILDFLAG(ENABLE_SUPERVISED_USERS)
 #include "chrome/browser/supervised_user/supervised_user_service.h"
 #include "chrome/browser/supervised_user/supervised_user_service_factory.h"
-#include "chrome/browser/supervised_user/supervised_user_url_filter.h"  // nogncheck
+#include "chrome/browser/supervised_user/supervised_user_url_filter.h"
 #endif
 
-#if !BUILDFLAG(IS_ANDROID)
+#if !defined(OS_ANDROID)
 #include "chrome/browser/search/instant_service.h"
 #include "chrome/browser/search/instant_service_factory.h"
 #include "chrome/browser/ui/webui/new_tab_page/new_tab_page_ui.h"
@@ -139,9 +137,9 @@ bool IsNTPOrRelatedURLHelper(const GURL& url, Profile* profile) {
 
 bool IsURLAllowedForSupervisedUser(const GURL& url, Profile* profile) {
 #if BUILDFLAG(ENABLE_SUPERVISED_USERS)
-  // If this isn't a supervised child user, skip the URL filter check, since it
-  // can be fairly expensive.
-  if (!profile->IsChild())
+  // If this isn't a supervised user, skip the URL filter check, since it can be
+  // fairly expensive.
+  if (!profile->IsSupervised())
     return true;
   SupervisedUserService* supervised_user_service =
       SupervisedUserServiceFactory::GetForProfile(profile);
@@ -155,7 +153,7 @@ bool IsURLAllowedForSupervisedUser(const GURL& url, Profile* profile) {
 }
 
 bool ShouldShowLocalNewTab(Profile* profile) {
-#if !BUILDFLAG(IS_ANDROID)
+#if !defined(OS_ANDROID)
   return DefaultSearchProviderIsGoogle(profile);
 #else
   return false;
@@ -176,7 +174,7 @@ struct NewTabURLDetails {
     if (profile->IsOffTheRecord())
       return NewTabURLDetails(GURL(), NEW_TAB_URL_INCOGNITO);
 
-#if BUILDFLAG(IS_ANDROID)
+#if defined(OS_ANDROID)
     const GURL local_url;
 #else
     const GURL local_url(DefaultSearchProviderIsGoogle(profile)
@@ -212,11 +210,11 @@ struct NewTabURLDetails {
 
 bool IsRenderedInInstantProcess(content::WebContents* contents,
                                 Profile* profile) {
-#if BUILDFLAG(IS_ANDROID)
+#if defined(OS_ANDROID)
   return false;
 #else
   content::RenderProcessHost* process_host =
-      contents->GetPrimaryMainFrame()->GetProcess();
+      contents->GetMainFrame()->GetProcess();
   if (!process_host)
     return false;
 
@@ -251,7 +249,7 @@ bool IsNTPURL(const GURL& url) {
       url.host_piece() == chrome::kChromeSearchRemoteNtpHost) {
     return true;
   }
-#if BUILDFLAG(IS_ANDROID)
+#if defined(OS_ANDROID)
   return false;
 #else
   return NewTabPageUI::IsNewTabPageOrigin(url) ||
@@ -297,7 +295,7 @@ GURL GetNewTabPageURL(Profile* profile) {
   return NewTabURLDetails::ForProfile(profile).url;
 }
 
-#if !BUILDFLAG(IS_ANDROID)
+#if !defined(OS_ANDROID)
 
 bool ShouldAssignURLToInstantRenderer(const GURL& url, Profile* profile) {
   if (!url.is_valid() || !profile || !IsInstantExtendedAPIEnabled() ||
@@ -324,8 +322,10 @@ GURL GetEffectiveURLForInstant(const GURL& url, Profile* profile) {
 
   // Replace the scheme with "chrome-search:", and clear the port, since
   // chrome-search is a scheme without port.
-  GURL::Replacements replacements;
-  replacements.SetSchemeStr(chrome::kChromeSearchScheme);
+  url::Replacements<char> replacements;
+  std::string search_scheme(chrome::kChromeSearchScheme);
+  replacements.SetScheme(search_scheme.data(),
+                         url::Component(0, search_scheme.length()));
   replacements.ClearPort();
 
   // If this is the URL for a server-provided NTP, replace the host with
@@ -335,7 +335,8 @@ GURL GetEffectiveURLForInstant(const GURL& url, Profile* profile) {
   if (details.state == NEW_TAB_URL_VALID &&
       (MatchesOriginAndPath(url, details.url) ||
        IsMatchingServiceWorker(url, details.url))) {
-    replacements.SetHostStr(remote_ntp_host);
+    replacements.SetHost(remote_ntp_host.c_str(),
+                         url::Component(0, remote_ntp_host.length()));
   }
 
   return url.ReplaceComponents(replacements);
@@ -383,6 +384,6 @@ bool HandleNewTabURLReverseRewrite(GURL* url,
   return false;
 }
 
-#endif  // !BUILDFLAG(IS_ANDROID)
+#endif  // !defined(OS_ANDROID)
 
 }  // namespace search

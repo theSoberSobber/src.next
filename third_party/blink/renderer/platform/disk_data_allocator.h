@@ -10,7 +10,6 @@
 
 #include "base/dcheck_is_on.h"
 #include "base/files/file.h"
-#include "base/gtest_prod_util.h"
 #include "base/synchronization/lock.h"
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "third_party/blink/public/mojom/disk_allocator.mojom-blink.h"
@@ -41,7 +40,7 @@ class PLATFORM_EXPORT DiskDataAllocator : public mojom::blink::DiskAllocator {
 
   // Whether writes may succeed. This is not a guarantee. However, when this
   // returns false, writes will fail.
-  bool may_write() LOCKS_EXCLUDED(lock_);
+  bool may_write() LOCKS_EXCLUDED(mutex_);
 
   // Returns |nullptr| in case of error.
   // Note that this performs a blocking disk write.
@@ -65,28 +64,28 @@ class PLATFORM_EXPORT DiskDataAllocator : public mojom::blink::DiskAllocator {
   static void Bind(mojo::PendingReceiver<mojom::blink::DiskAllocator> receiver);
 
   int64_t disk_footprint() {
-    base::AutoLock locker(lock_);
+    MutexLocker locker(mutex_);
     return file_tail_;
   }
 
   size_t free_chunks_size() {
-    base::AutoLock locker(lock_);
+    MutexLocker locker(mutex_);
     return free_chunks_size_;
   }
 
  protected:
   // Protected methods for testing.
   DiskDataAllocator();
-  void set_may_write_for_testing(bool may_write) LOCKS_EXCLUDED(lock_);
+  void set_may_write_for_testing(bool may_write) LOCKS_EXCLUDED(mutex_);
 
  private:
-  DiskDataMetadata FindChunk(size_t size) EXCLUSIVE_LOCKS_REQUIRED(lock_);
+  DiskDataMetadata FindChunk(size_t size) EXCLUSIVE_LOCKS_REQUIRED(mutex_);
   void ReleaseChunk(const DiskDataMetadata& metadata)
-      EXCLUSIVE_LOCKS_REQUIRED(lock_);
+      EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
   // Virtual for testing.
   virtual int DoWrite(int64_t offset, const char* data, int size)
-      LOCKS_EXCLUDED(lock_);
+      LOCKS_EXCLUDED(mutex_);
   // CHECK()s that the read is successful.
   virtual void DoRead(int64_t offset, char* data, int size);
 
@@ -94,20 +93,20 @@ class PLATFORM_EXPORT DiskDataAllocator : public mojom::blink::DiskAllocator {
   base::File file_;  // May be invalid.
 
  protected:  // For testing.
-  base::Lock lock_;
+  Mutex mutex_;
   // Using a std::map because we rely on |{lower,upper}_bound()|.
-  std::map<int64_t, size_t> free_chunks_ GUARDED_BY(lock_);
-  size_t free_chunks_size_ GUARDED_BY(lock_);
+  std::map<int64_t, size_t> free_chunks_ GUARDED_BY(mutex_);
+  size_t free_chunks_size_ GUARDED_BY(mutex_);
 
  private:
-  int64_t file_tail_ GUARDED_BY(lock_);
+  int64_t file_tail_ GUARDED_BY(mutex_);
   // Whether writing is possible now. This can be true if:
   // - |set_may_write_for_testing()| was called, or
   // - |file_.IsValid()| and no write error occurred (which would set
   //   |may_write_| to false).
-  bool may_write_ GUARDED_BY(lock_);
+  bool may_write_ GUARDED_BY(mutex_);
 #if DCHECK_IS_ON()
-  std::map<int64_t, size_t> allocated_chunks_ GUARDED_BY(lock_);
+  std::map<int64_t, size_t> allocated_chunks_ GUARDED_BY(mutex_);
 #endif
 
   FRIEND_TEST_ALL_PREFIXES(DiskDataAllocatorTest, ProvideInvalidFile);

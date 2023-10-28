@@ -43,7 +43,7 @@ String CSSFontFeatureValue::CustomCSSText() const {
     builder.Append(' ');
     builder.AppendNumber(value_);
   }
-  return builder.ReleaseString();
+  return builder.ToString();
 }
 
 bool CSSFontFeatureValue::Equals(const CSSFontFeatureValue& other) const {

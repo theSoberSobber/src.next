@@ -1,14 +1,14 @@
-// Copyright 2015 The Chromium Authors
+// Copyright 2015 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 import 'chrome://resources/cr_elements/cr_drawer/cr_drawer.js';
-import 'chrome://resources/cr_elements/cr_lazy_render/cr_lazy_render.js';
-import 'chrome://resources/cr_elements/cr_toast/cr_toast_manager.js';
+import 'chrome://resources/cr_elements/cr_lazy_render/cr_lazy_render.m.js';
+import 'chrome://resources/cr_elements/cr_toast/cr_toast_manager.m.js';
 import 'chrome://resources/cr_elements/cr_toolbar/cr_toolbar.js';
 import 'chrome://resources/cr_elements/cr_view_manager/cr_view_manager.js';
-import 'chrome://resources/cr_elements/cr_hidden_style.css.js';
-import 'chrome://resources/cr_elements/cr_shared_vars.css.js';
+import 'chrome://resources/cr_elements/hidden_style_css.m.js';
+import 'chrome://resources/cr_elements/shared_vars_css.m.js';
 import './activity_log/activity_log.js';
 import './detail_view.js';
 import './drop_overlay.js';
@@ -20,26 +20,21 @@ import './keyboard_shortcuts.js';
 import './load_error.js';
 import './options_dialog.js';
 import './sidebar.js';
-import './site_permissions.js';
-import './site_permissions_by_site.js';
 import './toolbar.js';
-// <if expr="chromeos_ash">
+// <if expr="chromeos">
 import './kiosk_dialog.js';
-
 // </if>
 
-import {CrViewManagerElement} from 'chrome://resources/cr_elements/cr_view_manager/cr_view_manager.js';
-import {assert, assertNotReached} from 'chrome://resources/js/assert_ts.js';
+import {assert, assertNotReached} from 'chrome://resources/js/assert.m.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.m.js';
-import {PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
+import {html, PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
+import {CrViewManagerElement} from 'chrome://resources/cr_elements/cr_view_manager/cr_view_manager.js';
 
 import {ActivityLogExtensionPlaceholder} from './activity_log/activity_log.js';
 import {ExtensionsDetailViewElement} from './detail_view.js';
-import {ExtensionsItemListElement} from './item_list.js';
-// <if expr="chromeos_ash">
+// <if expr="chromeos">
 import {KioskBrowserProxyImpl} from './kiosk_browser_proxy.js';
 // </if>
-import {getTemplate} from './manager.html.js';
 import {Dialog, navigation, Page, PageState} from './navigation_helper.js';
 import {Service} from './service.js';
 
@@ -77,20 +72,15 @@ declare global {
   }
 }
 
-export interface ExtensionsManagerElement {
+interface ExtensionsManagerElement {
   $: {
     viewManager: CrViewManagerElement,
-    'items-list': ExtensionsItemListElement,
   };
 }
 
-export class ExtensionsManagerElement extends PolymerElement {
+class ExtensionsManagerElement extends PolymerElement {
   static get is() {
     return 'extensions-manager';
-  }
-
-  static get template() {
-    return getTemplate();
   }
 
   static get properties() {
@@ -117,17 +107,12 @@ export class ExtensionsManagerElement extends PolymerElement {
         value: () => loadTimeData.getBoolean('showActivityLog'),
       },
 
-      enableEnhancedSiteControls: {
-        type: Boolean,
-        value: () => loadTimeData.getBoolean('enableEnhancedSiteControls'),
-      },
-
       devModeControlledByPolicy: {
         type: Boolean,
         value: false,
       },
 
-      isChildAccount_: {
+      isSupervised_: {
         type: Boolean,
         value: false,
       },
@@ -191,7 +176,7 @@ export class ExtensionsManagerElement extends PolymerElement {
        */
       fromActivityLog_: Boolean,
 
-      // <if expr="chromeos_ash">
+      // <if expr="chromeos">
       kioskEnabled_: {
         type: Boolean,
         value: false,
@@ -209,17 +194,16 @@ export class ExtensionsManagerElement extends PolymerElement {
   delegate: Service;
   inDevMode: boolean;
   showActivityLog: boolean;
-  enableEnhancedSiteControls: boolean;
   devModeControlledByPolicy: boolean;
-  private isChildAccount_: boolean;
+  private isSupervised_: boolean;
   private incognitoAvailable_: boolean;
   filter: string;
   private errorPageItem_?: chrome.developerPrivate.ExtensionInfo;
   private detailViewItem_?: chrome.developerPrivate.ExtensionInfo;
   private activityLogItem_?: chrome.developerPrivate.ExtensionInfo|
       ActivityLogExtensionPlaceholder;
-  private extensions_: chrome.developerPrivate.ExtensionInfo[];
-  private apps_: chrome.developerPrivate.ExtensionInfo[];
+  private extensions_: Array<chrome.developerPrivate.ExtensionInfo>;
+  private apps_: Array<chrome.developerPrivate.ExtensionInfo>;
   private didInitPage_: boolean;
   private showDrawer_: boolean;
   private showLoadErrorDialog_: boolean;
@@ -228,7 +212,7 @@ export class ExtensionsManagerElement extends PolymerElement {
   private showOptionsDialog_: boolean;
   private fromActivityLog_: boolean;
 
-  // <if expr="chromeos_ash">
+  // <if expr="chromeos">
   private kioskEnabled_: boolean;
   private showKioskDialog_: boolean;
   // </if>
@@ -252,7 +236,7 @@ export class ExtensionsManagerElement extends PolymerElement {
     this.navigationListener_ = null;
   }
 
-  override ready() {
+  ready() {
     super.ready();
 
     this.addEventListener('load-error', this.onLoadError_);
@@ -264,7 +248,7 @@ export class ExtensionsManagerElement extends PolymerElement {
 
     const onProfileStateChanged =
         (profileInfo: chrome.developerPrivate.ProfileInfo) => {
-          this.isChildAccount_ = profileInfo.isChildAccount;
+          this.isSupervised_ = profileInfo.isSupervised;
           this.incognitoAvailable_ = profileInfo.isIncognitoAvailable;
           this.devModeControlledByPolicy =
               profileInfo.isDeveloperModeControlledByPolicy;
@@ -282,7 +266,7 @@ export class ExtensionsManagerElement extends PolymerElement {
           this.onItemStateChanged_.bind(this));
     });
 
-    // <if expr="chromeos_ash">
+    // <if expr="chromeos">
     KioskBrowserProxyImpl.getInstance().initializeKioskAppSettings().then(
         params => {
           this.kioskEnabled_ = params.kioskEnabled;
@@ -290,7 +274,7 @@ export class ExtensionsManagerElement extends PolymerElement {
     // </if>
   }
 
-  override connectedCallback() {
+  connectedCallback() {
     super.connectedCallback();
 
     document.documentElement.classList.remove('loading');
@@ -302,10 +286,9 @@ export class ExtensionsManagerElement extends PolymerElement {
     });
   }
 
-  override disconnectedCallback() {
+  disconnectedCallback() {
     super.disconnectedCallback();
-    assert(this.navigationListener_);
-    assert(navigation.removeListener(this.navigationListener_));
+    assert(navigation.removeListener(this.navigationListener_!));
     this.navigationListener_ = null;
   }
 
@@ -395,9 +378,10 @@ export class ExtensionsManagerElement extends PolymerElement {
         return 'extensions_';
       case ExtensionType.THEME:
         assertNotReached('Don\'t send themes to the chrome://extensions page');
-      default:
-        assertNotReached();
+        break;
     }
+    assertNotReached();
+    return '';
   }
 
   /**
@@ -422,8 +406,8 @@ export class ExtensionsManagerElement extends PolymerElement {
    * Categorizes |extensionsAndApps| to apps and extensions and initializes
    * those lists.
    */
-  private initExtensionsAndApps_(extensionsAndApps:
-                                     chrome.developerPrivate.ExtensionInfo[]) {
+  private initExtensionsAndApps_(
+      extensionsAndApps: Array<chrome.developerPrivate.ExtensionInfo>) {
     extensionsAndApps.sort(compareExtensions);
     const apps: chrome.developerPrivate.ExtensionInfo[] = [];
     const extensions: chrome.developerPrivate.ExtensionInfo[] = [];
@@ -555,9 +539,9 @@ export class ExtensionsManagerElement extends PolymerElement {
     }
 
     if (toPage === Page.DETAILS) {
-      this.detailViewItem_ = data;
+      this.detailViewItem_ = assert(data);
     } else if (toPage === Page.ERRORS) {
-      this.errorPageItem_ = data;
+      this.errorPageItem_ = assert(data);
     } else if (toPage === Page.ACTIVITY_LOG) {
       if (!this.showActivityLog) {
         // Redirect back to the details page if we try to view the
@@ -567,15 +551,7 @@ export class ExtensionsManagerElement extends PolymerElement {
         return;
       }
 
-      this.activityLogItem_ = data || activityLogPlaceholder;
-    } else if (
-        (toPage === Page.SITE_PERMISSIONS ||
-         toPage === Page.SITE_PERMISSIONS_ALL_SITES) &&
-        !this.enableEnhancedSiteControls) {
-      // Redirect back to the main page if we try to view the new site
-      // permissions page but the flag is not set.
-      navigation.replaceWith({page: Page.LIST});
-      return;
+      this.activityLogItem_ = data ? assert(data) : activityLogPlaceholder;
     }
 
     if (fromPage !== toPage) {
@@ -587,8 +563,7 @@ export class ExtensionsManagerElement extends PolymerElement {
       assert(newPage.extensionId);
       this.showOptionsDialog_ = true;
       setTimeout(() => {
-        this.shadowRoot!.querySelector('extensions-options-dialog')!.show(
-            data!,
+        this.shadowRoot!.querySelector('extensions-options-dialog')!.show(data!
         );
       }, 0);
     }
@@ -640,9 +615,7 @@ export class ExtensionsManagerElement extends PolymerElement {
     const viewType = (e.composedPath()[0] as HTMLElement).tagName;
     if (viewType === 'EXTENSIONS-ITEM-LIST' ||
         viewType === 'EXTENSIONS-KEYBOARD-SHORTCUTS' ||
-        viewType === 'EXTENSIONS-ACTIVITY-LOG' ||
-        viewType === 'EXTENSIONS-SITE-PERMISSIONS' ||
-        viewType === 'EXTENSIONS-SITE-PERMISSIONS-BY-SITE') {
+        viewType === 'EXTENSIONS-ACTIVITY-LOG') {
       return;
     }
 
@@ -660,7 +633,7 @@ export class ExtensionsManagerElement extends PolymerElement {
     }
   }
 
-  private onShowInstallWarnings_(e: CustomEvent<string[]>) {
+  private onShowInstallWarnings_(e: CustomEvent<Array<string>>) {
     // Leverage Polymer data bindings instead of just assigning the
     // installWarnings on the dialog since the dialog hasn't been stamped
     // in the DOM yet.
@@ -673,7 +646,7 @@ export class ExtensionsManagerElement extends PolymerElement {
     this.showInstallWarningsDialog_ = false;
   }
 
-  // <if expr="chromeos_ash">
+  // <if expr="chromeos">
   private onKioskTap_() {
     this.showKioskDialog_ = true;
   }
@@ -682,11 +655,9 @@ export class ExtensionsManagerElement extends PolymerElement {
     this.showKioskDialog_ = false;
   }
   // </if>
-}
 
-declare global {
-  interface HTMLElementTagNameMap {
-    'extensions-manager': ExtensionsManagerElement;
+  static get template() {
+    return html`{__html_template__}`;
   }
 }
 

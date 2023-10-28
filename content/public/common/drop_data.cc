@@ -1,4 +1,4 @@
-// Copyright 2013 The Chromium Authors
+// Copyright 2013 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -38,15 +38,6 @@ DropData::Metadata DropData::Metadata::CreateForFileSystemUrl(
   Metadata metadata;
   metadata.kind = Kind::FILESYSTEMFILE;
   metadata.file_system_url = file_system_url;
-  return metadata;
-}
-
-// static
-DropData::Metadata DropData::Metadata::CreateForBinary(
-    const GURL& file_contents_url) {
-  Metadata metadata;
-  metadata.kind = Kind::BINARY;
-  metadata.file_contents_url = file_contents_url;
   return metadata;
 }
 

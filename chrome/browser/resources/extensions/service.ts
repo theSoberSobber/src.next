@@ -1,9 +1,9 @@
-// Copyright 2015 The Chromium Authors
+// Copyright 2015 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 import {ChromeEvent} from '/tools/typescript/definitions/chrome_event.js';
-import {assert} from 'chrome://resources/js/assert_ts.js';
+import {assert} from 'chrome://resources/js/assert.m.js';
 
 import {ActivityLogDelegate} from './activity_log/activity_log_history.js';
 import {ActivityLogEventDelegate} from './activity_log/activity_log_stream.js';
@@ -13,32 +13,17 @@ import {KeyboardShortcutDelegate} from './keyboard_shortcut_delegate.js';
 import {LoadErrorDelegate} from './load_error.js';
 import {Dialog, navigation, Page} from './navigation_helper.js';
 import {PackDialogDelegate} from './pack_dialog.js';
-import {SiteSettingsDelegate} from './site_settings_mixin.js';
 import {ToolbarDelegate} from './toolbar.js';
 
-export interface ServiceInterface extends ActivityLogDelegate,
-                                          ActivityLogEventDelegate,
-                                          ErrorPageDelegate, ItemDelegate,
-                                          KeyboardShortcutDelegate,
-                                          LoadErrorDelegate, PackDialogDelegate,
-                                          SiteSettingsDelegate,
-                                          ToolbarDelegate {
-  notifyDragInstallInProgress(): void;
-  loadUnpackedFromDrag(): Promise<boolean>;
-  installDroppedFile(): void;
-  getProfileStateChangedTarget():
-      ChromeEvent<(info: chrome.developerPrivate.ProfileInfo) => void>;
-  getProfileConfiguration(): Promise<chrome.developerPrivate.ProfileInfo>;
-  getExtensionsInfo(): Promise<chrome.developerPrivate.ExtensionInfo[]>;
-  getExtensionSize(id: string): Promise<string>;
-}
-
-export class Service implements ServiceInterface {
+export class Service implements ActivityLogDelegate, ActivityLogEventDelegate,
+                                ErrorPageDelegate, ItemDelegate,
+                                KeyboardShortcutDelegate, LoadErrorDelegate,
+                                PackDialogDelegate, ToolbarDelegate {
   private isDeleting_: boolean = false;
   private eventsToIgnoreOnce_: Set<string> = new Set();
 
-  getProfileConfiguration() {
-    return new Promise<chrome.developerPrivate.ProfileInfo>(function(resolve) {
+  getProfileConfiguration(): Promise<chrome.developerPrivate.ProfileInfo> {
+    return new Promise(function(resolve) {
       chrome.developerPrivate.getProfileConfiguration(resolve);
     });
   }
@@ -62,16 +47,15 @@ export class Service implements ServiceInterface {
     return chrome.developerPrivate.onProfileStateChanged;
   }
 
-  getExtensionsInfo() {
-    return new Promise<chrome.developerPrivate.ExtensionInfo[]>(function(
-        resolve) {
+  getExtensionsInfo(): Promise<Array<chrome.developerPrivate.ExtensionInfo>> {
+    return new Promise(function(resolve) {
       chrome.developerPrivate.getExtensionsInfo(
           {includeDisabled: true, includeTerminated: true}, resolve);
     });
   }
 
-  getExtensionSize(id: string) {
-    return new Promise<string>(function(resolve) {
+  getExtensionSize(id: string): Promise<string> {
+    return new Promise(function(resolve) {
       chrome.developerPrivate.getExtensionSize(id, resolve);
     });
   }
@@ -108,7 +92,7 @@ export class Service implements ServiceInterface {
    * Opens a file browser dialog for the user to select a file (or directory).
    * @return The promise to be resolved with the selected path.
    */
-  private chooseFilePath_(
+  chooseFilePath_(
       selectType: chrome.developerPrivate.SelectType,
       fileType: chrome.developerPrivate.FileType): Promise<string> {
     return new Promise(function(resolve, reject) {
@@ -156,7 +140,7 @@ export class Service implements ServiceInterface {
   /**
    * @return A signal that loading finished, rejected if any error occurred.
    */
-  private loadUnpackedHelper_(extraOptions?:
+  private loadUnpackedHelper_(opt_options?:
                                   chrome.developerPrivate.LoadUnpackedOptions):
       Promise<boolean> {
     return new Promise(function(resolve, reject) {
@@ -165,7 +149,7 @@ export class Service implements ServiceInterface {
             failQuietly: true,
             populateError: true,
           },
-          extraOptions);
+          opt_options);
 
       chrome.developerPrivate.loadUnpacked(options, (loadError) => {
         if (chrome.runtime.lastError &&
@@ -317,7 +301,8 @@ export class Service implements ServiceInterface {
     chrome.developerPrivate.packDirectory(rootPath, keyPath, flag, callback);
   }
 
-  updateAllExtensions(extensions: chrome.developerPrivate.ExtensionInfo[]) {
+  updateAllExtensions(extensions: chrome.developerPrivate.ExtensionInfo[]):
+      Promise<string> {
     /**
      * Attempt to reload local extensions. If an extension fails to load, the
      * user is prompted to try updating the broken extension using loadUnpacked
@@ -328,7 +313,7 @@ export class Service implements ServiceInterface {
              chrome.metricsPrivate.recordUserAction('Options_UpdateExtensions');
            })
         .then(() => {
-          return new Promise<void>((resolve, reject) => {
+          return new Promise((resolve, reject) => {
             const loadLocalExtensions = async () => {
               for (const extension of extensions) {
                 if (extension.location === 'UNPACKED') {
@@ -340,7 +325,7 @@ export class Service implements ServiceInterface {
                   }
                 }
               }
-              resolve();
+              resolve('Loaded local extensions.');
             };
             loadLocalExtensions();
           });
@@ -374,7 +359,7 @@ export class Service implements ServiceInterface {
       chrome.activityLogPrivate.getExtensionActivities(
           {
             activityType: chrome.activityLogPrivate.ExtensionActivityFilter.ANY,
-            extensionId: extensionId,
+            extensionId: extensionId
           },
           resolve);
     });
@@ -400,8 +385,8 @@ export class Service implements ServiceInterface {
       {
         activityType: anyType,
         extensionId: extensionId,
-        argUrl: `%${searchTerm}%`,
-      },
+        argUrl: `%${searchTerm}%`
+      }
     ];
 
     const promises:
@@ -470,54 +455,13 @@ export class Service implements ServiceInterface {
     chrome.developerPrivate.notifyDragInstallInProgress();
   }
 
-  getUserSiteSettings(): Promise<chrome.developerPrivate.UserSiteSettings> {
-    return new Promise(function(resolve) {
-      chrome.developerPrivate.getUserSiteSettings(resolve);
-    });
-  }
-
-  addUserSpecifiedSites(
-      siteSet: chrome.developerPrivate.SiteSet,
-      hosts: string[]): Promise<void> {
-    return new Promise(function(resolve) {
-      chrome.developerPrivate.addUserSpecifiedSites({siteSet, hosts}, resolve);
-    });
-  }
-
-  removeUserSpecifiedSites(
-      siteSet: chrome.developerPrivate.SiteSet,
-      hosts: string[]): Promise<void> {
-    return new Promise(function(resolve) {
-      chrome.developerPrivate.removeUserSpecifiedSites(
-          {siteSet, hosts}, resolve);
-    });
-  }
-
-  getUserAndExtensionSitesByEtld():
-      Promise<chrome.developerPrivate.SiteGroup[]> {
-    return new Promise(function(resolve) {
-      chrome.developerPrivate.getUserAndExtensionSitesByEtld(resolve);
-    });
-  }
-
-  getUserSiteSettingsChangedTarget() {
-    return chrome.developerPrivate.onUserSiteSettingsChanged;
-  }
-
-  setShowAccessRequestsInToolbar(id: string, showRequests: boolean) {
-    chrome.developerPrivate.updateExtensionConfiguration({
-      extensionId: id,
-      showAccessRequestsInToolbar: showRequests,
-    });
-  }
-
-  static getInstance(): ServiceInterface {
+  static getInstance(): Service {
     return instance || (instance = new Service());
   }
 
-  static setInstance(obj: ServiceInterface) {
+  static setInstance(obj: Service) {
     instance = obj;
   }
 }
 
-let instance: ServiceInterface|null = null;
+let instance: Service|null = null;

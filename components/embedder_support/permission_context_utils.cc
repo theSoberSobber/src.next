@@ -1,4 +1,4 @@
-// Copyright 2021 The Chromium Authors
+// Copyright 2021 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -19,14 +19,14 @@
 #include "components/permissions/contexts/wake_lock_permission_context.h"
 #include "components/permissions/contexts/webxr_permission_context.h"
 
-#if BUILDFLAG(IS_ANDROID)
+#if defined(OS_ANDROID)
 #include "components/permissions/contexts/geolocation_permission_context_android.h"
 #include "components/permissions/contexts/nfc_permission_context_android.h"
-#endif  // BUILDFLAG(IS_ANDROID)
+#endif  // defined(OS_ANDROID)
 
-#if BUILDFLAG(IS_MAC)
+#if defined(OS_MAC)
 #include "components/permissions/contexts/geolocation_permission_context_mac.h"
-#endif  // BUILDFLAG(IS_MAC)
+#endif  // defined(OS_MAC)
 
 namespace embedder_support {
 
@@ -45,11 +45,10 @@ CreateDefaultPermissionContexts(content::BrowserContext* browser_context,
                                 PermissionContextDelegates delegates) {
   permissions::PermissionManager::PermissionContextMap permission_contexts;
 
-  DCHECK(delegates.camera_pan_tilt_zoom_permission_context_delegate);
   DCHECK(delegates.geolocation_permission_context_delegate);
-#if BUILDFLAG(IS_MAC)
+#if defined(OS_MAC)
   DCHECK(delegates.geolocation_manager);
-#endif  // BUILDFLAG(IS_MAC)
+#endif  // defined(OS_MAC)
   DCHECK(delegates.media_stream_device_enumerator);
   DCHECK(delegates.nfc_permission_context_delegate);
 
@@ -63,21 +62,19 @@ CreateDefaultPermissionContexts(content::BrowserContext* browser_context,
       std::make_unique<BackgroundSyncPermissionContext>(browser_context);
   permission_contexts[ContentSettingsType::CAMERA_PAN_TILT_ZOOM] =
       std::make_unique<permissions::CameraPanTiltZoomPermissionContext>(
-          browser_context,
-          std::move(delegates.camera_pan_tilt_zoom_permission_context_delegate),
-          delegates.media_stream_device_enumerator);
+          browser_context, delegates.media_stream_device_enumerator);
   permission_contexts[ContentSettingsType::CLIPBOARD_READ_WRITE] =
       std::make_unique<permissions::ClipboardReadWritePermissionContext>(
           browser_context);
   permission_contexts[ContentSettingsType::CLIPBOARD_SANITIZED_WRITE] =
       std::make_unique<permissions::ClipboardSanitizedWritePermissionContext>(
           browser_context);
-#if BUILDFLAG(IS_ANDROID)
+#if defined(OS_ANDROID)
   permission_contexts[ContentSettingsType::GEOLOCATION] =
       std::make_unique<permissions::GeolocationPermissionContextAndroid>(
           browser_context,
           std::move(delegates.geolocation_permission_context_delegate));
-#elif BUILDFLAG(IS_MAC)
+#elif defined(OS_MAC)
   permission_contexts[ContentSettingsType::GEOLOCATION] =
       std::make_unique<permissions::GeolocationPermissionContextMac>(
           browser_context,
@@ -94,7 +91,7 @@ CreateDefaultPermissionContexts(content::BrowserContext* browser_context,
   permission_contexts[ContentSettingsType::MIDI_SYSEX] =
       std::make_unique<permissions::MidiSysexPermissionContext>(
           browser_context);
-#if BUILDFLAG(IS_ANDROID)
+#if defined(OS_ANDROID)
   permission_contexts[ContentSettingsType::NFC] =
       std::make_unique<permissions::NfcPermissionContextAndroid>(
           browser_context,
@@ -104,7 +101,7 @@ CreateDefaultPermissionContexts(content::BrowserContext* browser_context,
       std::make_unique<permissions::NfcPermissionContext>(
           browser_context,
           std::move(delegates.nfc_permission_context_delegate));
-#endif  // BUILDFLAG(IS_ANDROID)
+#endif  // defined(OS_ANDROID)
   permission_contexts[ContentSettingsType::PAYMENT_HANDLER] =
       std::make_unique<payments::PaymentHandlerPermissionContext>(
           browser_context);

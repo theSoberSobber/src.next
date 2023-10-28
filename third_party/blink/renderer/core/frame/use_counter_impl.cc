@@ -26,15 +26,14 @@
 #include "third_party/blink/renderer/core/frame/use_counter_impl.h"
 
 #include "base/metrics/histogram_macros.h"
-#include "third_party/blink/public/common/scheme_registry.h"
 #include "third_party/blink/public/mojom/permissions_policy/permissions_policy_feature.mojom-blink.h"
 #include "third_party/blink/public/mojom/use_counter/use_counter_feature.mojom-blink.h"
-#include "third_party/blink/public/mojom/use_counter/use_counter_feature.mojom-shared.h"
 #include "third_party/blink/renderer/core/css/css_style_sheet.h"
 #include "third_party/blink/renderer/core/css/style_sheet_contents.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/element.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
+#include "third_party/blink/renderer/core/frame/deprecation.h"
 #include "third_party/blink/renderer/core/frame/frame.h"
 #include "third_party/blink/renderer/core/frame/frame_console.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
@@ -53,20 +52,6 @@ mojom::blink::UseCounterFeatureType ToFeatureType(
       return mojom::blink::UseCounterFeatureType::kCssProperty;
     case UseCounterImpl::CSSPropertyType::kAnimation:
       return mojom::blink::UseCounterFeatureType::kAnimatedCssProperty;
-  }
-}
-
-mojom::blink::UseCounterFeatureType ToFeatureType(
-    UseCounterImpl::PermissionsPolicyUsageType type) {
-  switch (type) {
-    case UseCounterImpl::PermissionsPolicyUsageType::kViolation:
-      return mojom::blink::UseCounterFeatureType::
-          kPermissionsPolicyViolationEnforce;
-    case UseCounterImpl::PermissionsPolicyUsageType::kHeader:
-      return mojom::blink::UseCounterFeatureType::kPermissionsPolicyHeader;
-    case UseCounterImpl::PermissionsPolicyUsageType::kIframeAttribute:
-      return mojom::blink::UseCounterFeatureType::
-          kPermissionsPolicyIframeAttribute;
   }
 }
 }  // namespace
@@ -119,7 +104,7 @@ void UseCounterImpl::Trace(Visitor* visitor) const {
 
 void UseCounterImpl::DidCommitLoad(const LocalFrame* frame) {
   const KURL url = frame->GetDocument()->Url();
-  if (CommonSchemeRegistry::IsExtensionScheme(url.Protocol().Ascii())) {
+  if (SchemeRegistry::IsExtensionScheme(url.Protocol())) {
     context_ = kExtensionContext;
   } else if (url.ProtocolIs("file")) {
     context_ = kFileContext;
@@ -212,14 +197,14 @@ void UseCounterImpl::Count(WebFeature web_feature,
         source_frame);
 }
 
-void UseCounterImpl::CountPermissionsPolicyUsage(
+void UseCounterImpl::CountPermissionsPolicyViolation(
     mojom::blink::PermissionsPolicyFeature feature,
-    PermissionsPolicyUsageType usage_type,
     const LocalFrame& source_frame) {
   DCHECK_NE(mojom::blink::PermissionsPolicyFeature::kNotFound, feature);
-
-  Count({ToFeatureType(usage_type), static_cast<uint32_t>(feature)},
-        &source_frame);
+  Count(
+      {mojom::blink::UseCounterFeatureType::kPermissionsPolicyViolationEnforce,
+       static_cast<uint32_t>(feature)},
+      &source_frame);
 }
 
 void UseCounterImpl::NotifyFeatureCounted(WebFeature feature) {
@@ -300,25 +285,13 @@ void UseCounterImpl::TraceMeasurement(const UseCounterFeature& feature) {
       break;
     case mojom::blink::UseCounterFeatureType::
         kPermissionsPolicyViolationEnforce:
-    case mojom::blink::UseCounterFeatureType::kPermissionsPolicyHeader:
-    case mojom::blink::UseCounterFeatureType::kPermissionsPolicyIframeAttribute:
       // TODO(crbug.com/1206004): Add trace event for permissions policy metrics
       // gathering.
-      return;
-    case mojom::blink::UseCounterFeatureType::kUserAgentOverride:
       return;
   }
   DCHECK(trace_name);
   TRACE_EVENT1(TRACE_DISABLED_BY_DEFAULT("blink.feature_usage"), trace_name,
                "feature", feature.value());
-}
-
-void UseCounterImpl::CountUserAgentOverride(
-    blink::UserAgentOverride::UserAgentOverrideHistogram ua_override,
-    const LocalFrame* source_frame) {
-  Count({mojom::blink::UseCounterFeatureType::kUserAgentOverride,
-         static_cast<uint32_t>(ua_override)},
-        source_frame);
 }
 
 }  // namespace blink

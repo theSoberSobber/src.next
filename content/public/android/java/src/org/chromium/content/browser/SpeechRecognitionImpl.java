@@ -1,4 +1,4 @@
-// Copyright 2013 The Chromium Authors
+// Copyright 2013 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -11,7 +11,6 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.content.pm.ServiceInfo;
-import android.os.Build;
 import android.os.Bundle;
 import android.speech.RecognitionListener;
 import android.speech.RecognitionService;
@@ -40,9 +39,8 @@ public class SpeechRecognitionImpl {
     private static final String TAG = "SpeechRecog";
 
     // Constants describing the speech recognition provider we depend on.
-    private static final String AGSA_PACKAGE_NAME = "com.google.android.googlequicksearchbox";
-    private static final int AGSA_MIN_VERSION = 300207030;
-    private static final String SSBG_PACKAGE_NAME = "com.google.android.tts";
+    private static final String PROVIDER_PACKAGE_NAME = "com.google.android.googlequicksearchbox";
+    private static final int PROVIDER_MIN_VERSION = 300207030;
 
     // We track the recognition state to remember what events we need to send when recognition is
     // being aborted. Once Android's recognizer is cancelled, its listener won't yield any more
@@ -190,27 +188,11 @@ public class SpeechRecognitionImpl {
      * continuous recognition.
      */
     // TODO(crbug.com/635567): Fix this properly.
+    @SuppressLint("WrongConstant")
     public static boolean initialize() {
         Context context = ContextUtils.getApplicationContext();
         if (!SpeechRecognizer.isRecognitionAvailable(context)) return false;
 
-        sRecognitionProvider = createRecognitionProvider();
-        if (sRecognitionProvider == null) return false;
-        return true;
-    }
-
-    /** Returns null if there is no Google LLC provided RecognitionService available on device. */
-    private static ComponentName createRecognitionProvider() {
-        if (android.os.Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            return getComponent(SSBG_PACKAGE_NAME, -1);
-        } else {
-            return getComponent(AGSA_PACKAGE_NAME, AGSA_MIN_VERSION);
-        }
-    }
-
-    @SuppressLint("WrongConstant")
-    private static ComponentName getComponent(String packageName, int packageMinVersion) {
-        Context context = ContextUtils.getApplicationContext();
         PackageManager pm = context.getPackageManager();
         Intent intent = new Intent(RecognitionService.SERVICE_INTERFACE);
         final List<ResolveInfo> list = pm.queryIntentServices(intent, PackageManager.GET_SERVICES);
@@ -218,20 +200,20 @@ public class SpeechRecognitionImpl {
         for (ResolveInfo resolve : list) {
             ServiceInfo service = resolve.serviceInfo;
 
-            if (!service.packageName.equals(packageName)) continue;
+            if (!service.packageName.equals(PROVIDER_PACKAGE_NAME)) continue;
 
-            // No need to verify package version if packageMinVersion != -1.
-            if (packageMinVersion != -1) {
-                if (PackageUtils.getPackageVersion(context, service.packageName)
-                        < packageMinVersion) {
-                    continue;
-                }
+            if (PackageUtils.getPackageVersion(context, service.packageName)
+                    < PROVIDER_MIN_VERSION) {
+                continue;
             }
 
-            return new ComponentName(service.packageName, service.name);
+            sRecognitionProvider = new ComponentName(service.packageName, service.name);
+
+            return true;
         }
 
-        return null;
+        // If we reach this point, we failed to find a suitable recognition provider.
+        return false;
     }
 
     private SpeechRecognitionImpl(long nativeSpeechRecognizerImplAndroid) {

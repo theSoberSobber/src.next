@@ -1,4 +1,4 @@
-// Copyright 2014 The Chromium Authors
+// Copyright 2014 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "base/json/json_file_value_serializer.h"
+#include "base/macros.h"
 #include "base/path_service.h"
 #include "base/run_loop.h"
 #include "content/public/test/test_browser_context.h"
@@ -20,7 +21,6 @@
 #include "skia/ext/image_operations.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/base/resource/resource_bundle.h"
-#include "ui/gfx/image/image_skia_rep.h"
 #include "ui/gfx/image/image_skia_source.h"
 #include "ui/gfx/skia_util.h"
 
@@ -71,9 +71,6 @@ class ExtensionIconImageTest : public ExtensionsTest,
  public:
   ExtensionIconImageTest()
       : image_loaded_count_(0), quit_in_image_loaded_(false) {}
-
-  ExtensionIconImageTest(const ExtensionIconImageTest&) = delete;
-  ExtensionIconImageTest& operator=(const ExtensionIconImageTest&) = delete;
 
   ~ExtensionIconImageTest() override {}
 
@@ -131,14 +128,16 @@ class ExtensionIconImageTest : public ExtensionsTest,
  private:
   int image_loaded_count_;
   bool quit_in_image_loaded_;
+
+  DISALLOW_COPY_AND_ASSIGN(ExtensionIconImageTest);
 };
 
 }  // namespace
 
 TEST_F(ExtensionIconImageTest, Basic) {
   std::vector<ui::ResourceScaleFactor> supported_factors;
-  supported_factors.push_back(ui::k100Percent);
-  supported_factors.push_back(ui::k200Percent);
+  supported_factors.push_back(ui::SCALE_FACTOR_100P);
+  supported_factors.push_back(ui::SCALE_FACTOR_200P);
   ui::test::ScopedSetSupportedResourceScaleFactors scoped_supported(
       supported_factors);
   scoped_refptr<Extension> extension(CreateExtension(
@@ -175,9 +174,9 @@ TEST_F(ExtensionIconImageTest, Basic) {
 
   // Before the image representation is loaded, image should contain blank
   // image representation.
-  EXPECT_TRUE(
-      gfx::BitmapsAreEqual(representation.GetBitmap(),
-                           CreateBlankBitmapForScale(16, ui::k100Percent)));
+  EXPECT_TRUE(gfx::BitmapsAreEqual(
+      representation.GetBitmap(),
+      CreateBlankBitmapForScale(16, ui::SCALE_FACTOR_100P)));
 
   WaitForImageLoad();
   EXPECT_EQ(1, ImageLoadedCount());
@@ -192,9 +191,9 @@ TEST_F(ExtensionIconImageTest, Basic) {
   // Gets representation for an additional scale factor.
   representation = image.image_skia().GetRepresentation(2.0f);
 
-  EXPECT_TRUE(
-      gfx::BitmapsAreEqual(representation.GetBitmap(),
-                           CreateBlankBitmapForScale(16, ui::k200Percent)));
+  EXPECT_TRUE(gfx::BitmapsAreEqual(
+      representation.GetBitmap(),
+      CreateBlankBitmapForScale(16, ui::SCALE_FACTOR_200P)));
 
   WaitForImageLoad();
   EXPECT_EQ(1, ImageLoadedCount());
@@ -212,8 +211,8 @@ TEST_F(ExtensionIconImageTest, Basic) {
 // resource.
 TEST_F(ExtensionIconImageTest, FallbackToSmallerWhenNoBigger) {
   std::vector<ui::ResourceScaleFactor> supported_factors;
-  supported_factors.push_back(ui::k100Percent);
-  supported_factors.push_back(ui::k200Percent);
+  supported_factors.push_back(ui::SCALE_FACTOR_100P);
+  supported_factors.push_back(ui::SCALE_FACTOR_200P);
   ui::test::ScopedSetSupportedResourceScaleFactors scoped_supported(
       supported_factors);
   scoped_refptr<Extension> extension(CreateExtension(
@@ -351,7 +350,7 @@ TEST_F(ExtensionIconImageTest, InvalidResource) {
   gfx::ImageSkiaRep representation = image.image_skia().GetRepresentation(1.0f);
   EXPECT_TRUE(gfx::BitmapsAreEqual(
       representation.GetBitmap(),
-      CreateBlankBitmapForScale(kInvalidIconSize, ui::k100Percent)));
+      CreateBlankBitmapForScale(kInvalidIconSize, ui::SCALE_FACTOR_100P)));
 
   WaitForImageLoad();
   EXPECT_EQ(1, ImageLoadedCount());

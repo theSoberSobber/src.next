@@ -26,8 +26,6 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_CORE_LAYOUT_LAYOUT_CUSTOM_SCROLLBAR_PART_H_
 #define THIRD_PARTY_BLINK_RENDERER_CORE_LAYOUT_LAYOUT_CUSTOM_SCROLLBAR_PART_H_
 
-#include "base/notreached.h"
-#include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/layout/layout_replaced.h"
 #include "third_party/blink/renderer/core/scroll/scroll_types.h"
 
@@ -42,8 +40,6 @@ class CORE_EXPORT LayoutCustomScrollbarPart final : public LayoutReplaced {
                                                     ScrollableArea*,
                                                     CustomScrollbar* = nullptr,
                                                     ScrollbarPart = kNoPart);
-
-  void Trace(Visitor*) const override;
 
   const char* GetName() const override {
     NOT_DESTROYED();
@@ -83,9 +79,9 @@ class CORE_EXPORT LayoutCustomScrollbarPart final : public LayoutReplaced {
     return scrollable_area_;
   }
 
+ private:
   LayoutCustomScrollbarPart(ScrollableArea*, CustomScrollbar*, ScrollbarPart);
 
- private:
   void UpdateFromStyle() override;
   void StyleDidChange(StyleDifference, const ComputedStyle* old_style) override;
   void ImageChanged(WrappedImagePtr, CanDeferInvalidation) override;
@@ -138,8 +134,8 @@ class CORE_EXPORT LayoutCustomScrollbarPart final : public LayoutReplaced {
   int ComputeWidth(int container_width) const;
   int ComputeHeight(int container_height) const;
 
-  Member<ScrollableArea> scrollable_area_;
-  Member<CustomScrollbar> scrollbar_;
+  UntracedMember<ScrollableArea> scrollable_area_;
+  UntracedMember<CustomScrollbar> scrollbar_;
 
   ScrollbarPart part_;
 };

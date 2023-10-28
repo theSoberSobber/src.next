@@ -21,7 +21,6 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_CORE_LAYOUT_LAYOUT_PROGRESS_H_
 #define THIRD_PARTY_BLINK_RENDERER_CORE_LAYOUT_LAYOUT_PROGRESS_H_
 
-#include "base/time/time.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/layout/layout_block_flow.h"
 
@@ -31,13 +30,8 @@ class HTMLProgressElement;
 
 class CORE_EXPORT LayoutProgress : public LayoutBlockFlow {
  public:
-  explicit LayoutProgress(ContainerNode*);
+  explicit LayoutProgress(Element* element);
   ~LayoutProgress() override;
-
-  void Trace(Visitor* visitor) const override {
-    visitor->Trace(animation_timer_);
-    LayoutBlockFlow::Trace(visitor);
-  }
 
   double GetPosition() const {
     NOT_DESTROYED();
@@ -72,7 +66,7 @@ class CORE_EXPORT LayoutProgress : public LayoutBlockFlow {
   double position_;
   base::TimeTicks animation_start_time_;
   bool animating_;
-  HeapTaskRunnerTimer<LayoutProgress> animation_timer_;
+  TaskRunnerTimer<LayoutProgress> animation_timer_;
 
   friend class LayoutProgressTest;
 };

@@ -10,8 +10,8 @@
 #include "mojo/public/cpp/bindings/associated_remote.h"
 #include "services/network/public/mojom/web_sandbox_flags.mojom-blink-forward.h"
 #include "third_party/blink/public/common/frame/frame_visual_properties.h"
+#include "third_party/blink/public/mojom/frame/frame.mojom-blink.h"
 #include "third_party/blink/public/mojom/frame/frame_owner_properties.mojom-blink-forward.h"
-#include "third_party/blink/public/mojom/frame/remote_frame.mojom-blink.h"
 #include "third_party/blink/public/mojom/input/focus_type.mojom-blink-forward.h"
 #include "third_party/blink/public/mojom/scroll/scroll_into_view_params.mojom-blink.h"
 #include "third_party/blink/public/mojom/security_context/insecure_request_policy.mojom-blink-forward.h"
@@ -32,13 +32,14 @@ class FrameSinkId;
 
 namespace blink {
 
-class ChildFrameCompositingHelper;
+class AssociatedInterfaceProvider;
+class InterfaceRegistry;
 class LocalFrame;
+class MessageEvent;
 class RemoteFrameClient;
-class WebFrameWidget;
-
-struct BlinkTransferableMessage;
 struct FrameLoadRequest;
+class ChildFrameCompositingHelper;
+class WebFrameWidget;
 
 // A RemoteFrame is a frame that is possibly hosted outside this process.
 class CORE_EXPORT RemoteFrame final : public Frame,
@@ -51,20 +52,18 @@ class CORE_EXPORT RemoteFrame final : public Frame,
 
   // For a description of |inheriting_agent_factory| go see the comment on the
   // Frame constructor.
-  RemoteFrame(
-      RemoteFrameClient*,
-      Page&,
-      FrameOwner*,
-      Frame* parent,
-      Frame* previous_sibling,
-      FrameInsertType insert_type,
-      const RemoteFrameToken& frame_token,
-      WindowAgentFactory* inheriting_agent_factory,
-      WebFrameWidget* ancestor_widget,
-      const base::UnguessableToken& devtools_frame_token,
-      mojo::PendingAssociatedRemote<mojom::blink::RemoteFrameHost>
-          remote_frame_host,
-      mojo::PendingAssociatedReceiver<mojom::blink::RemoteFrame> receiver);
+  RemoteFrame(RemoteFrameClient*,
+              Page&,
+              FrameOwner*,
+              Frame* parent,
+              Frame* previous_sibling,
+              FrameInsertType insert_type,
+              const RemoteFrameToken& frame_token,
+              WindowAgentFactory* inheriting_agent_factory,
+              InterfaceRegistry*,
+              AssociatedInterfaceProvider*,
+              WebFrameWidget* ancestor_widget,
+              const base::UnguessableToken& devtools_frame_token);
   ~RemoteFrame() override;
 
   // Frame overrides:
@@ -79,10 +78,14 @@ class CORE_EXPORT RemoteFrame final : public Frame,
   void SetTextDirection(base::i18n::TextDirection) override {}
   void SetIsInert(bool) override;
   void SetInheritedEffectiveTouchAction(TouchAction) override;
+  bool BubbleLogicalScrollFromChildFrame(
+      mojom::blink::ScrollDirection direction,
+      ui::ScrollGranularity granularity,
+      Frame* child) override;
   void DidFocus() override;
   void AddResourceTimingFromChild(
       mojom::blink::ResourceTimingInfoPtr timing) override;
-  bool IsAdFrame() const override;
+  bool IsAdSubframe() const override;
 
   // ChildFrameCompositor:
   const scoped_refptr<cc::Layer>& GetCcLayer() override;
@@ -93,10 +96,10 @@ class CORE_EXPORT RemoteFrame final : public Frame,
   void CreateView();
 
   void ForwardPostMessage(
-      BlinkTransferableMessage,
-      LocalFrame* source_frame,
-      scoped_refptr<const SecurityOrigin> source_security_origin,
-      scoped_refptr<const SecurityOrigin> target_security_origin);
+      MessageEvent* message_event,
+      absl::optional<base::UnguessableToken> cluster_id,
+      scoped_refptr<const SecurityOrigin> target_security_origin,
+      LocalFrame* source_frame);
 
   mojom::blink::RemoteFrameHost& GetRemoteFrameHostRemote();
 
@@ -113,18 +116,18 @@ class CORE_EXPORT RemoteFrame final : public Frame,
 
   void SetReplicatedSandboxFlags(network::mojom::blink::WebSandboxFlags);
   void SetInsecureRequestPolicy(mojom::blink::InsecureRequestPolicy);
-  void FrameRectsChanged(const gfx::Size& local_frame_size,
-                         const gfx::Rect& screen_space_rect);
+  void SetInsecureNavigationsSet(const WebVector<unsigned>&);
+  void FrameRectsChanged(const IntRect& local_frame_rect,
+                         const IntRect& screen_space_rect);
   void InitializeFrameVisualProperties(const FrameVisualProperties& properties);
   // If 'propagate' is true, updated properties will be sent to the browser.
   // Returns true if visual properties have changed.
   bool SynchronizeVisualProperties(bool propagate = true);
   void ResendVisualProperties();
   void SetViewportIntersection(const mojom::blink::ViewportIntersectionState&);
-  void UpdateCompositedLayerBounds();
 
-  // Called when the local root's screen infos change.
-  void DidChangeScreenInfos(const display::ScreenInfos& screen_info);
+  // Called when the local root's screen info changes.
+  void DidChangeScreenInfo(const display::ScreenInfo& screen_info);
   // Called when the main frame's zoom level is changed and should be propagated
   // to the remote's associated view.
   void ZoomLevelChanged(double zoom_level);
@@ -154,7 +157,7 @@ class CORE_EXPORT RemoteFrame final : public Frame,
   void SetReplicatedOrigin(
       const scoped_refptr<const SecurityOrigin>& origin,
       bool is_potentially_trustworthy_unique_origin) override;
-  void SetReplicatedIsAdFrame(bool is_ad_frame) override;
+  void SetReplicatedIsAdSubframe(bool is_ad_subframe) override;
   void SetReplicatedName(const String& name,
                          const String& unique_name) override;
   void DispatchLoadEventForFrameOwner() override;
@@ -175,7 +178,7 @@ class CORE_EXPORT RemoteFrame final : public Frame,
       mojom::blink::ResourceTimingInfoPtr timing,
       const String& server_timing_values) final;
   void ScrollRectToVisible(
-      const gfx::RectF& rect_to_scroll,
+      const gfx::Rect& rect_to_scroll,
       mojom::blink::ScrollIntoViewParamsPtr params) override;
   void DidStartLoading() override;
   void DidStopLoading() override;
@@ -200,18 +203,10 @@ class CORE_EXPORT RemoteFrame final : public Frame,
       const cc::RenderFrameMetadata& metadata) override;
   void SetFrameSinkId(const viz::FrameSinkId& frame_sink_id) override;
   void ChildProcessGone() override;
-  void CreateRemoteChild(
-      const RemoteFrameToken& token,
-      const absl::optional<FrameToken>& opener_frame_token,
-      mojom::blink::TreeScopeType tree_scope_type,
-      mojom::blink::FrameReplicationStatePtr replication_state,
-      const base::UnguessableToken& devtools_frame_token,
-      mojom::blink::RemoteFrameInterfacesFromBrowserPtr remote_frame_interfaces)
-      override;
 
   // Called only when this frame has a local frame owner.
-  gfx::Size GetOutermostMainFrameSize() const override;
-  gfx::Point GetOutermostMainFrameScrollPosition() const override;
+  IntSize GetMainFrameViewportSize() const override;
+  IntPoint GetMainFrameScrollOffset() const override;
 
   void SetOpener(Frame* opener) override;
 
@@ -243,7 +238,7 @@ class CORE_EXPORT RemoteFrame final : public Frame,
 
  private:
   // Frame protected overrides:
-  bool DetachImpl(FrameDetachType type) override;
+  bool DetachImpl(FrameDetachType) override;
 
   // ChildFrameCompositor:
   void SetCcLayer(scoped_refptr<cc::Layer> layer,
@@ -259,6 +254,10 @@ class CORE_EXPORT RemoteFrame final : public Frame,
   bool DetachChildren();
   void ApplyReplicatedPermissionsPolicyHeader();
   void RecordSentVisualProperties();
+
+  static void BindToReceiver(
+      RemoteFrame* frame,
+      mojo::PendingAssociatedReceiver<mojom::blink::RemoteFrame> receiver);
 
   Member<RemoteFrameView> view_;
   RemoteSecurityContext security_context_;
@@ -278,6 +277,8 @@ class CORE_EXPORT RemoteFrame final : public Frame,
   // is null.
   WebFrameWidget* ancestor_widget_;
 
+  InterfaceRegistry* const interface_registry_;
+
   // True when the process rendering the child's frame contents has terminated
   // and ChildProcessGone() is called.
   bool remote_process_gone_ = false;
@@ -285,8 +286,8 @@ class CORE_EXPORT RemoteFrame final : public Frame,
   // Will be nullptr when this RemoteFrame's parent is not a LocalFrame.
   std::unique_ptr<ChildFrameCompositingHelper> compositing_helper_;
 
-  // Whether the frame is considered to be an ad frame by Ad Tagging.
-  bool is_ad_frame_;
+  // Whether the frame is considered to be an ad subframe by Ad Tagging.
+  bool is_ad_subframe_;
 
   mojo::AssociatedRemote<mojom::blink::RemoteFrameHost>
       remote_frame_host_remote_;

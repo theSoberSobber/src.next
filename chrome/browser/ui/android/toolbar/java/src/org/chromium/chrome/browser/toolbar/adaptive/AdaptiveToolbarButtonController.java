@@ -1,4 +1,4 @@
-// Copyright 2021 The Chromium Authors
+// Copyright 2021 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -31,7 +31,6 @@ import org.chromium.chrome.browser.toolbar.R;
 import org.chromium.chrome.browser.toolbar.adaptive.AdaptiveToolbarFeatures.AdaptiveToolbarButtonVariant;
 import org.chromium.chrome.browser.toolbar.adaptive.settings.AdaptiveToolbarPreferenceFragment;
 import org.chromium.components.browser_ui.settings.SettingsLauncher;
-import org.chromium.ui.permissions.AndroidPermissionDelegate;
 
 import java.util.HashMap;
 import java.util.Iterator;
@@ -62,16 +61,12 @@ public class AdaptiveToolbarButtonController implements ButtonDataProvider, Butt
     private boolean mIsSessionVariantRecorded;
 
     private final ActivityLifecycleDispatcher mLifecycleDispatcher;
-    private final AdaptiveToolbarStatePredictor mAdaptiveToolbarStatePredictor;
     private final SharedPreferencesManager mSharedPreferencesManager;
 
     @Nullable
     private View.OnLongClickListener mMenuHandler;
     private final Callback<Integer> mMenuClickListener;
     private final AdaptiveButtonActionMenuCoordinator mMenuCoordinator;
-
-    @AdaptiveToolbarButtonVariant
-    private int mSessionButtonVariant = AdaptiveToolbarButtonVariant.UNKNOWN;
 
     /**
      * Constructs the {@link AdaptiveToolbarButtonController}.
@@ -83,7 +78,6 @@ public class AdaptiveToolbarButtonController implements ButtonDataProvider, Butt
     public AdaptiveToolbarButtonController(Context context, SettingsLauncher settingsLauncher,
             ActivityLifecycleDispatcher lifecycleDispatcher,
             AdaptiveButtonActionMenuCoordinator menuCoordinator,
-            AndroidPermissionDelegate androidPermissionDelegate,
             SharedPreferencesManager sharedPreferencesManager) {
         mMenuClickListener = id -> {
             if (id == R.id.customize_adaptive_button_menu_id) {
@@ -96,8 +90,6 @@ public class AdaptiveToolbarButtonController implements ButtonDataProvider, Butt
         };
         mLifecycleDispatcher = lifecycleDispatcher;
         mLifecycleDispatcher.register(this);
-        mAdaptiveToolbarStatePredictor =
-                new AdaptiveToolbarStatePredictor(androidPermissionDelegate);
         mMenuCoordinator = menuCoordinator;
         mSharedPreferencesManager = sharedPreferencesManager;
         mSharedPreferencesManager.addObserver(this);
@@ -129,7 +121,7 @@ public class AdaptiveToolbarButtonController implements ButtonDataProvider, Butt
 
     @Override
     public void destroy() {
-        setSingleProvider(AdaptiveToolbarButtonVariant.UNKNOWN);
+        setSingleProvider(null);
         mObservers.clear();
         mSharedPreferencesManager.removeObserver(this);
         mLifecycleDispatcher.unregister(this);
@@ -143,9 +135,7 @@ public class AdaptiveToolbarButtonController implements ButtonDataProvider, Butt
         }
     }
 
-    private void setSingleProvider(@AdaptiveToolbarButtonVariant int buttonVariant) {
-        @Nullable
-        ButtonDataProvider buttonProvider = mButtonDataProviderMap.get(buttonVariant);
+    private void setSingleProvider(@Nullable ButtonDataProvider buttonProvider) {
         if (mSingleProvider != null) {
             mSingleProvider.removeObserver(this);
         }
@@ -167,16 +157,12 @@ public class AdaptiveToolbarButtonController implements ButtonDataProvider, Butt
 
     @Override
     public ButtonData get(@Nullable Tab tab) {
-        final ButtonData receivedButtonData =
-                mSingleProvider == null ? null : mSingleProvider.get(tab);
-        if (receivedButtonData == null) {
-            mOriginalButtonSpec = null;
-            return null;
-        }
+        if (mSingleProvider == null) return null;
+        final ButtonData receivedButtonData = mSingleProvider.get(tab);
+        if (receivedButtonData == null) return null;
 
         if (!mIsSessionVariantRecorded && receivedButtonData.canShow()
-                && receivedButtonData.isEnabled()
-                && !receivedButtonData.getButtonSpec().isDynamicAction()) {
+                && receivedButtonData.isEnabled()) {
             mIsSessionVariantRecorded = true;
             RecordHistogram.recordEnumeratedHistogram(
                     "Android.AdaptiveToolbarButton.SessionVariant",
@@ -197,13 +183,10 @@ public class AdaptiveToolbarButtonController implements ButtonDataProvider, Butt
             mButtonData.setButtonSpec(new ButtonSpec(receivedButtonSpec.getDrawable(),
                     wrapClickListener(receivedButtonSpec.getOnClickListener(),
                             receivedButtonSpec.getButtonVariant()),
-                    // Use menu handler only with static actions.
-                    receivedButtonSpec.isDynamicAction() ? null : mMenuHandler,
-                    receivedButtonSpec.getContentDescriptionResId(),
+                    mMenuHandler, receivedButtonSpec.getContentDescriptionResId(),
                     receivedButtonSpec.getSupportsTinting(),
                     receivedButtonSpec.getIPHCommandBuilder(),
-                    receivedButtonSpec.getButtonVariant(),
-                    receivedButtonSpec.getActionChipLabelResId()));
+                    receivedButtonSpec.getButtonVariant()));
         }
         return mButtonData;
     }
@@ -230,15 +213,17 @@ public class AdaptiveToolbarButtonController implements ButtonDataProvider, Butt
 
     @Override
     public void onFinishNativeInitialization() {
-        if (AdaptiveToolbarFeatures.isCustomizationEnabled()) {
-            mAdaptiveToolbarStatePredictor.recomputeUiState(uiState -> {
-                mSessionButtonVariant = uiState.canShowUi ? uiState.toolbarButtonState
-                                                          : AdaptiveToolbarButtonVariant.UNKNOWN;
-                setSingleProvider(mSessionButtonVariant);
+        if (AdaptiveToolbarFeatures.isSingleVariantModeEnabled()) {
+            @AdaptiveToolbarButtonVariant
+            int variant = AdaptiveToolbarFeatures.getSingleVariantMode();
+            setSingleProvider(mButtonDataProviderMap.get(variant));
+        } else if (AdaptiveToolbarFeatures.isCustomizationEnabled()) {
+            new AdaptiveToolbarStatePredictor().recomputeUiState(uiState -> {
+                setSingleProvider(uiState.canShowUi
+                                ? mButtonDataProviderMap.get(uiState.toolbarButtonState)
+                                : null);
                 notifyObservers(uiState.canShowUi);
             });
-            AdaptiveToolbarStats.recordSelectedSegmentFromSegmentationPlatformAsync(
-                    mAdaptiveToolbarStatePredictor);
             // We need the menu handler only if the customization feature is on.
             if (mMenuHandler != null) return;
             mMenuHandler = createMenuHandler();
@@ -270,23 +255,12 @@ public class AdaptiveToolbarButtonController implements ButtonDataProvider, Butt
         if (ADAPTIVE_TOOLBAR_CUSTOMIZATION_SETTINGS.equals(key)
                 || ADAPTIVE_TOOLBAR_CUSTOMIZATION_ENABLED.equals(key)) {
             assert AdaptiveToolbarFeatures.isCustomizationEnabled();
-            mAdaptiveToolbarStatePredictor.recomputeUiState(uiState -> {
-                mSessionButtonVariant = uiState.canShowUi ? uiState.toolbarButtonState
-                                                          : AdaptiveToolbarButtonVariant.UNKNOWN;
-                setSingleProvider(mSessionButtonVariant);
+            new AdaptiveToolbarStatePredictor().recomputeUiState(uiState -> {
+                setSingleProvider(uiState.canShowUi
+                                ? mButtonDataProviderMap.get(uiState.toolbarButtonState)
+                                : null);
                 notifyObservers(uiState.canShowUi);
             });
         }
-    }
-
-    /** Called to notify the controller that a dynamic action is available and should be shown. */
-    public void showDynamicAction(@AdaptiveToolbarButtonVariant int action) {
-        int actionToShow =
-                action != AdaptiveToolbarButtonVariant.UNKNOWN ? action : mSessionButtonVariant;
-        if (mOriginalButtonSpec != null && mOriginalButtonSpec.getButtonVariant() == actionToShow) {
-            return;
-        }
-        setSingleProvider(actionToShow);
-        notifyObservers(true);
     }
 }

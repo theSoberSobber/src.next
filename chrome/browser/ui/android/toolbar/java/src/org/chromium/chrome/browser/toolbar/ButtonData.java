@@ -1,4 +1,4 @@
-// Copyright 2020 The Chromium Authors
+// Copyright 2020 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -11,7 +11,6 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.StringRes;
 
-import org.chromium.chrome.browser.toolbar.adaptive.AdaptiveToolbarFeatures;
 import org.chromium.chrome.browser.toolbar.adaptive.AdaptiveToolbarFeatures.AdaptiveToolbarButtonVariant;
 import org.chromium.chrome.browser.user_education.IPHCommandBuilder;
 
@@ -50,14 +49,11 @@ public interface ButtonData {
         private final IPHCommandBuilder mIPHCommandBuilder;
         @AdaptiveToolbarButtonVariant
         private final int mButtonVariant;
-        private final boolean mIsDynamicAction;
-        @StringRes
-        private final int mActionChipLabelResId;
 
         public ButtonSpec(@NonNull Drawable drawable, @NonNull View.OnClickListener onClickListener,
                 @Nullable View.OnLongClickListener onLongClickListener, int contentDescriptionResId,
                 boolean supportsTinting, @Nullable IPHCommandBuilder iphCommandBuilder,
-                @AdaptiveToolbarButtonVariant int buttonVariant, int actionChipLabelResId) {
+                @AdaptiveToolbarButtonVariant int buttonVariant) {
             mDrawable = drawable;
             mOnClickListener = onClickListener;
             mOnLongClickListener = onLongClickListener;
@@ -65,8 +61,21 @@ public interface ButtonData {
             mSupportsTinting = supportsTinting;
             mIPHCommandBuilder = iphCommandBuilder;
             mButtonVariant = buttonVariant;
-            mIsDynamicAction = AdaptiveToolbarFeatures.isDynamicAction(mButtonVariant);
-            mActionChipLabelResId = actionChipLabelResId;
+        }
+
+        public ButtonSpec(@NonNull Drawable drawable, @NonNull View.OnClickListener onClickListener,
+                int contentDescriptionResId, boolean supportsTinting,
+                @Nullable IPHCommandBuilder iphCommandBuilder,
+                @AdaptiveToolbarButtonVariant int buttonVariant) {
+            this(drawable, onClickListener, /*onLongClickListener=*/null, contentDescriptionResId,
+                    supportsTinting, iphCommandBuilder, buttonVariant);
+        }
+
+        public ButtonSpec(Drawable drawable, View.OnClickListener onClickListener,
+                int contentDescriptionResId, boolean supportsTinting,
+                IPHCommandBuilder iphCommandBuilder) {
+            this(drawable, onClickListener, contentDescriptionResId, supportsTinting,
+                    iphCommandBuilder, AdaptiveToolbarButtonVariant.UNKNOWN);
         }
 
         /** Returns the {@link Drawable} for the button icon. */
@@ -93,12 +102,6 @@ public interface ButtonData {
             return mContentDescriptionResId;
         }
 
-        /** Returns the resource ID of the string for the button's action chip label. */
-        @StringRes
-        public int getActionChipLabelResId() {
-            return mActionChipLabelResId;
-        }
-
         /** Returns {@code true} if the button supports tinting. */
         public boolean getSupportsTinting() {
             return mSupportsTinting;
@@ -118,11 +121,6 @@ public interface ButtonData {
         @AdaptiveToolbarButtonVariant
         public int getButtonVariant() {
             return mButtonVariant;
-        }
-
-        /** Returns {@code true} if the button is a contextual page action. False otherwise. */
-        public boolean isDynamicAction() {
-            return mIsDynamicAction;
         }
     }
 }

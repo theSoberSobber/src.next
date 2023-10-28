@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium Authors
+// Copyright 2019 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -11,6 +11,7 @@ import android.animation.ObjectAnimator;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.os.Build;
 import android.util.AttributeSet;
 import android.view.View;
 import android.widget.ImageView;
@@ -73,12 +74,14 @@ public class ClosableTabGridView extends ViewLookupCachingFrameLayout {
     /**
      * Play the zoom-in and zoom-out animations for tab grid card.
      * @param status      The target animation status in {@link AnimationStatus}.
+     * @param isSelected  Whether the scaling card is selected or not.
      */
-    void scaleTabGridCardView(@AnimationStatus int status) {
+    void scaleTabGridCardView(@AnimationStatus int status, boolean isSelected) {
         assert status < AnimationStatus.NUM_ENTRIES;
 
         final View backgroundView = fastFindViewById(R.id.background_view);
         final View contentView = fastFindViewById(R.id.content_view);
+        final View selectedViewBelowLollipop = fastFindViewById(R.id.selected_view_below_lollipop);
         boolean isZoomIn = status == AnimationStatus.SELECTED_CARD_ZOOM_IN
                 || status == AnimationStatus.HOVERED_CARD_ZOOM_IN;
         boolean isHovered = status == AnimationStatus.HOVERED_CARD_ZOOM_IN
@@ -99,6 +102,10 @@ public class ClosableTabGridView extends ViewLookupCachingFrameLayout {
             public void onAnimationEnd(Animator animation) {
                 if (!isZoomIn) {
                     backgroundView.setVisibility(View.GONE);
+                    if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.LOLLIPOP_MR1) {
+                        selectedViewBelowLollipop.setVisibility(
+                                isSelected ? View.VISIBLE : View.GONE);
+                    }
                 }
                 mIsAnimating = false;
             }

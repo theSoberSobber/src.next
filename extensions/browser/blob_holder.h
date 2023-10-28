@@ -1,4 +1,4 @@
-// Copyright 2014 The Chromium Authors
+// Copyright 2014 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -10,7 +10,7 @@
 #include <string>
 #include <vector>
 
-#include "base/memory/raw_ptr.h"
+#include "base/macros.h"
 #include "base/supports_user_data.h"
 
 namespace content {
@@ -29,9 +29,6 @@ class BlobHolder : public base::SupportsUserData::Data {
   // Will create the BlobHolder if it doesn't already exist.
   static BlobHolder* FromRenderProcessHost(
       content::RenderProcessHost* render_process_host);
-
-  BlobHolder(const BlobHolder&) = delete;
-  BlobHolder& operator=(const BlobHolder&) = delete;
 
   ~BlobHolder() override;
 
@@ -53,9 +50,11 @@ class BlobHolder : public base::SupportsUserData::Data {
   bool ContainsBlobHandle(content::BlobHandle* handle) const;
 
   // A reference to the owner of this class.
-  raw_ptr<content::RenderProcessHost> render_process_host_;
+  content::RenderProcessHost* render_process_host_;
 
   BlobHandleMultimap held_blobs_;
+
+  DISALLOW_COPY_AND_ASSIGN(BlobHolder);
 };
 
 }  // namespace extensions

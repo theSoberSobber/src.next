@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -57,7 +57,7 @@ class OAuth2ManifestTest : public ManifestTest {
   };
 
   base::Value CreateManifest(AutoApproveValue auto_approve,
-                             bool extension_id_allowlisted,
+                             bool extension_id_whitelisted,
                              ClientIdValue client_id) {
     base::Value manifest = base::test::ParseJson(R"({
           "name": "test",
@@ -95,7 +95,7 @@ class OAuth2ManifestTest : public ManifestTest {
         manifest.SetPath(GetOauth2KeyPath(OAuth2Info::kClientId),
                          base::Value(""));
     }
-    if (extension_id_allowlisted) {
+    if (extension_id_whitelisted) {
       manifest.SetPath(TokenizeDictionaryPath(keys::kKey),
                        base::Value(kExtensionKey));
     }
@@ -187,7 +187,7 @@ TEST_F(OAuth2ManifestTest, OAuth2SectionParsing) {
   }
 }
 
-TEST_F(OAuth2ManifestTest, AutoApproveNotSetExtensionNotOnAllowlist) {
+TEST_F(OAuth2ManifestTest, AutoApproveNotSetExtensionNotOnWhitelist) {
   base::Value ext_manifest =
       CreateManifest(AUTO_APPROVE_NOT_SET, false, CLIENT_ID_DEFAULT);
   ManifestData manifest(std::move(ext_manifest), "test");
@@ -197,7 +197,7 @@ TEST_F(OAuth2ManifestTest, AutoApproveNotSetExtensionNotOnAllowlist) {
   EXPECT_FALSE(OAuth2ManifestHandler::GetOAuth2Info(*extension).auto_approve);
 }
 
-TEST_F(OAuth2ManifestTest, AutoApproveFalseExtensionNotOnAllowlist) {
+TEST_F(OAuth2ManifestTest, AutoApproveFalseExtensionNotOnWhitelist) {
   base::Value ext_manifest =
       CreateManifest(AUTO_APPROVE_FALSE, false, CLIENT_ID_DEFAULT);
   ManifestData manifest(std::move(ext_manifest), "test");
@@ -210,7 +210,7 @@ TEST_F(OAuth2ManifestTest, AutoApproveFalseExtensionNotOnAllowlist) {
   EXPECT_FALSE(OAuth2ManifestHandler::GetOAuth2Info(*extension).auto_approve);
 }
 
-TEST_F(OAuth2ManifestTest, AutoApproveTrueExtensionNotOnAllowlist) {
+TEST_F(OAuth2ManifestTest, AutoApproveTrueExtensionNotOnWhitelist) {
   base::Value ext_manifest =
       CreateManifest(AUTO_APPROVE_TRUE, false, CLIENT_ID_DEFAULT);
   ManifestData manifest(std::move(ext_manifest), "test");
@@ -223,7 +223,7 @@ TEST_F(OAuth2ManifestTest, AutoApproveTrueExtensionNotOnAllowlist) {
   EXPECT_FALSE(OAuth2ManifestHandler::GetOAuth2Info(*extension).auto_approve);
 }
 
-TEST_F(OAuth2ManifestTest, AutoApproveInvalidExtensionNotOnAllowlist) {
+TEST_F(OAuth2ManifestTest, AutoApproveInvalidExtensionNotOnWhitelist) {
   base::Value ext_manifest =
       CreateManifest(AUTO_APPROVE_INVALID, false, CLIENT_ID_DEFAULT);
   ManifestData manifest(std::move(ext_manifest), "test");
@@ -236,7 +236,7 @@ TEST_F(OAuth2ManifestTest, AutoApproveInvalidExtensionNotOnAllowlist) {
   EXPECT_FALSE(OAuth2ManifestHandler::GetOAuth2Info(*extension).auto_approve);
 }
 
-TEST_F(OAuth2ManifestTest, AutoApproveNotSetExtensionOnAllowlist) {
+TEST_F(OAuth2ManifestTest, AutoApproveNotSetExtensionOnWhitelist) {
   base::Value ext_manifest =
       CreateManifest(AUTO_APPROVE_NOT_SET, true, CLIENT_ID_DEFAULT);
   ManifestData manifest(std::move(ext_manifest), "test");
@@ -246,7 +246,7 @@ TEST_F(OAuth2ManifestTest, AutoApproveNotSetExtensionOnAllowlist) {
   EXPECT_FALSE(OAuth2ManifestHandler::GetOAuth2Info(*extension).auto_approve);
 }
 
-TEST_F(OAuth2ManifestTest, AutoApproveFalseExtensionOnAllowlist) {
+TEST_F(OAuth2ManifestTest, AutoApproveFalseExtensionOnWhitelist) {
   base::Value ext_manifest =
       CreateManifest(AUTO_APPROVE_FALSE, true, CLIENT_ID_DEFAULT);
   ManifestData manifest(std::move(ext_manifest), "test");
@@ -257,7 +257,7 @@ TEST_F(OAuth2ManifestTest, AutoApproveFalseExtensionOnAllowlist) {
   EXPECT_FALSE(*OAuth2ManifestHandler::GetOAuth2Info(*extension).auto_approve);
 }
 
-TEST_F(OAuth2ManifestTest, AutoApproveTrueExtensionOnAllowlist) {
+TEST_F(OAuth2ManifestTest, AutoApproveTrueExtensionOnWhitelist) {
   base::Value ext_manifest =
       CreateManifest(AUTO_APPROVE_TRUE, true, CLIENT_ID_DEFAULT);
   ManifestData manifest(std::move(ext_manifest), "test");
@@ -268,7 +268,7 @@ TEST_F(OAuth2ManifestTest, AutoApproveTrueExtensionOnAllowlist) {
   EXPECT_TRUE(*OAuth2ManifestHandler::GetOAuth2Info(*extension).auto_approve);
 }
 
-TEST_F(OAuth2ManifestTest, AutoApproveInvalidExtensionOnAllowlist) {
+TEST_F(OAuth2ManifestTest, AutoApproveInvalidExtensionOnWhitelist) {
   base::Value ext_manifest =
       CreateManifest(AUTO_APPROVE_INVALID, true, CLIENT_ID_DEFAULT);
   ManifestData manifest(std::move(ext_manifest), "test");

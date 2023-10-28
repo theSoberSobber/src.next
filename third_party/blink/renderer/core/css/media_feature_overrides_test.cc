@@ -5,51 +5,55 @@
 #include "third_party/blink/renderer/core/css/media_feature_overrides.h"
 
 #include "testing/gtest/include/gtest/gtest.h"
-#include "third_party/blink/public/mojom/css/preferred_color_scheme.mojom-blink.h"
 
 namespace blink {
 
 TEST(MediaFeatureOverrides, GetOverrideInitial) {
   MediaFeatureOverrides overrides;
 
-  EXPECT_FALSE(overrides.GetColorGamut().has_value());
-  EXPECT_FALSE(overrides.GetPreferredColorScheme().has_value());
+  EXPECT_FALSE(overrides.GetOverride("unknown").IsValid());
+  EXPECT_FALSE(overrides.GetOverride("prefers-color-scheme").IsValid());
+  EXPECT_FALSE(overrides.GetOverride("display-mode").IsValid());
 }
 
 TEST(MediaFeatureOverrides, SetOverrideInvalid) {
   MediaFeatureOverrides overrides;
 
   overrides.SetOverride("prefers-color-scheme", "1px");
-  EXPECT_FALSE(overrides.GetPreferredColorScheme().has_value());
+  EXPECT_FALSE(overrides.GetOverride("prefers-color-scheme").IsValid());
 
   overrides.SetOverride("prefers-color-scheme", "orange");
-  EXPECT_FALSE(overrides.GetPreferredColorScheme().has_value());
+  EXPECT_FALSE(overrides.GetOverride("prefers-color-scheme").IsValid());
 }
 
 TEST(MediaFeatureOverrides, SetOverrideValid) {
   MediaFeatureOverrides overrides;
 
   overrides.SetOverride("prefers-color-scheme", "light");
-  EXPECT_EQ(mojom::blink::PreferredColorScheme::kLight,
-            overrides.GetPreferredColorScheme());
+  auto light_override = overrides.GetOverride("prefers-color-scheme");
+  EXPECT_TRUE(light_override.IsValid());
+  EXPECT_TRUE(light_override.is_id);
+  EXPECT_EQ(CSSValueID::kLight, light_override.id);
 
   overrides.SetOverride("prefers-color-scheme", "dark");
-  EXPECT_EQ(mojom::blink::PreferredColorScheme::kDark,
-            overrides.GetPreferredColorScheme());
+  auto dark_override = overrides.GetOverride("prefers-color-scheme");
+  EXPECT_TRUE(dark_override.IsValid());
+  EXPECT_TRUE(dark_override.is_id);
+  EXPECT_EQ(CSSValueID::kDark, dark_override.id);
 }
 
 TEST(MediaFeatureOverrides, ResetOverride) {
   MediaFeatureOverrides overrides;
 
   overrides.SetOverride("prefers-color-scheme", "light");
-  EXPECT_TRUE(overrides.GetPreferredColorScheme().has_value());
+  EXPECT_TRUE(overrides.GetOverride("prefers-color-scheme").IsValid());
   overrides.SetOverride("prefers-color-scheme", "");
-  EXPECT_FALSE(overrides.GetPreferredColorScheme().has_value());
+  EXPECT_FALSE(overrides.GetOverride("prefers-color-scheme").IsValid());
 
   overrides.SetOverride("prefers-color-scheme", "light");
-  EXPECT_TRUE(overrides.GetPreferredColorScheme().has_value());
+  EXPECT_TRUE(overrides.GetOverride("prefers-color-scheme").IsValid());
   overrides.SetOverride("prefers-color-scheme", "invalid");
-  EXPECT_FALSE(overrides.GetPreferredColorScheme().has_value());
+  EXPECT_FALSE(overrides.GetOverride("prefers-color-scheme").IsValid());
 }
 
 }  // namespace blink

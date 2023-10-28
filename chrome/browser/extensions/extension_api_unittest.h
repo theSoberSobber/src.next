@@ -1,4 +1,4 @@
-// Copyright 2014 The Chromium Authors
+// Copyright 2014 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -15,6 +15,7 @@
 namespace base {
 class Value;
 class DictionaryValue;
+class ListValue;
 }
 
 class ExtensionFunction;
@@ -66,9 +67,9 @@ class ExtensionApiUnittest : public BrowserWithTestWindowTest {
       ExtensionFunction* function,
       const std::string& args);
 
-  // Return the function result as a base::Value, or NULL.
-  // This will EXPECT-fail if the result is not a list.
-  std::unique_ptr<base::Value> RunFunctionAndReturnList(
+  // Return the function result as a base::ListValue, or NULL.
+  // This will EXPECT-fail if the result is not a ListValue.
+  std::unique_ptr<base::ListValue> RunFunctionAndReturnList(
       ExtensionFunction* function,
       const std::string& args);
 

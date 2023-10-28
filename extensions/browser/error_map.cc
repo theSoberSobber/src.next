@@ -1,4 +1,4 @@
-// Copyright 2014 The Chromium Authors
+// Copyright 2014 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,6 +7,7 @@
 #include <utility>
 
 #include "base/lazy_instance.h"
+#include "base/macros.h"
 
 namespace extensions {
 
@@ -87,10 +88,6 @@ bool ErrorMap::Filter::Matches(const ExtensionError* error) const {
 class ErrorMap::ExtensionEntry {
  public:
   ExtensionEntry();
-
-  ExtensionEntry(const ExtensionEntry&) = delete;
-  ExtensionEntry& operator=(const ExtensionEntry&) = delete;
-
   ~ExtensionEntry();
 
   // Delete any errors in the entry that match the given ids and type, if
@@ -110,6 +107,8 @@ class ErrorMap::ExtensionEntry {
   // owned by the Entry (in turn owned by the ErrorMap) and are deleted upon
   // destruction.
   ErrorList list_;
+
+  DISALLOW_COPY_AND_ASSIGN(ExtensionEntry);
 };
 
 ErrorMap::ExtensionEntry::ExtensionEntry() {

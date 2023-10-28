@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -11,11 +11,9 @@
 
 #include "base/base_switches.h"
 #include "base/bind.h"
-#include "base/command_line.h"
 #include "base/feature_list.h"
 #include "base/files/file_path.h"
 #include "base/path_service.h"
-#include "base/strings/escape.h"
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
@@ -29,7 +27,6 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/test/base/ui_test_utils.h"
-#include "components/services/app_service/public/cpp/app_launch_util.h"
 #include "content/public/common/content_switches.h"
 #include "extensions/browser/api/test/test_api.h"
 #include "extensions/browser/extension_registry.h"
@@ -41,6 +38,7 @@
 #include "extensions/common/feature_switch.h"
 #include "extensions/common/switches.h"
 #include "extensions/test/result_catcher.h"
+#include "net/base/escape.h"
 #include "net/base/filename_util.h"
 #include "net/test/embedded_test_server/default_handlers.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
@@ -56,12 +54,12 @@ namespace {
 const char kTestCustomArg[] = "customArg";
 const char kTestDataDirectory[] = "testDataDirectory";
 const char kTestWebSocketPort[] = "testWebSocketPort";
+const char kFtpServerPort[] = "ftpServer.port";
 const char kEmbeddedTestServerPort[] = "testServer.port";
 
 }  // namespace
 
-ExtensionApiTest::ExtensionApiTest(ContextType context_type)
-    : ExtensionBrowserTest(context_type) {
+ExtensionApiTest::ExtensionApiTest() {
   net::test_server::RegisterDefaultHandlers(embedded_test_server());
 }
 
@@ -71,13 +69,13 @@ void ExtensionApiTest::SetUpOnMainThread() {
   ExtensionBrowserTest::SetUpOnMainThread();
   DCHECK(!test_config_.get()) << "Previous test did not clear config state.";
   test_config_ = std::make_unique<base::DictionaryValue>();
-  test_config_->SetStringPath(kTestDataDirectory,
-                              net::FilePathToFileURL(test_data_dir_).spec());
+  test_config_->SetString(kTestDataDirectory,
+                          net::FilePathToFileURL(test_data_dir_).spec());
 
   if (embedded_test_server()->Started()) {
     // InitializeEmbeddedTestServer was called before |test_config_| was set.
     // Set the missing port key.
-    test_config_->SetIntPath(kEmbeddedTestServerPort,
+    test_config_->SetInteger(kEmbeddedTestServerPort,
                              embedded_test_server()->port());
   }
 
@@ -86,8 +84,8 @@ void ExtensionApiTest::SetUpOnMainThread() {
 
 void ExtensionApiTest::TearDownOnMainThread() {
   ExtensionBrowserTest::TearDownOnMainThread();
-  TestGetConfigFunction::set_test_config_state(nullptr);
-  test_config_.reset();
+  TestGetConfigFunction::set_test_config_state(NULL);
+  test_config_.reset(NULL);
 }
 
 bool ExtensionApiTest::RunExtensionTest(const char* extension_name) {
@@ -100,16 +98,6 @@ bool ExtensionApiTest::RunExtensionTest(const char* extension_name,
 }
 
 bool ExtensionApiTest::RunExtensionTest(const char* extension_name,
-                                        const RunOptions& run_options,
-                                        const LoadOptions& load_options) {
-  const base::FilePath& root_path = run_options.use_extensions_root_dir
-                                        ? shared_test_data_dir_
-                                        : test_data_dir_;
-  base::FilePath extension_path = root_path.AppendASCII(extension_name);
-  return RunExtensionTest(extension_path, run_options, load_options);
-}
-
-bool ExtensionApiTest::RunExtensionTest(const base::FilePath& extension_path,
                                         const RunOptions& run_options,
                                         const LoadOptions& load_options) {
   // Do some sanity checks for options that are mutually exclusive or
@@ -125,37 +113,36 @@ bool ExtensionApiTest::RunExtensionTest(const base::FilePath& extension_path,
     SetCustomArg(run_options.custom_arg);
 
   ResultCatcher catcher;
+
+  const base::FilePath& root_path = run_options.use_extensions_root_dir
+                                        ? shared_test_data_dir_
+                                        : test_data_dir_;
+  base::FilePath extension_path = root_path.AppendASCII(extension_name);
   const Extension* extension = LoadExtension(extension_path, load_options);
   if (!extension) {
     message_ = "Failed to load extension.";
     return false;
   }
 
-  GURL url_to_open;
+  // If there is a page_url to load, navigate it.
   if (run_options.page_url) {
-    url_to_open = GURL(run_options.page_url);
+    GURL url(run_options.page_url);
+
     // Note: We use is_valid() here in the expectation that the provided url
     // may lack a scheme & host and thus be a relative url within the loaded
     // extension.
-    // TODO(https://crbug.com/1284691): Update callers passing relative paths
-    // for page URLs to instead use extension_url.
-    if (!url_to_open.is_valid())
-      url_to_open = extension->GetResourceURL(run_options.page_url);
-  } else if (run_options.extension_url) {
-    url_to_open = extension->GetResourceURL(run_options.extension_url);
-  }
+    if (!url.is_valid())
+      url = extension->GetResourceURL(run_options.page_url);
 
-  // If there is a page_url to load, navigate it.
-  if (!url_to_open.is_empty()) {
-    OpenURL(url_to_open, run_options.open_in_incognito);
+    OpenURL(url, run_options.open_in_incognito);
   } else if (run_options.launch_as_platform_app) {
     apps::AppLaunchParams params(
-        extension->id(), apps::LaunchContainer::kLaunchContainerNone,
-        WindowOpenDisposition::NEW_WINDOW, apps::LaunchSource::kFromTest);
+        extension->id(), LaunchContainer::kLaunchContainerNone,
+        WindowOpenDisposition::NEW_WINDOW, AppLaunchSource::kSourceTest);
     params.command_line = *base::CommandLine::ForCurrentProcess();
     apps::AppServiceProxyFactory::GetForProfile(browser()->profile())
         ->BrowserAppLauncher()
-        ->LaunchAppWithParamsForTesting(std::move(params));
+        ->LaunchAppWithParams(std::move(params));
   }
 
   if (!catcher.GetNextResult()) {
@@ -170,7 +157,7 @@ void ExtensionApiTest::OpenURL(const GURL& url, bool open_in_incognito) {
   if (open_in_incognito) {
     OpenURLOffTheRecord(browser()->profile(), url);
   } else {
-    ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
+    ui_test_utils::NavigateToURL(browser(), url);
   }
 }
 
@@ -193,7 +180,7 @@ bool ExtensionApiTest::OpenTestURL(const GURL& url, bool open_in_incognito) {
 const Extension* ExtensionApiTest::GetSingleLoadedExtension() {
   ExtensionRegistry* registry = ExtensionRegistry::Get(browser()->profile());
 
-  const Extension* result = nullptr;
+  const Extension* result = NULL;
   for (const scoped_refptr<const Extension>& extension :
        registry->enabled_extensions()) {
     // Ignore any component extensions. They are automatically loaded into all
@@ -201,12 +188,12 @@ const Extension* ExtensionApiTest::GetSingleLoadedExtension() {
     if (extension->location() == mojom::ManifestLocation::kComponent)
       continue;
 
-    if (result != nullptr) {
+    if (result != NULL) {
       // TODO(yoz): this is misleading; it counts component extensions.
       message_ = base::StringPrintf(
           "Expected only one extension to be present.  Found %u.",
           static_cast<unsigned>(registry->enabled_extensions().size()));
-      return nullptr;
+      return NULL;
     }
 
     result = extension.get();
@@ -214,7 +201,7 @@ const Extension* ExtensionApiTest::GetSingleLoadedExtension() {
 
   if (!result) {
     message_ = "extension pointer is NULL.";
-    return nullptr;
+    return NULL;
   }
   return result;
 }
@@ -235,7 +222,7 @@ bool ExtensionApiTest::InitializeEmbeddedTestServer() {
   // access the test server and local file system.  Tests can see these values
   // using the extension API function chrome.test.getConfig().
   if (test_config_) {
-    test_config_->SetIntPath(kEmbeddedTestServerPort,
+    test_config_->SetInteger(kEmbeddedTestServerPort,
                              embedded_test_server()->port());
   }
   // else SetUpOnMainThread has not been called yet. Possibly because the
@@ -258,8 +245,21 @@ bool ExtensionApiTest::StartWebSocketServer(
   if (!websocket_server_->Start())
     return false;
 
-  test_config_->SetIntPath(kTestWebSocketPort,
+  test_config_->SetInteger(kTestWebSocketPort,
                            websocket_server_->host_port_pair().port());
+
+  return true;
+}
+
+bool ExtensionApiTest::StartFTPServer(const base::FilePath& root_directory) {
+  ftp_server_ = std::make_unique<net::SpawnedTestServer>(
+      net::SpawnedTestServer::TYPE_FTP, root_directory);
+
+  if (!ftp_server_->Start())
+    return false;
+
+  test_config_->SetInteger(kFtpServerPort,
+                           ftp_server_->host_port_pair().port());
 
   return true;
 }
@@ -281,14 +281,6 @@ void ExtensionApiTest::SetUpCommandLine(base::CommandLine* command_line) {
   // tests to take more time to complete. Disable backgrounding so that the
   // tests don't time out.
   command_line->AppendSwitch(::switches::kDisableRendererBackgrounding);
-}
-
-void ExtensionApiTest::UseHttpsTestServer() {
-  https_test_server_ = std::make_unique<net::EmbeddedTestServer>(
-      net::EmbeddedTestServer::TYPE_HTTPS);
-  https_test_server_.get()->AddDefaultHandlers(GetChromeTestDataDir());
-  https_test_server_.get()->SetSSLConfig(
-      net::EmbeddedTestServer::CERT_TEST_NAMES);
 }
 
 }  // namespace extensions

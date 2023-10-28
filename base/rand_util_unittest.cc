@@ -1,4 +1,4 @@
-// Copyright 2011 The Chromium Authors
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -43,26 +43,6 @@ TEST(RandUtilTest, RandDouble) {
   volatile double number = base::RandDouble();
   EXPECT_GT(1.0, number);
   EXPECT_LE(0.0, number);
-}
-
-TEST(RandUtilTest, BitsToOpenEndedUnitInterval) {
-  // Force 64-bit precision, making sure we're not in an 80-bit FPU register.
-  volatile double all_zeros = BitsToOpenEndedUnitInterval(0x0);
-  EXPECT_EQ(0.0, all_zeros);
-
-  // Force 64-bit precision, making sure we're not in an 80-bit FPU register.
-  volatile double smallest_nonzero = BitsToOpenEndedUnitInterval(0x1);
-  EXPECT_LT(0.0, smallest_nonzero);
-
-  for (uint64_t i = 0x2; i < 0x10; ++i) {
-    // Force 64-bit precision, making sure we're not in an 80-bit FPU register.
-    volatile double number = BitsToOpenEndedUnitInterval(i);
-    EXPECT_EQ(i * smallest_nonzero, number);
-  }
-
-  // Force 64-bit precision, making sure we're not in an 80-bit FPU register.
-  volatile double all_ones = BitsToOpenEndedUnitInterval(UINT64_MAX);
-  EXPECT_GT(1.0, all_ones);
 }
 
 TEST(RandUtilTest, RandBytes) {
@@ -202,6 +182,7 @@ TEST(RandUtilTest, InsecureRandomGeneratorProducesBothValuesOfAllBits) {
   uint64_t found_zeros = kAllOnes;
 
   InsecureRandomGenerator generator;
+  generator.Seed();
 
   for (size_t i = 0; i < 1000; ++i) {
     uint64_t value = generator.RandUint64();
@@ -290,7 +271,7 @@ TEST(RandUtilTest, InsecureRandomGeneratorChiSquared) {
       size_t samples = 1 << 16;
       InsecureRandomGenerator gen;
       // Fix the seed to make the test non-flaky.
-      gen.ReseedForTesting(kIterations + 1);
+      gen.SeedForTesting(kIterations + 1);
       bool pass = ChiSquaredTest(gen, samples, start_bit, 8);
       pass_count += pass;
     }
@@ -305,6 +286,7 @@ TEST(RandUtilTest, InsecureRandomGeneratorChiSquared) {
 
 TEST(RandUtilTest, InsecureRandomGeneratorRandDouble) {
   InsecureRandomGenerator gen;
+  gen.Seed();
 
   for (int i = 0; i < 1000; i++) {
     volatile double x = gen.RandDouble();

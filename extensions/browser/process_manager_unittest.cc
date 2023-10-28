@@ -1,9 +1,10 @@
-// Copyright 2014 The Chromium Authors
+// Copyright 2014 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include "extensions/browser/process_manager.h"
 
+#include "base/macros.h"
 #include "content/public/browser/content_browser_client.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/site_instance.h"
@@ -56,9 +57,6 @@ class ProcessManagerTest : public ExtensionsTest {
  public:
   ProcessManagerTest() {}
 
-  ProcessManagerTest(const ProcessManagerTest&) = delete;
-  ProcessManagerTest& operator=(const ProcessManagerTest&) = delete;
-
   ~ProcessManagerTest() override {}
 
   void SetUp() override {
@@ -80,6 +78,8 @@ class ProcessManagerTest : public ExtensionsTest {
   std::unique_ptr<ExtensionRegistry>
       extension_registry_;  // Shared between BrowserContexts.
   TestProcessManagerDelegate process_manager_delegate_;
+
+  DISALLOW_COPY_AND_ASSIGN(ProcessManagerTest);
 };
 
 // Test that startup background hosts are created when the extension system

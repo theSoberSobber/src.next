@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium Authors
+// Copyright 2019 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,6 +7,7 @@
 
 #include <memory>
 
+#include "base/macros.h"
 #include "base/memory/scoped_refptr.h"
 #include "build/build_config.h"
 #include "components/leveldb_proto/public/proto_database_provider.h"
@@ -36,10 +37,6 @@ class ChromeFeatureListCreator;
 class StartupData {
  public:
   StartupData();
-
-  StartupData(const StartupData&) = delete;
-  StartupData& operator=(const StartupData&) = delete;
-
   ~StartupData();
 
   // Records core profile settings into the SystemProfileProto. It is important
@@ -49,7 +46,7 @@ class StartupData {
   // browser mode.
   void RecordCoreSystemProfile();
 
-#if BUILDFLAG(IS_ANDROID)
+#if defined(OS_ANDROID)
   // Initializes all necessary parameters to create the Profile's PrefService.
   void CreateProfilePrefService();
 
@@ -87,7 +84,7 @@ class StartupData {
   }
 
  private:
-#if BUILDFLAG(IS_ANDROID)
+#if defined(OS_ANDROID)
   void PreProfilePrefServiceInit();
   void CreateServicesInternal();
 
@@ -105,6 +102,8 @@ class StartupData {
 #endif
 
   std::unique_ptr<ChromeFeatureListCreator> chrome_feature_list_creator_;
+
+  DISALLOW_COPY_AND_ASSIGN(StartupData);
 };
 
 #endif  // CHROME_BROWSER_STARTUP_DATA_H_

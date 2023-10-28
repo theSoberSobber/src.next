@@ -1,4 +1,4 @@
-// Copyright 2017 The Chromium Authors
+// Copyright 2017 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,6 +7,7 @@
 
 #include "base/base64.h"
 #include "base/containers/span.h"
+#include "base/cxx17_backports.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
@@ -29,8 +30,6 @@
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "testing/platform_test.h"
-#include "url/gurl.h"
-#include "url/scheme_host_port.h"
 
 namespace net {
 
@@ -52,12 +51,12 @@ class HttpAuthHandlerNtlmPortableTest : public PlatformTest {
   }
 
   int CreateHandler() {
-    url::SchemeHostPort scheme_host_port(GURL("https://foo.com"));
+    GURL gurl("https://foo.com");
     SSLInfo null_ssl_info;
 
     return factory_->CreateAuthHandlerFromString(
         "NTLM", HttpAuth::AUTH_SERVER, null_ssl_info, NetworkIsolationKey(),
-        scheme_host_port, NetLogWithSource(), nullptr, &auth_handler_);
+        gurl, NetLogWithSource(), nullptr, &auth_handler_);
   }
 
   std::string CreateNtlmAuthHeader(base::span<const uint8_t> buffer) {
@@ -234,7 +233,7 @@ TEST_F(HttpAuthHandlerNtlmPortableTest, NtlmV1AuthenticationSuccess) {
   // Validate the authenticate message
   std::string decoded;
   ASSERT_TRUE(DecodeChallenge(token, &decoded));
-  ASSERT_EQ(std::size(ntlm::test::kExpectedAuthenticateMsgSpecResponseV1),
+  ASSERT_EQ(base::size(ntlm::test::kExpectedAuthenticateMsgSpecResponseV1),
             decoded.size());
   ASSERT_EQ(0, memcmp(decoded.data(),
                       ntlm::test::kExpectedAuthenticateMsgSpecResponseV1,

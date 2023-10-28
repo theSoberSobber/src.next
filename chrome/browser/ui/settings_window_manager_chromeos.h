@@ -1,4 +1,4 @@
-// Copyright 2014 The Chromium Authors
+// Copyright (c) 2014 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -8,6 +8,7 @@
 #include <map>
 #include <string>
 
+#include "base/macros.h"
 #include "base/memory/singleton.h"
 #include "base/observer_list.h"
 #include "components/sessions/core/session_id.h"
@@ -27,9 +28,6 @@ class SettingsWindowManagerObserver;
 
 class SettingsWindowManager {
  public:
-  SettingsWindowManager(const SettingsWindowManager&) = delete;
-  SettingsWindowManager& operator=(const SettingsWindowManager&) = delete;
-
   static SettingsWindowManager* GetInstance();
 
   // Caller is responsible for |manager|'s life time.
@@ -77,6 +75,8 @@ class SettingsWindowManager {
 
   // TODO(calamity): Remove when SystemWebApps are enabled by default.
   ProfileSessionMap settings_session_map_;
+
+  DISALLOW_COPY_AND_ASSIGN(SettingsWindowManager);
 };
 
 }  // namespace chrome

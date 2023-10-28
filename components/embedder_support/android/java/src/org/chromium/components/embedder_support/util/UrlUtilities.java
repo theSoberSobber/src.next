@@ -1,4 +1,4 @@
-// Copyright 2013 The Chromium Authors
+// Copyright 2013 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -13,7 +13,6 @@ import androidx.core.text.BidiFormatter;
 import org.chromium.base.CollectionUtil;
 import org.chromium.base.annotations.JNINamespace;
 import org.chromium.base.annotations.NativeMethods;
-import org.chromium.base.library_loader.LibraryLoader;
 import org.chromium.components.url_formatter.UrlFormatter;
 import org.chromium.content_public.common.ContentUrlConstants;
 import org.chromium.net.GURLUtils;
@@ -250,7 +249,7 @@ public class UrlUtilities {
 
     /**
      * Escapes characters in text suitable for use as a query parameter value.
-     * This method calls into base::EscapeQueryParamValue.
+     * This method calls into net::EscapeQueryParamValue.
      * @param text string to be escaped.
      * @param usePlus whether or not to use "+" in place of spaces.
      * @return the escaped string.
@@ -299,13 +298,6 @@ public class UrlUtilities {
      * @return Whether the given URL matches the NTP urls exactly.
      */
     public static boolean isCanonicalizedNTPUrl(String url) {
-        // TODO(crbug.com/1267266): Let callers check if the library is initialized and make them
-        // call this method only before native is initialized.
-        // After native initialization, the homepage url could become
-        // "chrome://newtab/#most_visited" on carrier phones. Simply comparing the text of the URL
-        // returns a wrong result, but isNTPUrl(url) which checks the host of the URL works. See
-        // https://crbug.com/1266625.
-        if (LibraryLoader.getInstance().isInitialized()) return isNTPUrl(url);
         return TextUtils.equals(url, UrlConstants.NTP_URL)
                 || TextUtils.equals(url, UrlConstants.NTP_NON_NATIVE_URL)
                 || TextUtils.equals(url, UrlConstants.NTP_ABOUT_URL);

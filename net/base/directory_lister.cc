@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -14,8 +14,9 @@
 #include "base/i18n/file_util_icu.h"
 #include "base/location.h"
 #include "base/notreached.h"
-#include "base/task/task_runner.h"
+#include "base/task/post_task.h"
 #include "base/task/thread_pool.h"
+#include "base/task_runner.h"
 #include "base/threading/sequenced_task_runner_handle.h"
 #include "base/threading/thread_restrictions.h"
 #include "net/base/net_errors.h"
@@ -71,7 +72,7 @@ DirectoryLister::DirectoryLister(const base::FilePath& dir,
                                  ListingType type,
                                  DirectoryListerDelegate* delegate)
     : delegate_(delegate) {
-  core_ = base::MakeRefCounted<Core>(dir, type, this);
+  core_ = new Core(dir, type, this);
   DCHECK(delegate_);
   DCHECK(!dir.value().empty());
 }
@@ -97,7 +98,8 @@ DirectoryLister::Core::Core(const base::FilePath& dir,
     : dir_(dir),
       type_(type),
       origin_task_runner_(base::SequencedTaskRunnerHandle::Get().get()),
-      lister_(lister) {
+      lister_(lister),
+      cancelled_(0) {
   DCHECK(lister_);
 }
 
@@ -114,7 +116,7 @@ void DirectoryLister::Core::CancelOnOriginSequence() {
 }
 
 void DirectoryLister::Core::Start() {
-  auto directory_list = std::make_unique<DirectoryList>();
+  std::unique_ptr<DirectoryList> directory_list(new DirectoryList());
 
   if (!base::DirectoryExists(dir_)) {
     origin_task_runner_->PostTask(

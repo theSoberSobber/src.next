@@ -23,7 +23,6 @@
 #include <utility>
 
 #include "third_party/blink/public/web/web_print_page_description.h"
-#include "third_party/blink/renderer/core/css/properties/computed_style_utils.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
 #include "third_party/blink/renderer/core/frame/page_scale_constraints_set.h"
@@ -31,7 +30,6 @@
 #include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/core/paint/paint_layer_scrollable_area.h"
 #include "third_party/blink/renderer/platform/graphics/graphics_context.h"
-#include "ui/gfx/geometry/size_f.h"
 
 namespace blink {
 
@@ -43,9 +41,9 @@ LayoutBoxModelObject* EnclosingBoxModelObject(LayoutObject* object) {
   return To<LayoutBoxModelObject>(object);
 }
 
-bool IsCoordinateInPage(int top, int left, const gfx::Rect& page) {
-  return page.x() <= left && left < page.right() && page.y() <= top &&
-         top < page.bottom();
+bool IsCoordinateInPage(int top, int left, const IntRect& page) {
+  return page.X() <= left && left < page.MaxX() && page.Y() <= top &&
+         top < page.MaxY();
 }
 
 }  // namespace
@@ -60,57 +58,57 @@ PrintContext::~PrintContext() {
   DCHECK(!is_printing_);
 }
 
-void PrintContext::ComputePageRects(const gfx::SizeF& print_size) {
+void PrintContext::ComputePageRects(const FloatSize& print_size) {
   page_rects_.clear();
 
   if (!IsFrameValid())
     return;
 
   if (!use_printing_layout_) {
-    gfx::Rect page_rect(0, 0, print_size.width(), print_size.height());
+    IntRect page_rect(0, 0, print_size.Width(), print_size.Height());
     page_rects_.push_back(page_rect);
     return;
   }
 
   auto* view = frame_->GetDocument()->GetLayoutView();
   const PhysicalRect& document_rect = view->DocumentRect();
-  gfx::SizeF page_size = frame_->ResizePageRectsKeepingRatio(
-      print_size, gfx::SizeF(document_rect.size));
+  FloatSize page_size = frame_->ResizePageRectsKeepingRatio(
+      print_size, FloatSize(document_rect.Width(), document_rect.Height()));
   ComputePageRectsWithPageSizeInternal(page_size);
 }
 
 void PrintContext::ComputePageRectsWithPageSize(
-    const gfx::SizeF& page_size_in_pixels) {
+    const FloatSize& page_size_in_pixels) {
   page_rects_.clear();
   ComputePageRectsWithPageSizeInternal(page_size_in_pixels);
 }
 
 void PrintContext::ComputePageRectsWithPageSizeInternal(
-    const gfx::SizeF& page_size_in_pixels) {
+    const FloatSize& page_size_in_pixels) {
   if (!IsFrameValid())
     return;
 
   auto* view = frame_->GetDocument()->GetLayoutView();
 
-  gfx::Rect snapped_doc_rect = ToPixelSnappedRect(view->DocumentRect());
+  IntRect snapped_doc_rect = PixelSnappedIntRect(view->DocumentRect());
 
+  int page_width = page_size_in_pixels.Width();
   // We scaled with floating point arithmetic and need to ensure results like
   // 13329.99 are treated as 13330 so that we don't mistakenly assign an extra
   // page for the stray pixel.
-  int page_width = page_size_in_pixels.width() + LayoutUnit::Epsilon();
-  int page_height = page_size_in_pixels.height() + LayoutUnit::Epsilon();
+  int page_height = page_size_in_pixels.Height() + LayoutUnit::Epsilon();
 
   bool is_horizontal = view->StyleRef().IsHorizontalWritingMode();
 
   int doc_logical_height =
-      is_horizontal ? snapped_doc_rect.height() : snapped_doc_rect.width();
+      is_horizontal ? snapped_doc_rect.Height() : snapped_doc_rect.Width();
   int page_logical_height = is_horizontal ? page_height : page_width;
   int page_logical_width = is_horizontal ? page_width : page_height;
 
-  int inline_direction_start = snapped_doc_rect.x();
-  int inline_direction_end = snapped_doc_rect.right();
-  int block_direction_start = snapped_doc_rect.y();
-  int block_direction_end = snapped_doc_rect.bottom();
+  int inline_direction_start = snapped_doc_rect.X();
+  int inline_direction_end = snapped_doc_rect.MaxX();
+  int block_direction_start = snapped_doc_rect.Y();
+  int block_direction_end = snapped_doc_rect.MaxY();
   if (!is_horizontal) {
     std::swap(block_direction_start, inline_direction_start);
     std::swap(block_direction_end, inline_direction_end);
@@ -133,11 +131,12 @@ void PrintContext::ComputePageRectsWithPageSizeInternal(
                                 : inline_direction_start - page_logical_width;
 
     auto* scrollable_area = GetFrame()->View()->LayoutViewport();
-    gfx::Rect page_rect(page_logical_left, page_logical_top, page_logical_width,
-                        page_logical_height);
+    IntRect page_rect(page_logical_left, page_logical_top, page_logical_width,
+                      page_logical_height);
     if (!is_horizontal)
-      page_rect.Transpose();
-    page_rect.Offset(-scrollable_area->ScrollOffsetInt());
+      page_rect = page_rect.TransposedRect();
+    IntSize frame_scroll = scrollable_area->ScrollOffsetInt();
+    page_rect.Move(-frame_scroll.Width(), -frame_scroll.Height());
     page_rects_.push_back(page_rect);
   }
 }
@@ -150,10 +149,10 @@ void PrintContext::BeginPrintMode(float width, float height) {
   // without going back to screen mode.
   is_printing_ = true;
 
-  gfx::SizeF original_page_size(width, height);
-  gfx::SizeF min_layout_size = frame_->ResizePageRectsKeepingRatio(
-      original_page_size, gfx::SizeF(width * kPrintingMinimumShrinkFactor,
-                                     height * kPrintingMinimumShrinkFactor));
+  FloatSize original_page_size = FloatSize(width, height);
+  FloatSize min_layout_size = frame_->ResizePageRectsKeepingRatio(
+      original_page_size, FloatSize(width * kPrintingMinimumShrinkFactor,
+                                    height * kPrintingMinimumShrinkFactor));
 
   // This changes layout, so callers need to make sure that they don't paint to
   // screen while in printing mode.
@@ -179,23 +178,23 @@ void PrintContext::EndPrintMode() {
 
 // static
 int PrintContext::PageNumberForElement(Element* element,
-                                       const gfx::SizeF& page_size_in_pixels) {
+                                       const FloatSize& page_size_in_pixels) {
   element->GetDocument().UpdateStyleAndLayout(DocumentUpdateReason::kPrinting);
 
   LocalFrame* frame = element->GetDocument().GetFrame();
-  gfx::RectF page_rect(page_size_in_pixels);
+  FloatRect page_rect(FloatPoint(0, 0), page_size_in_pixels);
   ScopedPrintContext print_context(frame);
-  print_context->BeginPrintMode(page_rect.width(), page_rect.height());
+  print_context->BeginPrintMode(page_rect.Width(), page_rect.Height());
 
   LayoutBoxModelObject* box =
       EnclosingBoxModelObject(element->GetLayoutObject());
   if (!box)
     return -1;
 
-  gfx::SizeF scaled_page_size = page_size_in_pixels;
+  FloatSize scaled_page_size = page_size_in_pixels;
   scaled_page_size.Scale(
-      frame->View()->LayoutViewport()->ContentsSize().width() /
-      page_rect.width());
+      frame->View()->LayoutViewport()->ContentsSize().Width() /
+      page_rect.Width());
   print_context->ComputePageRectsWithPageSize(scaled_page_size);
 
   int top = box->PixelSnappedOffsetTop(box->OffsetParent());
@@ -231,7 +230,7 @@ void PrintContext::CollectLinkedDestinations(Node* node) {
 }
 
 void PrintContext::OutputLinkedDestinations(GraphicsContext& context,
-                                            const gfx::Rect& page_rect) {
+                                            const IntRect& page_rect) {
   if (!linked_destinations_valid_) {
     // Collect anchors in the top-level frame only because our PrintContext
     // supports only one namespace for the anchors.
@@ -243,7 +242,7 @@ void PrintContext::OutputLinkedDestinations(GraphicsContext& context,
     LayoutObject* layout_object = entry.value->GetLayoutObject();
     if (!layout_object || !layout_object->GetFrameView())
       continue;
-    gfx::Point anchor_point = layout_object->AbsoluteBoundingBoxRect().origin();
+    IntPoint anchor_point = layout_object->AbsoluteBoundingBoxRect().Location();
     if (page_rect.Contains(anchor_point))
       context.SetURLDestinationLocation(entry.key, anchor_point);
   }
@@ -272,15 +271,12 @@ String PrintContext::PageProperty(LocalFrame* frame,
     return String::Number(style->LineHeight().Value());
   if (!strcmp(property_name, "font-size"))
     return String::Number(style->GetFontDescription().ComputedPixelSize());
-  if (!strcmp(property_name, "font-family")) {
-    return ComputedStyleUtils::ValueForFontFamily(
-               style->GetFontDescription().Family())
-        ->CssText();
-  }
-  if (!strcmp(property_name, "size")) {
-    return String::Number(style->PageSize().width()) + ' ' +
-           String::Number(style->PageSize().height());
-  }
+  if (!strcmp(property_name, "font-family"))
+    return style->GetFontDescription().Family().Family().GetString();
+  if (!strcmp(property_name, "size"))
+    return String::Number(style->PageSize().Width()) + ' ' +
+           String::Number(style->PageSize().Height());
+
   return String("pageProperty() unimplemented for: ") + property_name;
 }
 
@@ -297,15 +293,15 @@ String PrintContext::PageSizeAndMarginsInPixels(LocalFrame* frame,
                                                 int margin_bottom,
                                                 int margin_left) {
   WebPrintPageDescription description;
-  description.size.SetSize(width, height);
+  description.size = WebDoubleSize(width, height);
   description.margin_top = margin_top;
   description.margin_right = margin_right;
   description.margin_bottom = margin_bottom;
   description.margin_left = margin_left;
   frame->GetDocument()->GetPageDescription(page_number, &description);
 
-  return "(" + String::Number(floor(description.size.width())) + ", " +
-         String::Number(floor(description.size.height())) + ") " +
+  return "(" + String::Number(floor(description.size.Width())) + ", " +
+         String::Number(floor(description.size.Height())) + ") " +
          String::Number(description.margin_top) + ' ' +
          String::Number(description.margin_right) + ' ' +
          String::Number(description.margin_bottom) + ' ' +
@@ -314,19 +310,17 @@ String PrintContext::PageSizeAndMarginsInPixels(LocalFrame* frame,
 
 // static
 int PrintContext::NumberOfPages(LocalFrame* frame,
-                                const gfx::SizeF& page_size_in_pixels) {
+                                const FloatSize& page_size_in_pixels) {
   frame->GetDocument()->UpdateStyleAndLayout(DocumentUpdateReason::kPrinting);
 
-  gfx::RectF page_rect(page_size_in_pixels);
+  FloatRect page_rect(FloatPoint(0, 0), page_size_in_pixels);
   ScopedPrintContext print_context(frame);
-  print_context->BeginPrintMode(page_rect.width(), page_rect.height());
+  print_context->BeginPrintMode(page_rect.Width(), page_rect.Height());
   // Account for shrink-to-fit.
-  gfx::SizeF scaled_page_size = page_size_in_pixels;
-  const LayoutView* layout_view = frame->View()->GetLayoutView();
-  bool is_horizontal = layout_view->StyleRef().IsHorizontalWritingMode();
+  FloatSize scaled_page_size = page_size_in_pixels;
   scaled_page_size.Scale(
-      layout_view->PageLogicalHeight() /
-      (is_horizontal ? page_rect.height() : page_rect.width()));
+      frame->View()->LayoutViewport()->ContentsSize().Width() /
+      page_rect.Width());
   print_context->ComputePageRectsWithPageSize(scaled_page_size);
   return print_context->PageCount();
 }

@@ -30,7 +30,7 @@ String CSSCounterValue::CustomCSSText() const {
   }
   result.Append(')');
 
-  return result.ReleaseString();
+  return result.ToString();
 }
 
 void CSSCounterValue::TraceAfterDispatch(blink::Visitor* visitor) const {

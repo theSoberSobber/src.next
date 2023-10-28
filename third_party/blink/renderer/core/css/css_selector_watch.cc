@@ -33,14 +33,12 @@
 #include "third_party/blink/public/platform/task_type.h"
 #include "third_party/blink/renderer/core/css/css_property_value_set.h"
 #include "third_party/blink/renderer/core/css/parser/css_parser.h"
-#include "third_party/blink/renderer/core/css/parser/css_parser_selector.h"
 #include "third_party/blink/renderer/core/css/style_engine.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
-#include "third_party/blink/renderer/core/execution_context/security_context.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/local_frame_client.h"
-#include "third_party/blink/renderer/platform/heap/garbage_collected.h"
+#include "third_party/blink/renderer/platform/heap/heap.h"
 
 namespace blink {
 
@@ -139,9 +137,9 @@ void CSSSelectorWatch::UpdateSelectorMatches(
   }
 }
 
-static bool AllCompound(const StyleRule* style_rule) {
-  for (const CSSSelector* selector = style_rule->FirstSelector(); selector;
-       selector = CSSSelectorList::Next(*selector)) {
+static bool AllCompound(const CSSSelectorList& selector_list) {
+  for (const CSSSelector* selector = selector_list.FirstForCSSOM(); selector;
+       selector = selector_list.Next(*selector)) {
     if (!selector->IsCompound())
       return false;
   }
@@ -157,22 +155,18 @@ void CSSSelectorWatch::WatchCSSSelectors(const Vector<String>& selectors) {
   // UA stylesheets always parse in the insecure context mode.
   auto* context = MakeGarbageCollected<CSSParserContext>(
       kUASheetMode, SecureContextMode::kInsecureContext);
-  Arena arena;
   for (const auto& selector : selectors) {
-    CSSSelectorVector</*UseArena=*/true> selector_vector =
-        CSSParser::ParseSelector</*UseArena=*/true>(context, nullptr, selector,
-                                                    arena);
-    if (selector_vector.IsEmpty())
+    CSSSelectorList selector_list =
+        CSSParser::ParseSelector(context, nullptr, selector);
+    if (!selector_list.IsValid())
       continue;
-
-    StyleRule* style_rule = StyleRule::Create</*UseArena=*/true>(
-        selector_vector, callback_property_set);
 
     // Only accept Compound Selectors, since they're cheaper to match.
-    if (!AllCompound(style_rule))
+    if (!AllCompound(selector_list))
       continue;
 
-    watched_callback_selectors_.push_back(style_rule);
+    watched_callback_selectors_.push_back(MakeGarbageCollected<StyleRule>(
+        std::move(selector_list), callback_property_set));
   }
   GetSupplementable()->GetStyleEngine().WatchedSelectorsChanged();
 }

@@ -4,7 +4,6 @@
 
 #include "third_party/blink/renderer/core/dom/events/event_target_impl.h"
 
-#include "third_party/blink/renderer/core/event_target_names.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
 
 namespace blink {

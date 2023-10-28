@@ -1,4 +1,4 @@
-// Copyright 2011 The Chromium Authors
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -16,8 +16,8 @@ class NetworkChangeNotifier;
 // instance creation process of NetworkChangeNotifier.
 class NET_EXPORT NetworkChangeNotifierFactory {
  public:
-  NetworkChangeNotifierFactory() = default;
-  virtual ~NetworkChangeNotifierFactory() = default;
+  NetworkChangeNotifierFactory() {}
+  virtual ~NetworkChangeNotifierFactory() {}
   virtual std::unique_ptr<NetworkChangeNotifier> CreateInstance() = 0;
 };
 

@@ -18,7 +18,7 @@ String CSSIdSelectorValue::CustomCSSText() const {
   StringBuilder builder;
   builder.Append('#');
   SerializeIdentifier(id_, builder);
-  return builder.ReleaseString();
+  return builder.ToString();
 }
 
 void CSSIdSelectorValue::TraceAfterDispatch(blink::Visitor* visitor) const {

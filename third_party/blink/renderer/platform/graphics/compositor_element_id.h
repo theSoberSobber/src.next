@@ -11,25 +11,20 @@
 
 namespace blink {
 
-const int kCompositorNamespaceBitCount = 5;
+const int kCompositorNamespaceBitCount = 4;
 
 enum class CompositorElementIdNamespace {
   kPrimary,
   kUniqueObjectId,
   kScroll,
   kStickyTranslation,
-  kAnchorScrollTranslation,
   kPrimaryEffect,
   kPrimaryTransform,
   kEffectFilter,
   kEffectMask,
   kEffectClipPath,
-  kScaleTransform,
-  kRotateTransform,
-  kTranslateTransform,
   kVerticalScrollbar,
   kHorizontalScrollbar,
-  kSharedElementTransition,
   kDOMNodeId,
   // The following values are for internal usage only.
   kMax = kDOMNodeId,
@@ -38,7 +33,7 @@ enum class CompositorElementIdNamespace {
   kMaxRepresentable = 1 << kCompositorNamespaceBitCount
 };
 
-static_assert(CompositorElementIdNamespace::kMax <
+static_assert(CompositorElementIdNamespace::kMax <=
                   CompositorElementIdNamespace::kMaxRepresentable,
               "");
 

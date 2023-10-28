@@ -1,11 +1,10 @@
-// Copyright 2020 The Chromium Authors
+// Copyright 2020 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include <tuple>
-
 #include "base/run_loop.h"
 #include "base/test/bind.h"
+#include "base/test/scoped_feature_list.h"
 #include "base/threading/sequenced_task_runner_handle.h"
 #include "build/build_config.h"
 #include "components/services/storage/public/mojom/storage_service.mojom.h"
@@ -15,6 +14,7 @@
 #include "content/browser/storage_partition_impl.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/web_contents.h"
+#include "content/public/common/content_features.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/content_browser_test.h"
@@ -26,7 +26,10 @@ namespace {
 
 class StorageServiceRestartBrowserTest : public ContentBrowserTest {
  public:
-  StorageServiceRestartBrowserTest() = default;
+  StorageServiceRestartBrowserTest() {
+    // These tests only make sense when the service is running out-of-process.
+    feature_list_.InitAndEnableFeature(features::kStorageServiceOutOfProcess);
+  }
 
   DOMStorageContextWrapper* dom_storage() {
     auto* partition =
@@ -40,7 +43,7 @@ class StorageServiceRestartBrowserTest : public ContentBrowserTest {
   void WaitForAnyLocalStorageDataAsync(base::OnceClosure callback) {
     dom_storage()->GetLocalStorageControl()->GetUsage(base::BindOnce(
         [](StorageServiceRestartBrowserTest* test, base::OnceClosure callback,
-           std::vector<storage::mojom::StorageUsageInfoV2Ptr> usage) {
+           std::vector<storage::mojom::StorageUsageInfoPtr> usage) {
           if (!usage.empty()) {
             std::move(callback).Run();
             return;
@@ -51,7 +54,7 @@ class StorageServiceRestartBrowserTest : public ContentBrowserTest {
               base::BindOnce(&StorageServiceRestartBrowserTest::
                                  WaitForAnyLocalStorageDataAsync,
                              base::Unretained(test), std::move(callback)),
-              base::Milliseconds(50));
+              base::TimeDelta::FromMilliseconds(50));
         },
         this, std::move(callback)));
   }
@@ -90,6 +93,7 @@ class StorageServiceRestartBrowserTest : public ContentBrowserTest {
   }
 
  private:
+  base::test::ScopedFeatureList feature_list_;
   mojo::Remote<storage::mojom::TestApi> test_api_;
 };
 
@@ -110,8 +114,8 @@ IN_PROC_BROWSER_TEST_F(StorageServiceRestartBrowserTest,
   // operation after a Storage Service crash.
   EXPECT_TRUE(
       NavigateToURL(shell(), GetTestUrl("dom_storage", "crash_recovery.html")));
-  std::ignore =
-      EvalJs(shell()->web_contents(), R"(setSessionStorageValue("foo", 42))");
+  ignore_result(
+      EvalJs(shell()->web_contents(), R"(setSessionStorageValue("foo", 42))"));
 
   // Note that for Session Storage we don't need to wait for a commit. This is
   // racy, but that's the point: whether or not a commit happens in time, the
@@ -123,8 +127,8 @@ IN_PROC_BROWSER_TEST_F(StorageServiceRestartBrowserTest,
 }
 
 // Flaky on Linux, Windows, and Mac. See crbug.com/1066138.
-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_WIN) || \
-    BUILDFLAG(IS_MAC)
+#if defined(OS_LINUX) || defined(OS_CHROMEOS) || defined(OS_WIN) || \
+    defined(OS_MAC)
 #define MAYBE_LocalStorageRecovery DISABLED_LocalStorageRecovery
 #else
 #define MAYBE_LocalStorageRecovery LocalStorageRecovery
@@ -135,8 +139,8 @@ IN_PROC_BROWSER_TEST_F(StorageServiceRestartBrowserTest,
   // after a Storage Service crash.
   EXPECT_TRUE(
       NavigateToURL(shell(), GetTestUrl("dom_storage", "crash_recovery.html")));
-  std::ignore =
-      EvalJs(shell()->web_contents(), R"(setLocalStorageValue("foo", 42))");
+  ignore_result(
+      EvalJs(shell()->web_contents(), R"(setLocalStorageValue("foo", 42))"));
 
   // We wait for the above storage request to be fully committed to disk. This
   // ensures that renderer gets the correct value when recovering from the

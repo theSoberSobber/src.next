@@ -1,4 +1,4 @@
-// Copyright 2020 The Chromium Authors
+// Copyright 2020 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -9,6 +9,7 @@
 
 #include "base/bind.h"
 #include "base/callback_helpers.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "base/time/time.h"
 #include "chrome/browser/signin/account_reconcilor_factory.h"
@@ -39,6 +40,13 @@ bool CookieInfoContains(const signin::AccountsInCookieJarInfo& cookie_info,
                       }) != accounts.end();
 }
 
+void RecordSessionStartupDuration(const std::string& histogram_name,
+                                  base::TimeDelta duration) {
+  base::UmaHistogramCustomTimes(histogram_name, duration,
+                                /*min=*/base::TimeDelta::FromMilliseconds(1),
+                                /*max=*/base::TimeDelta::FromSeconds(30), 50);
+}
+
 }  // namespace
 
 DiceInterceptedSessionStartupHelper::DiceInterceptedSessionStartupHelper(
@@ -49,8 +57,7 @@ DiceInterceptedSessionStartupHelper::DiceInterceptedSessionStartupHelper(
     : profile_(profile),
       use_multilogin_(is_new_profile),
       account_id_(account_id) {
-  if (tab_to_move)
-    web_contents_ = tab_to_move->GetWeakPtr();
+  Observe(tab_to_move);
 }
 
 DiceInterceptedSessionStartupHelper::~DiceInterceptedSessionStartupHelper() =
@@ -58,6 +65,7 @@ DiceInterceptedSessionStartupHelper::~DiceInterceptedSessionStartupHelper() =
 
 void DiceInterceptedSessionStartupHelper::Startup(base::OnceClosure callback) {
   callback_ = std::move(callback);
+  session_startup_time_ = base::TimeTicks::Now();
 
   // Wait until the account is set in cookies of the newly created profile
   // before opening the URL, so that the user is signed-in in content area. If
@@ -69,16 +77,20 @@ void DiceInterceptedSessionStartupHelper::Startup(base::OnceClosure callback) {
       identity_manager->GetAccountsInCookieJar();
   if (cookie_info.accounts_are_fresh &&
       CookieInfoContains(cookie_info, account_id_)) {
-    MoveTab();
+    MoveTab(use_multilogin_ ? Result::kMultiloginNothingToDo
+                            : Result::kReconcilorNothingToDo);
   } else {
     // Set the timeout.
     on_cookie_update_timeout_.Reset(base::BindOnce(
-        &DiceInterceptedSessionStartupHelper::MoveTab, base::Unretained(this)));
+        &DiceInterceptedSessionStartupHelper::MoveTab, base::Unretained(this),
+        use_multilogin_ ? Result::kMultiloginTimeout
+                        : Result::kReconcilorTimeout));
     // Adding accounts to the cookies can be an expensive operation. In
     // particular the ExternalCCResult fetch may time out after multiple seconds
     // (see kExternalCCResultTimeoutSeconds and https://crbug.com/750316#c37).
     base::ThreadTaskRunnerHandle::Get()->PostDelayedTask(
-        FROM_HERE, on_cookie_update_timeout_.callback(), base::Seconds(12));
+        FROM_HERE, on_cookie_update_timeout_.callback(),
+        base::TimeDelta::FromSeconds(12));
 
     accounts_in_cookie_observer_.Observe(identity_manager);
     if (use_multilogin_)
@@ -98,7 +110,8 @@ void DiceInterceptedSessionStartupHelper::OnAccountsInCookieUpdated(
   if (!CookieInfoContains(accounts_in_cookie_jar_info, account_id_))
     return;
 
-  MoveTab();
+  MoveTab(use_multilogin_ ? Result::kMultiloginOtherSuccess
+                          : Result::kReconcilorSuccess);
 }
 
 void DiceInterceptedSessionStartupHelper::OnStateChanged(
@@ -153,10 +166,23 @@ void DiceInterceptedSessionStartupHelper::StartupReconcilor(
 void DiceInterceptedSessionStartupHelper::OnSetAccountInCookieCompleted(
     signin::SetAccountsInCookieResult result) {
   DCHECK(use_multilogin_);
-  MoveTab();
+  Result session_startup_result = Result::kMultiloginOtherSuccess;
+  switch (result) {
+    case signin::SetAccountsInCookieResult::kSuccess:
+      session_startup_result = Result::kMultiloginSuccess;
+      break;
+    case signin::SetAccountsInCookieResult::kTransientError:
+      session_startup_result = Result::kMultiloginTransientError;
+      break;
+    case signin::SetAccountsInCookieResult::kPersistentError:
+      session_startup_result = Result::kMultiloginPersistentError;
+      break;
+  }
+
+  MoveTab(session_startup_result);
 }
 
-void DiceInterceptedSessionStartupHelper::MoveTab() {
+void DiceInterceptedSessionStartupHelper::MoveTab(Result result) {
   accounts_in_cookie_observer_.Reset();
   reconcilor_observer_.Reset();
   on_cookie_update_timeout_.Cancel();
@@ -164,15 +190,30 @@ void DiceInterceptedSessionStartupHelper::MoveTab() {
 
   GURL url_to_open = GURL(chrome::kChromeUINewTabURL);
   // If the intercepted web contents is still alive, close it now.
-  if (web_contents_) {
-    url_to_open = web_contents_->GetLastCommittedURL();
-    web_contents_->Close();
+  if (web_contents()) {
+    url_to_open = web_contents()->GetURL();
+    web_contents()->Close();
   }
 
   // Open a new browser.
   NavigateParams params(profile_, url_to_open,
                         ui::PAGE_TRANSITION_AUTO_BOOKMARK);
   Navigate(&params);
+
+  base::UmaHistogramEnumeration("Signin.Intercept.SessionStartupResult",
+                                result);
+  base::TimeDelta duration = base::TimeTicks::Now() - session_startup_time_;
+  if (use_multilogin_) {
+    RecordSessionStartupDuration(
+        "Signin.Intercept.SessionStartupDuration.Multilogin", duration);
+  } else {
+    RecordSessionStartupDuration(
+        "Signin.Intercept.SessionStartupDuration.Reconcilor", duration);
+    // TODO(https://crbug.com/1151313): Remove this histogram when the cause
+    // for the timeouts is understood.
+    base::UmaHistogramBoolean("Signin.Intercept.SessionStartupReconcileError",
+                              reconcile_error_encountered_);
+  }
 
   if (callback_)
     std::move(callback_).Run();

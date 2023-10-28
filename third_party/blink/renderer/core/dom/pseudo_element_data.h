@@ -5,10 +5,8 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_CORE_DOM_PSEUDO_ELEMENT_DATA_H_
 #define THIRD_PARTY_BLINK_RENDERER_CORE_DOM_PSEUDO_ELEMENT_DATA_H_
 
-#include "base/notreached.h"
 #include "build/build_config.h"
-#include "third_party/blink/renderer/core/dom/transition_pseudo_element_data.h"
-#include "third_party/blink/renderer/platform/heap/garbage_collected.h"
+#include "third_party/blink/renderer/platform/heap/handle.h"
 
 namespace blink {
 
@@ -18,13 +16,8 @@ class PseudoElementData final : public GarbageCollected<PseudoElementData> {
   PseudoElementData(const PseudoElementData&) = delete;
   PseudoElementData& operator=(const PseudoElementData&) = delete;
 
-  void SetPseudoElement(
-      PseudoId,
-      PseudoElement*,
-      const AtomicString& document_transition_tag = g_null_atom);
-  PseudoElement* GetPseudoElement(
-      PseudoId,
-      const AtomicString& document_transition_tag = g_null_atom) const;
+  void SetPseudoElement(PseudoId, PseudoElement*);
+  PseudoElement* GetPseudoElement(PseudoId) const;
 
   using PseudoElementVector = HeapVector<Member<PseudoElement>, 2>;
   PseudoElementVector GetPseudoElements() const;
@@ -37,7 +30,6 @@ class PseudoElementData final : public GarbageCollected<PseudoElementData> {
     visitor->Trace(generated_marker_);
     visitor->Trace(generated_first_letter_);
     visitor->Trace(backdrop_);
-    visitor->Trace(transition_data_);
   }
 
  private:
@@ -46,13 +38,11 @@ class PseudoElementData final : public GarbageCollected<PseudoElementData> {
   Member<PseudoElement> generated_marker_;
   Member<PseudoElement> generated_first_letter_;
   Member<PseudoElement> backdrop_;
-
-  Member<TransitionPseudoElementData> transition_data_;
 };
 
 inline bool PseudoElementData::HasPseudoElements() const {
   return generated_before_ || generated_after_ || generated_marker_ ||
-         backdrop_ || generated_first_letter_ || transition_data_;
+         backdrop_ || generated_first_letter_;
 }
 
 inline void PseudoElementData::ClearPseudoElements() {
@@ -61,16 +51,10 @@ inline void PseudoElementData::ClearPseudoElements() {
   SetPseudoElement(kPseudoIdMarker, nullptr);
   SetPseudoElement(kPseudoIdBackdrop, nullptr);
   SetPseudoElement(kPseudoIdFirstLetter, nullptr);
-  if (transition_data_) {
-    transition_data_->ClearPseudoElements();
-    transition_data_ = nullptr;
-  }
 }
 
-inline void PseudoElementData::SetPseudoElement(
-    PseudoId pseudo_id,
-    PseudoElement* element,
-    const AtomicString& document_transition_tag) {
+inline void PseudoElementData::SetPseudoElement(PseudoId pseudo_id,
+                                                PseudoElement* element) {
   PseudoElement* previous_element = nullptr;
   switch (pseudo_id) {
     case kPseudoIdBefore:
@@ -93,20 +77,6 @@ inline void PseudoElementData::SetPseudoElement(
       previous_element = generated_first_letter_;
       generated_first_letter_ = element;
       break;
-    case kPseudoIdPageTransition:
-    case kPseudoIdPageTransitionContainer:
-    case kPseudoIdPageTransitionImageWrapper:
-    case kPseudoIdPageTransitionIncomingImage:
-    case kPseudoIdPageTransitionOutgoingImage:
-      if (element && !transition_data_)
-        transition_data_ = MakeGarbageCollected<TransitionPseudoElementData>();
-      if (transition_data_) {
-        transition_data_->SetPseudoElement(pseudo_id, element,
-                                           document_transition_tag);
-        if (!transition_data_->HasPseudoElements())
-          transition_data_ = nullptr;
-      }
-      break;
     default:
       NOTREACHED();
   }
@@ -116,8 +86,7 @@ inline void PseudoElementData::SetPseudoElement(
 }
 
 inline PseudoElement* PseudoElementData::GetPseudoElement(
-    PseudoId pseudo_id,
-    const AtomicString& document_transition_tag) const {
+    PseudoId pseudo_id) const {
   if (kPseudoIdBefore == pseudo_id)
     return generated_before_;
   if (kPseudoIdAfter == pseudo_id)
@@ -133,11 +102,6 @@ inline PseudoElement* PseudoElementData::GetPseudoElement(
     return backdrop_;
   if (kPseudoIdFirstLetter == pseudo_id)
     return generated_first_letter_;
-  if (IsTransitionPseudoElement(pseudo_id)) {
-    return transition_data_ ? transition_data_->GetPseudoElement(
-                                  pseudo_id, document_transition_tag)
-                            : nullptr;
-  }
   return nullptr;
 }
 
@@ -154,8 +118,6 @@ PseudoElementData::GetPseudoElements() const {
     result.push_back(generated_first_letter_);
   if (backdrop_)
     result.push_back(backdrop_);
-  if (transition_data_)
-    transition_data_->AddPseudoElements(&result);
   return result;
 }
 

@@ -1,4 +1,4 @@
-// Copyright 2013 The Chromium Authors
+// Copyright (c) 2013 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,6 +7,7 @@
 
 #include <string>
 
+#include "base/macros.h"
 #include "extensions/common/extension.h"
 #include "extensions/common/manifest_handler.h"
 
@@ -24,10 +25,6 @@ struct LocaleInfo : public Extension::ManifestData {
 class DefaultLocaleHandler : public ManifestHandler {
  public:
   DefaultLocaleHandler();
-
-  DefaultLocaleHandler(const DefaultLocaleHandler&) = delete;
-  DefaultLocaleHandler& operator=(const DefaultLocaleHandler&) = delete;
-
   ~DefaultLocaleHandler() override;
 
   bool Parse(Extension* extension, std::u16string* error) override;
@@ -41,6 +38,8 @@ class DefaultLocaleHandler : public ManifestHandler {
 
  private:
   base::span<const char* const> Keys() const override;
+
+  DISALLOW_COPY_AND_ASSIGN(DefaultLocaleHandler);
 };
 
 }  // namespace extensions

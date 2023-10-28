@@ -1,10 +1,10 @@
-// Copyright 2019 The Chromium Authors
+// Copyright 2019 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/macros.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/extensions/extension_browsertest.h"
-#include "chrome/browser/extensions/extension_tab_util.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/extensions/extension_action_test_helper.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
@@ -27,10 +27,6 @@ namespace extensions {
 class ManifestV3BrowserTest : public ExtensionBrowserTest {
  public:
   ManifestV3BrowserTest() {}
-
-  ManifestV3BrowserTest(const ManifestV3BrowserTest&) = delete;
-  ManifestV3BrowserTest& operator=(const ManifestV3BrowserTest&) = delete;
-
   ~ManifestV3BrowserTest() override {}
 
   void SetUpOnMainThread() override {
@@ -41,6 +37,8 @@ class ManifestV3BrowserTest : public ExtensionBrowserTest {
 
  private:
   ScopedCurrentChannel channel_override_{version_info::Channel::UNKNOWN};
+
+  DISALLOW_COPY_AND_ASSIGN(ManifestV3BrowserTest);
 };
 
 IN_PROC_BROWSER_TEST_F(ManifestV3BrowserTest, ProgrammaticScriptInjection) {
@@ -91,15 +89,14 @@ IN_PROC_BROWSER_TEST_F(ManifestV3BrowserTest, ProgrammaticScriptInjection) {
   test_dir.WriteManifest(kManifest);
   test_dir.WriteFile(FILE_PATH_LITERAL("worker.js"), kWorker);
 
-  ExtensionTestMessageListener listener("ready");
+  ExtensionTestMessageListener listener("ready", /*will_reply=*/false);
   const Extension* extension = LoadExtension(test_dir.UnpackedPath());
   ASSERT_TRUE(extension);
   ASSERT_TRUE(listener.WaitUntilSatisfied());
 
   ResultCatcher catcher;
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(
-      browser(),
-      embedded_test_server()->GetURL("example.com", "/simple.html")));
+  ui_test_utils::NavigateToURL(
+      browser(), embedded_test_server()->GetURL("example.com", "/simple.html"));
   ASSERT_TRUE(catcher.GetNextResult()) << catcher.message();
 
   EXPECT_EQ(u"My New Title",
@@ -133,7 +130,7 @@ IN_PROC_BROWSER_TEST_F(ManifestV3BrowserTest, ActionAPI) {
       test_data_dir_.AppendASCII("api_test/icon_rgb_0_0_255.png"),
       FILE_PATH_LITERAL("blue_icon.png"));
 
-  ExtensionTestMessageListener listener("ready");
+  ExtensionTestMessageListener listener("ready", /*will_reply=*/false);
   const Extension* extension = LoadExtension(test_dir.UnpackedPath());
   ASSERT_TRUE(extension);
   ASSERT_TRUE(listener.WaitUntilSatisfied());
@@ -153,29 +150,6 @@ IN_PROC_BROWSER_TEST_F(ManifestV3BrowserTest, ActionAPI) {
   ASSERT_TRUE(catcher.GetNextResult()) << catcher.message();
 
   EXPECT_TRUE(action->HasIcon(ExtensionAction::kDefaultTabId));
-}
-
-IN_PROC_BROWSER_TEST_F(ManifestV3BrowserTest, SynthesizedAction) {
-  constexpr char kManifest[] =
-      R"({
-           "name": "Action API",
-           "manifest_version": 3,
-           "version": "0.1"
-         })";
-
-  TestExtensionDir test_dir;
-  test_dir.WriteManifest(kManifest);
-
-  const Extension* extension = LoadExtension(test_dir.UnpackedPath());
-  ASSERT_TRUE(extension);
-
-  ExtensionAction* const action =
-      ExtensionActionManager::Get(profile())->GetExtensionAction(*extension);
-  ASSERT_TRUE(action);
-  EXPECT_FALSE(action->GetIsVisible(ExtensionAction::kDefaultTabId));
-  int tab_id = ExtensionTabUtil::GetTabId(
-      browser()->tab_strip_model()->GetActiveWebContents());
-  EXPECT_FALSE(action->GetIsVisible(tab_id));
 }
 
 IN_PROC_BROWSER_TEST_F(ManifestV3BrowserTest,

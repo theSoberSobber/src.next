@@ -84,11 +84,5 @@ TEST_F(CookieJarTest, CookiesEnabledHistogram) {
   }
 }
 
-TEST_F(CookieJarTest, CookieTruncatingChar) {
-  V8TestingScope scope;
-  GetDocument()->setCookie("foo=\0bar", scope.GetExceptionState());
-  GetDocument()->IsUseCounted(WebFeature::kCookieWithTruncatingChar);
-}
-
 }  // namespace
 }  // namespace blink

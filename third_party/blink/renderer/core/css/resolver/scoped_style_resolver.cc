@@ -29,7 +29,6 @@
 #include "third_party/blink/renderer/core/css/resolver/scoped_style_resolver.h"
 
 #include "third_party/blink/renderer/core/animation/document_timeline.h"
-#include "third_party/blink/renderer/core/css/cascade_layer_map.h"
 #include "third_party/blink/renderer/core/css/counter_style_map.h"
 #include "third_party/blink/renderer/core/css/css_font_selector.h"
 #include "third_party/blink/renderer/core/css/css_style_sheet.h"
@@ -37,7 +36,6 @@
 #include "third_party/blink/renderer/core/css/page_rule_collector.h"
 #include "third_party/blink/renderer/core/css/part_names.h"
 #include "third_party/blink/renderer/core/css/resolver/match_request.h"
-#include "third_party/blink/renderer/core/css/resolver/style_resolver.h"
 #include "third_party/blink/renderer/core/css/rule_feature_set.h"
 #include "third_party/blink/renderer/core/css/style_change_reason.h"
 #include "third_party/blink/renderer/core/css/style_engine.h"
@@ -74,8 +72,8 @@ CounterStyleMap& ScopedStyleResolver::EnsureCounterStyleMap() {
 }
 
 void ScopedStyleResolver::AddFontFaceRules(const RuleSet& rule_set) {
-  // TODO(crbug.com/336876): We don't add @font-face rules of scoped style
-  // sheets for the moment.
+  // FIXME(BUG 72461): We don't add @font-face rules of scoped style sheets for
+  // the moment.
   if (!GetTreeScope().RootNode().IsDocumentNode())
     return;
 
@@ -85,8 +83,7 @@ void ScopedStyleResolver::AddFontFaceRules(const RuleSet& rule_set) {
   const HeapVector<Member<StyleRuleFontFace>> font_face_rules =
       rule_set.FontFaceRules();
   for (auto& font_face_rule : font_face_rules) {
-    if (FontFace* font_face = FontFace::Create(&document, font_face_rule,
-                                               false /* is_user_style */))
+    if (FontFace* font_face = FontFace::Create(&document, font_face_rule))
       css_font_selector->GetFontFaceCache()->Add(font_face_rule, font_face);
   }
   if (font_face_rules.size())
@@ -94,6 +91,13 @@ void ScopedStyleResolver::AddFontFaceRules(const RuleSet& rule_set) {
 }
 
 void ScopedStyleResolver::AddCounterStyleRules(const RuleSet& rule_set) {
+  if (!RuntimeEnabledFeatures::CSSAtRuleCounterStyleInShadowDOMEnabled()) {
+    // Our support of @counter-style rules in shadow DOM is experimental and
+    // non-standard. See https://github.com/w3c/csswg-drafts/issues/5693
+    if (!GetTreeScope().RootNode().IsDocumentNode())
+      return;
+  }
+
   if (rule_set.CounterStyleRules().IsEmpty())
     return;
   EnsureCounterStyleMap().AddCounterStyles(rule_set);
@@ -105,7 +109,10 @@ void ScopedStyleResolver::AppendActiveStyleSheets(
   for (auto* active_iterator = active_sheets.begin() + index;
        active_iterator != active_sheets.end(); active_iterator++) {
     CSSStyleSheet* sheet = active_iterator->first;
-    media_query_result_flags_.Add(sheet->GetMediaQueryResultFlags());
+    viewport_dependent_media_query_results_.AppendVector(
+        sheet->ViewportDependentMediaQueryResults());
+    device_dependent_media_query_results_.AppendVector(
+        sheet->DeviceDependentMediaQueryResults());
     if (!active_iterator->second)
       continue;
     const RuleSet& rule_set = *active_iterator->second;
@@ -113,7 +120,7 @@ void ScopedStyleResolver::AppendActiveStyleSheets(
     AddKeyframeRules(rule_set);
     AddFontFaceRules(rule_set);
     AddCounterStyleRules(rule_set);
-    AddPositionFallbackRules(rule_set);
+    AddSlottedRules(rule_set, sheet, index++);
   }
 }
 
@@ -121,7 +128,10 @@ void ScopedStyleResolver::CollectFeaturesTo(
     RuleFeatureSet& features,
     HeapHashSet<Member<const StyleSheetContents>>&
         visited_shared_style_sheet_contents) const {
-  features.MutableMediaQueryResultFlags().Add(media_query_result_flags_);
+  features.ViewportDependentMediaQueryResults().AppendVector(
+      viewport_dependent_media_query_results_);
+  features.DeviceDependentMediaQueryResults().AppendVector(
+      device_dependent_media_query_results_);
 
   for (auto sheet : style_sheets_) {
     DCHECK(sheet->ownerNode() || sheet->IsConstructed());
@@ -130,16 +140,21 @@ void ScopedStyleResolver::CollectFeaturesTo(
         visited_shared_style_sheet_contents.insert(contents).is_new_entry)
       features.Add(contents->GetRuleSet().Features());
   }
+
+  if (slotted_rule_set_) {
+    for (const auto& rules : *slotted_rule_set_)
+      features.Add(rules->rule_set_->Features());
+  }
 }
 
 void ScopedStyleResolver::ResetStyle() {
   style_sheets_.clear();
-  media_query_result_flags_.Clear();
+  viewport_dependent_media_query_results_.clear();
+  device_dependent_media_query_results_.clear();
   keyframes_rule_map_.clear();
-  position_fallback_rule_map_.clear();
   if (counter_style_map_)
     counter_style_map_->Dispose();
-  cascade_layer_map_ = nullptr;
+  slotted_rule_set_ = nullptr;
   needs_append_all_sheets_ = false;
 }
 
@@ -158,21 +173,15 @@ StyleRuleKeyframes* ScopedStyleResolver::KeyframeStylesForAnimation(
 void ScopedStyleResolver::AddKeyframeStyle(StyleRuleKeyframes* rule) {
   AtomicString name = rule->GetName();
 
-  KeyframesRuleMap::iterator it = keyframes_rule_map_.find(name);
-  if (it == keyframes_rule_map_.end() ||
-      KeyframeStyleShouldOverride(rule, it->value)) {
+  if (rule->IsVendorPrefixed()) {
+    KeyframesRuleMap::iterator it = keyframes_rule_map_.find(name);
+    if (it == keyframes_rule_map_.end())
+      keyframes_rule_map_.Set(name, rule);
+    else if (it->value->IsVendorPrefixed())
+      keyframes_rule_map_.Set(name, rule);
+  } else {
     keyframes_rule_map_.Set(name, rule);
   }
-}
-
-bool ScopedStyleResolver::KeyframeStyleShouldOverride(
-    const StyleRuleKeyframes* new_rule,
-    const StyleRuleKeyframes* existing_rule) const {
-  if (new_rule->IsVendorPrefixed() != existing_rule->IsVendorPrefixed())
-    return existing_rule->IsVendorPrefixed();
-  return !cascade_layer_map_ || cascade_layer_map_->CompareLayerOrder(
-                                    existing_rule->GetCascadeLayer(),
-                                    new_rule->GetCascadeLayer()) <= 0;
 }
 
 Element& ScopedStyleResolver::InvalidationRootForTreeScope(
@@ -223,96 +232,98 @@ void ScopedStyleResolver::KeyframesRulesAdded(const TreeScope& tree_scope) {
   tree_scope.GetDocument().Timeline().InvalidateKeyframeEffects(tree_scope);
 }
 
-template <class Func>
-void ScopedStyleResolver::ForAllStylesheets(const Func& func) {
-  if (style_sheets_.IsEmpty()) {
-    return;
-  }
-
-  MatchRequest match_request{&scope_->RootNode()};
-  for (auto sheet : style_sheets_) {
-    match_request.AddRuleset(&sheet->Contents()->GetRuleSet(), sheet);
-    if (match_request.IsFull()) {
-      func(match_request);
-      match_request.ClearAfterMatching();
-    }
-  }
-  if (!match_request.IsEmpty()) {
-    func(match_request);
-  }
-}
-
 void ScopedStyleResolver::CollectMatchingElementScopeRules(
     ElementRuleCollector& collector) {
-  ForAllStylesheets([&collector](const MatchRequest& match_request) {
+  wtf_size_t sheet_index = 0;
+  for (auto sheet : style_sheets_) {
+    DCHECK(sheet->ownerNode() || sheet->IsConstructed());
+    MatchRequest match_request(&sheet->Contents()->GetRuleSet(),
+                               &scope_->RootNode(), sheet, sheet_index++);
     collector.CollectMatchingRules(match_request);
-  });
+  }
 }
 
 void ScopedStyleResolver::CollectMatchingShadowHostRules(
     ElementRuleCollector& collector) {
-  ForAllStylesheets([&collector](const MatchRequest& match_request) {
+  wtf_size_t sheet_index = 0;
+  for (auto sheet : style_sheets_) {
+    DCHECK(sheet->ownerNode() || sheet->IsConstructed());
+    MatchRequest match_request(&sheet->Contents()->GetRuleSet(),
+                               &scope_->RootNode(), sheet, sheet_index++);
     collector.CollectMatchingShadowHostRules(match_request);
-  });
+  }
 }
 
 void ScopedStyleResolver::CollectMatchingSlottedRules(
     ElementRuleCollector& collector) {
-  ForAllStylesheets([&collector](const MatchRequest& match_request) {
-    collector.CollectMatchingSlottedRules(match_request);
-  });
+  if (!slotted_rule_set_)
+    return;
+
+  for (const auto& rules : *slotted_rule_set_) {
+    MatchRequest request(rules->rule_set_.Get(), &GetTreeScope().RootNode(),
+                         rules->parent_style_sheet_, rules->parent_index_);
+    collector.CollectMatchingRules(request, true);
+  }
 }
 
 void ScopedStyleResolver::CollectMatchingPartPseudoRules(
     ElementRuleCollector& collector,
     PartNames& part_names,
     bool for_shadow_pseudo) {
-  ForAllStylesheets([&](const MatchRequest& match_request) {
+  wtf_size_t sheet_index = 0;
+  for (auto sheet : style_sheets_) {
+    DCHECK(sheet->ownerNode() || sheet->IsConstructed());
+    MatchRequest match_request(&sheet->Contents()->GetRuleSet(),
+                               &scope_->RootNode(), sheet, sheet_index++);
     collector.CollectMatchingPartPseudoRules(match_request, part_names,
                                              for_shadow_pseudo);
-  });
+  }
 }
 
 void ScopedStyleResolver::MatchPageRules(PageRuleCollector& collector) {
   // Currently, only @page rules in the document scope apply.
   DCHECK(scope_->RootNode().IsDocumentNode());
-  for (auto sheet : style_sheets_) {
-    collector.MatchPageRules(&sheet->Contents()->GetRuleSet(),
-                             GetCascadeLayerMap());
-  }
-}
-
-void ScopedStyleResolver::RebuildCascadeLayerMap(
-    const ActiveStyleSheetVector& sheets) {
-  cascade_layer_map_ = MakeGarbageCollected<CascadeLayerMap>(sheets);
-}
-
-void ScopedStyleResolver::AddPositionFallbackRules(const RuleSet& rule_set) {
-  // TODO(crbug.com/1309178): Support @position-fallback rules in shadow DOM.
-  if (!GetTreeScope().RootNode().IsDocumentNode())
-    return;
-  // TODO(crbug.com/1309178): Reorder @position-fallback rules according to
-  // cascade layers.
-  for (StyleRulePositionFallback* rule : rule_set.PositionFallbackRules())
-    position_fallback_rule_map_.Set(rule->Name(), rule);
-}
-
-StyleRulePositionFallback* ScopedStyleResolver::PositionFallbackForName(
-    const AtomicString& fallback_name) {
-  DCHECK(fallback_name);
-  auto iter = position_fallback_rule_map_.find(fallback_name);
-  if (iter != position_fallback_rule_map_.end())
-    return iter->value;
-  return nullptr;
+  for (auto sheet : style_sheets_)
+    collector.MatchPageRules(&sheet->Contents()->GetRuleSet());
 }
 
 void ScopedStyleResolver::Trace(Visitor* visitor) const {
   visitor->Trace(scope_);
   visitor->Trace(style_sheets_);
   visitor->Trace(keyframes_rule_map_);
-  visitor->Trace(position_fallback_rule_map_);
   visitor->Trace(counter_style_map_);
-  visitor->Trace(cascade_layer_map_);
+  visitor->Trace(slotted_rule_set_);
+}
+
+static void AddRules(RuleSet* rule_set,
+                     const HeapVector<MinimalRuleData>& rules) {
+  for (const auto& info : rules) {
+    // TODO(crbug.com/1145970): Store container_query on MinimalRuleData
+    // and propagate it here.
+    rule_set->AddRule(info.rule_, info.selector_index_, info.flags_,
+                      nullptr /* container_query */);
+  }
+}
+
+void ScopedStyleResolver::AddSlottedRules(const RuleSet& rules,
+                                          CSSStyleSheet* parent_style_sheet,
+                                          unsigned sheet_index) {
+  bool is_document_scope = GetTreeScope().RootNode().IsDocumentNode();
+  if (is_document_scope || rules.SlottedPseudoElementRules().IsEmpty())
+    return;
+
+  auto* slotted_rule_set = MakeGarbageCollected<RuleSet>();
+  AddRules(slotted_rule_set, rules.SlottedPseudoElementRules());
+
+  if (!slotted_rule_set_)
+    slotted_rule_set_ = MakeGarbageCollected<CSSStyleSheetRuleSubSet>();
+  slotted_rule_set_->push_back(MakeGarbageCollected<RuleSubSet>(
+      parent_style_sheet, sheet_index, slotted_rule_set));
+}
+
+void ScopedStyleResolver::RuleSubSet::Trace(Visitor* visitor) const {
+  visitor->Trace(parent_style_sheet_);
+  visitor->Trace(rule_set_);
 }
 
 }  // namespace blink

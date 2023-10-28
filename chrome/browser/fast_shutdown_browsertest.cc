@@ -1,10 +1,11 @@
-// Copyright 2011 The Chromium Authors
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include "base/bind.h"
 #include "base/command_line.h"
 #include "base/files/file_path.h"
+#include "base/macros.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
 #include "chrome/browser/profiles/profile.h"
@@ -25,10 +26,6 @@
 using content::BrowserThread;
 
 class FastShutdown : public InProcessBrowserTest {
- public:
-  FastShutdown(const FastShutdown&) = delete;
-  FastShutdown& operator=(const FastShutdown&) = delete;
-
  protected:
   FastShutdown() {
   }
@@ -36,6 +33,9 @@ class FastShutdown : public InProcessBrowserTest {
   void SetUpCommandLine(base::CommandLine* command_line) override {
     command_line->AppendSwitch(embedder_support::kDisablePopupBlocking);
   }
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(FastShutdown);
 };
 
 // This tests for a previous error where uninstalling an onbeforeunload handler

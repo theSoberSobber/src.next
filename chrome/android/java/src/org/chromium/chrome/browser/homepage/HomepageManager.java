@@ -1,4 +1,4 @@
-// Copyright 2015 The Chromium Authors
+// Copyright 2015 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -22,7 +22,6 @@ import org.chromium.chrome.browser.settings.SettingsLauncherImpl;
 import org.chromium.components.browser_ui.settings.SettingsLauncher;
 import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.components.embedder_support.util.UrlUtilities;
-import org.chromium.url.GURL;
 
 /**
  * Provides information regarding homepage enabled states and URI.
@@ -148,22 +147,8 @@ public class HomepageManager implements HomepagePolicyManager.HomepagePolicyStat
      */
     public static String getDefaultHomepageUri() {
         if (PartnerBrowserCustomizations.getInstance().isHomepageProviderAvailableAndEnabled()) {
-            return PartnerBrowserCustomizations.getInstance().getHomePageUrl().getSpec();
+            return PartnerBrowserCustomizations.getInstance().getHomePageUrl();
         }
-
-        String homepagePartnerDefaultUri;
-        String homepagePartnerDefaultGurlSerialized =
-                SharedPreferencesManager.getInstance().readString(
-                        ChromePreferenceKeys.HOMEPAGE_PARTNER_CUSTOMIZED_DEFAULT_GURL, "");
-        if (!homepagePartnerDefaultGurlSerialized.equals("")) {
-            homepagePartnerDefaultUri =
-                    GURL.deserialize(homepagePartnerDefaultGurlSerialized).getSpec();
-        } else {
-            homepagePartnerDefaultUri = SharedPreferencesManager.getInstance().readString(
-                    ChromePreferenceKeys.HOMEPAGE_PARTNER_CUSTOMIZED_DEFAULT_URI, "");
-        }
-        if (!homepagePartnerDefaultUri.equals("")) return homepagePartnerDefaultUri;
-
         return UrlConstants.NTP_NON_NATIVE_URL;
     }
 

@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium Authors
+// Copyright 2019 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,6 +7,7 @@ package org.chromium.chrome.browser.toolbar.top;
 import android.graphics.drawable.Drawable;
 import android.view.View;
 
+import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.chrome.browser.tabmodel.IncognitoStateProvider;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.toolbar.TabCountProvider;
@@ -23,9 +24,6 @@ class StartSurfaceToolbarProperties {
     public static final PropertyModel
             .WritableObjectPropertyKey<View.OnClickListener> NEW_TAB_CLICK_HANDLER =
             new PropertyModel.WritableObjectPropertyKey<View.OnClickListener>();
-    // Handles the enabled state of the New tab button "+" and the text "New tab".
-    public static final PropertyModel.WritableBooleanPropertyKey IS_NEW_TAB_ENABLED =
-            new PropertyModel.WritableBooleanPropertyKey();
     public static final PropertyModel
             .WritableObjectPropertyKey<View.OnClickListener> IDENTITY_DISC_CLICK_HANDLER =
             new PropertyModel.WritableObjectPropertyKey<View.OnClickListener>();
@@ -37,15 +35,17 @@ class StartSurfaceToolbarProperties {
             new PropertyModel.WritableBooleanPropertyKey();
     public static final PropertyModel.WritableBooleanPropertyKey IS_VISIBLE =
             new PropertyModel.WritableBooleanPropertyKey();
+    public static final PropertyModel.WritableBooleanPropertyKey IN_START_SURFACE_MODE =
+            new PropertyModel.WritableBooleanPropertyKey();
+    public static final PropertyModel.WritableBooleanPropertyKey LOGO_IS_VISIBLE =
+            new PropertyModel.WritableBooleanPropertyKey();
     public static final PropertyModel.WritableBooleanPropertyKey IS_INCOGNITO =
             new PropertyModel.WritableBooleanPropertyKey();
     public static final PropertyModel.WritableBooleanPropertyKey ACCESSIBILITY_ENABLED =
             new PropertyModel.WritableBooleanPropertyKey();
     public static final PropertyModel.WritableBooleanPropertyKey MENU_IS_VISIBLE =
             new PropertyModel.WritableBooleanPropertyKey();
-    public static final PropertyModel.WritableBooleanPropertyKey NEW_TAB_VIEW_IS_VISIBLE =
-            new PropertyModel.WritableBooleanPropertyKey();
-    public static final PropertyModel.WritableBooleanPropertyKey NEW_TAB_VIEW_TEXT_IS_VISIBLE =
+    public static final PropertyModel.WritableBooleanPropertyKey NEW_TAB_BUTTON_IS_VISIBLE =
             new PropertyModel.WritableBooleanPropertyKey();
     public static final PropertyModel.WritableBooleanPropertyKey BUTTONS_CLICKABLE =
             new PropertyModel.WritableBooleanPropertyKey();
@@ -66,20 +66,36 @@ class StartSurfaceToolbarProperties {
     public static final PropertyModel.WritableBooleanPropertyKey IDENTITY_DISC_AT_START =
             new PropertyModel.WritableBooleanPropertyKey();
 
-    public static final PropertyModel.WritableBooleanPropertyKey INCOGNITO_SWITCHER_VISIBLE =
-            new PropertyModel.WritableBooleanPropertyKey();
+    /**
+     * This is a hacky workaround for {@link IncognitoSwitchProperties#IS_VISIBLE}.
+     * TODO(crbug.com/1042997): control the visibility through IncognitoSwitchCoordinator.
+     */
+    public static final PropertyModel.WritableObjectPropertyKey INCOGNITO_SWITCHER_VISIBLE =
+            new PropertyModel.WritableObjectPropertyKey(true);
 
     public static final PropertyModel.WritableFloatPropertyKey TRANSLATION_Y =
             new PropertyModel.WritableFloatPropertyKey();
-    public static final PropertyModel.WritableFloatPropertyKey ALPHA =
-            new PropertyModel.WritableFloatPropertyKey();
+
+    public static final PropertyModel.WritableBooleanPropertyKey HOME_BUTTON_IS_VISIBLE =
+            new PropertyModel.WritableBooleanPropertyKey();
+    public static final PropertyModel
+            .WritableObjectPropertyKey<ObservableSupplier<Boolean>> HOMEPAGE_ENABLED_SUPPLIER =
+            new PropertyModel.WritableObjectPropertyKey<ObservableSupplier<Boolean>>();
+    public static final PropertyModel.WritableObjectPropertyKey<ObservableSupplier<Boolean>>
+            HOMEPAGE_MANAGED_BY_POLICY_SUPPLIER =
+            new PropertyModel.WritableObjectPropertyKey<ObservableSupplier<Boolean>>();
+    public static final PropertyModel
+            .WritableObjectPropertyKey<View.OnClickListener> HOME_BUTTON_CLICK_HANDLER =
+            new PropertyModel.WritableObjectPropertyKey<View.OnClickListener>();
 
     public static final PropertyKey[] ALL_KEYS = new PropertyKey[] {NEW_TAB_CLICK_HANDLER,
-            IS_NEW_TAB_ENABLED, IS_VISIBLE, IS_INCOGNITO, INCOGNITO_STATE_PROVIDER,
-            ACCESSIBILITY_ENABLED, MENU_IS_VISIBLE, NEW_TAB_VIEW_IS_VISIBLE,
-            NEW_TAB_VIEW_TEXT_IS_VISIBLE, BUTTONS_CLICKABLE, GRID_TAB_SWITCHER_ENABLED,
-            IDENTITY_DISC_AT_START, INCOGNITO_SWITCHER_VISIBLE, IDENTITY_DISC_IS_VISIBLE,
-            IDENTITY_DISC_CLICK_HANDLER, IDENTITY_DISC_IMAGE, IDENTITY_DISC_DESCRIPTION,
-            NEW_TAB_BUTTON_HIGHLIGHT, TRANSLATION_Y, ALPHA, TAB_SWITCHER_BUTTON_IS_VISIBLE,
-            INCOGNITO_TAB_COUNT_PROVIDER, INCOGNITO_TAB_MODEL_SELECTOR};
+            IS_VISIBLE, LOGO_IS_VISIBLE, IS_INCOGNITO, INCOGNITO_STATE_PROVIDER,
+            ACCESSIBILITY_ENABLED, MENU_IS_VISIBLE, NEW_TAB_BUTTON_IS_VISIBLE, BUTTONS_CLICKABLE,
+            GRID_TAB_SWITCHER_ENABLED, IDENTITY_DISC_AT_START, INCOGNITO_SWITCHER_VISIBLE,
+            IDENTITY_DISC_IS_VISIBLE, IDENTITY_DISC_CLICK_HANDLER, IDENTITY_DISC_IMAGE,
+            IDENTITY_DISC_DESCRIPTION, IN_START_SURFACE_MODE, NEW_TAB_BUTTON_HIGHLIGHT,
+            TRANSLATION_Y, HOME_BUTTON_IS_VISIBLE, HOMEPAGE_ENABLED_SUPPLIER,
+            HOMEPAGE_MANAGED_BY_POLICY_SUPPLIER, HOME_BUTTON_CLICK_HANDLER,
+            TAB_SWITCHER_BUTTON_IS_VISIBLE, INCOGNITO_TAB_COUNT_PROVIDER,
+            INCOGNITO_TAB_MODEL_SELECTOR};
 }

@@ -19,7 +19,7 @@ class PLATFORM_EXPORT DarkModeColorClassifier {
   // Determine perceived brightness of a color.
   static int CalculateColorBrightness(SkColor color);
 
-  static std::unique_ptr<DarkModeColorClassifier> MakeForegroundColorClassifier(
+  static std::unique_ptr<DarkModeColorClassifier> MakeTextColorClassifier(
       const DarkModeSettings& settings);
   static std::unique_ptr<DarkModeColorClassifier> MakeBackgroundColorClassifier(
       const DarkModeSettings& settings);

@@ -1,10 +1,11 @@
-// Copyright 2017 The Chromium Authors
+// Copyright 2017 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 package org.chromium.content.browser.selection;
 
 import android.annotation.SuppressLint;
+import android.annotation.TargetApi;
 import android.content.Context;
 import android.os.Build;
 import android.os.Handler;
@@ -16,11 +17,8 @@ import android.view.textclassifier.TextSelection;
 
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 
 import org.chromium.base.Log;
-import org.chromium.base.compat.ApiHelperForP;
-import org.chromium.base.compat.ApiHelperForS;
 import org.chromium.base.task.AsyncTask;
 import org.chromium.content.browser.WindowEventObserver;
 import org.chromium.content.browser.WindowEventObserverManager;
@@ -93,7 +91,7 @@ public class SmartSelectionProvider {
         }
     }
 
-    @RequiresApi(Build.VERSION_CODES.O)
+    @TargetApi(Build.VERSION_CODES.O)
     public void setTextClassifier(TextClassifier textClassifier) {
         mTextClassifier = textClassifier;
 
@@ -107,7 +105,7 @@ public class SmartSelectionProvider {
 
     // TODO(wnwen): Remove this suppression once the constant is added to lint.
     @SuppressLint("WrongConstant")
-    @RequiresApi(Build.VERSION_CODES.O)
+    @TargetApi(Build.VERSION_CODES.O)
     public TextClassifier getTextClassifier() {
         if (mTextClassifier != null) return mTextClassifier;
 
@@ -126,7 +124,7 @@ public class SmartSelectionProvider {
         return mTextClassifier;
     }
 
-    @RequiresApi(Build.VERSION_CODES.O)
+    @TargetApi(Build.VERSION_CODES.O)
     private TextClassifier getTextClassificationSession() {
         if (mWindowAndroid == null) {
             return null;
@@ -145,7 +143,7 @@ public class SmartSelectionProvider {
         return textClassifierSession;
     }
 
-    @RequiresApi(Build.VERSION_CODES.O)
+    @TargetApi(Build.VERSION_CODES.O)
     private void sendSmartSelectionRequest(
             @RequestType int requestType, CharSequence text, int start, int end) {
         TextClassifier classifier = getTextClassificationSession();
@@ -166,7 +164,7 @@ public class SmartSelectionProvider {
         mClassificationTask.executeOnExecutor(AsyncTask.SERIAL_EXECUTOR);
     }
 
-    @RequiresApi(Build.VERSION_CODES.O)
+    @TargetApi(Build.VERSION_CODES.O)
     private class ClassificationTask extends AsyncTask<SelectionClient.Result> {
         private final TextClassifier mTextClassifier;
         private final @RequestType int mRequestType;
@@ -191,26 +189,21 @@ public class SmartSelectionProvider {
             int end = mOriginalEnd;
 
             TextSelection textSelection = null;
-            TextClassification textClassification = null;
 
             try {
                 if (mRequestType == RequestType.SUGGEST_AND_CLASSIFY) {
-                    textSelection = suggestSelection(start, end);
+                    textSelection = mTextClassifier.suggestSelection(
+                            mText, start, end, LocaleList.getAdjustedDefault());
                     start = Math.max(0, textSelection.getSelectionStartIndex());
                     end = Math.min(mText.length(), textSelection.getSelectionEndIndex());
                     if (isCancelled()) {
                         return new SelectionClient.Result();
                     }
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                        textClassification = ApiHelperForS.getTextClassification(textSelection);
-                    }
                 }
 
-                if (textClassification == null) {
-                    textClassification = mTextClassifier.classifyText(
-                            mText, start, end, LocaleList.getAdjustedDefault());
-                }
-                return makeResult(start, end, textClassification, textSelection);
+                TextClassification tc = mTextClassifier.classifyText(
+                        mText, start, end, LocaleList.getAdjustedDefault());
+                return makeResult(start, end, tc, textSelection);
             } catch (IllegalStateException ex) {
                 // An IllegalStateException will be thrown if the text classifier session is
                 // destroyed. This could happen if the selection is ended before text classifier
@@ -218,19 +211,6 @@ public class SmartSelectionProvider {
                 Log.e(TAG, "Failed to use text classifier for smart selection", ex);
                 return new SelectionClient.Result();
             }
-        }
-
-        private TextSelection suggestSelection(int start, int end) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                TextSelection.Request.Builder builder =
-                        ApiHelperForP.newTextSelectionRequestBuilder(mText, start, end);
-                builder = ApiHelperForP.setDefaultLocales(builder, LocaleList.getAdjustedDefault());
-                builder = ApiHelperForS.setIncludeTextClassification(builder, true);
-                return ApiHelperForP.suggestSelection(
-                        mTextClassifier, ApiHelperForP.build(builder));
-            }
-            return mTextClassifier.suggestSelection(
-                    mText, start, end, LocaleList.getAdjustedDefault());
         }
 
         private SelectionClient.Result makeResult(

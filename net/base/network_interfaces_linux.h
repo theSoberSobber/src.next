@@ -1,4 +1,4 @@
-// Copyright 2014 The Chromium Authors
+// Copyright (c) 2014 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -16,7 +16,8 @@
 #include "net/base/net_export.h"
 #include "net/base/network_interfaces.h"
 
-namespace net::internal {
+namespace net {
+namespace internal {
 
 typedef char* (*GetInterfaceNameFunction)(int interface_index, char* ifname);
 
@@ -41,6 +42,7 @@ NET_EXPORT std::string GetWifiSSIDFromInterfaceListInternal(
 // Returns a socket useful for performing ioctl()s.
 base::ScopedFD GetSocketForIoctl();
 
-}  // namespace net::internal
+}  // namespace internal
+}  // namespace net
 
 #endif  // NET_BASE_NETWORK_INTERFACES_LINUX_H_

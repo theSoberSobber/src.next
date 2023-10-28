@@ -1,10 +1,10 @@
-// Copyright 2018 The Chromium Authors
+// Copyright 2018 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "base/memory/raw_ptr.h"
 #include "extensions/browser/content_script_tracker.h"
 
+#include "base/macros.h"
 #include "base/strings/stringprintf.h"
 #include "base/threading/thread_restrictions.h"
 #include "build/build_config.h"
@@ -35,12 +35,6 @@ class ContentScriptMatchingBrowserTest : public ShellApiTest,
                                          public content::WebContentsDelegate {
  public:
   ContentScriptMatchingBrowserTest() = default;
-
-  ContentScriptMatchingBrowserTest(const ContentScriptMatchingBrowserTest&) =
-      delete;
-  ContentScriptMatchingBrowserTest& operator=(
-      const ContentScriptMatchingBrowserTest&) = delete;
-
   ~ContentScriptMatchingBrowserTest() override = default;
 
   void SetUpOnMainThread() override {
@@ -181,7 +175,7 @@ class ContentScriptMatchingBrowserTest : public ShellApiTest,
                       std::unique_ptr<content::WebContents> new_contents,
                       const GURL& target_url,
                       WindowOpenDisposition disposition,
-                      const blink::mojom::WindowFeatures& window_features,
+                      const gfx::Rect& initial_rect,
                       bool user_gesture,
                       bool* was_blocked) override {
     DCHECK_EQ(tab1_.get(), source);
@@ -207,41 +201,37 @@ class ContentScriptMatchingBrowserTest : public ShellApiTest,
   }
 
   content::RenderFrameHost* tab1_fooFrame() {
-    EXPECT_TRUE(tab1_);
-    return tab1_->GetPrimaryMainFrame();
+    DCHECK(tab1_);
+    return tab1_->GetMainFrame();
   }
 
   content::RenderFrameHost* tab1_fooBlankFrame() {
-    EXPECT_TRUE(tab1_);
-    content::RenderFrameHost* child = ChildFrameAt(tab1_fooFrame(), 0);
-    EXPECT_TRUE(child);
-    return child;
+    DCHECK(tab1_);
+    DCHECK_LT(1u, tab1_->GetAllFrames().size());
+    return tab1_->GetAllFrames()[1];
   }
 
   content::RenderFrameHost* tab1_barFrame() {
-    EXPECT_TRUE(tab1_);
-    content::RenderFrameHost* child = ChildFrameAt(tab1_fooFrame(), 1);
-    EXPECT_TRUE(child);
-    return child;
+    DCHECK(tab1_);
+    DCHECK_LT(2u, tab1_->GetAllFrames().size());
+    return tab1_->GetAllFrames()[2];
   }
 
   content::RenderFrameHost* tab1_barBlankFrame() {
-    EXPECT_TRUE(tab1_);
-    content::RenderFrameHost* child = ChildFrameAt(tab1_barFrame(), 0);
-    EXPECT_TRUE(child);
-    return child;
+    DCHECK(tab1_);
+    DCHECK_LT(3u, tab1_->GetAllFrames().size());
+    return tab1_->GetAllFrames()[3];
   }
 
   content::RenderFrameHost* tab2_barBlankFrame1() {
-    EXPECT_TRUE(tab2_);
-    return tab2_->GetPrimaryMainFrame();
+    DCHECK(tab2_);
+    return tab2_->GetMainFrame();
   }
 
   content::RenderFrameHost* tab2_barBlankFrame2() {
-    EXPECT_TRUE(tab2_);
-    content::RenderFrameHost* child = ChildFrameAt(tab2_barBlankFrame1(), 0);
-    EXPECT_TRUE(child);
-    return child;
+    DCHECK(tab2_);
+    DCHECK_LT(1u, tab1_->GetAllFrames().size());
+    return tab2_->GetAllFrames()[1];
   }
 
   // Populated by SetUpFrameTree (during test setup / in SetUpOnMainThread).
@@ -250,7 +240,9 @@ class ContentScriptMatchingBrowserTest : public ShellApiTest,
 
   // Populated by InstallContentScriptsExtension (called by individual tests).
   TestExtensionDir dir_;
-  raw_ptr<const Extension> extension_ = nullptr;
+  const Extension* extension_ = nullptr;
+
+  DISALLOW_COPY_AND_ASSIGN(ContentScriptMatchingBrowserTest);
 };
 
 IN_PROC_BROWSER_TEST_F(ContentScriptMatchingBrowserTest,
@@ -324,7 +316,7 @@ IN_PROC_BROWSER_TEST_F(ContentScriptMatchingBrowserTest,
 }
 
 // Flaky on MacOS since r622662. See https://crbug.com/921883
-#if BUILDFLAG(IS_MAC)
+#if defined(OS_MAC)
 #define MAYBE_ContentScriptMatching_NotAllFrames \
   DISABLED_ContentScriptMatching_NotAllFrames
 #else

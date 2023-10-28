@@ -1,4 +1,4 @@
-// Copyright 2013 The Chromium Authors
+// Copyright 2013 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,6 +7,7 @@
 
 #include <string>
 
+#include "base/macros.h"
 #include "base/synchronization/waitable_event.h"
 #include "chrome/browser/ui/crypto_module_password_dialog.h"
 #include "crypto/nss_crypto_module_delegate.h"
@@ -23,10 +24,6 @@ class ChromeNSSCryptoModuleDelegate
   // is causing the dialog to appear. |slot| can be NULL.
   ChromeNSSCryptoModuleDelegate(CryptoModulePasswordReason reason,
                                 const net::HostPortPair& server);
-
-  ChromeNSSCryptoModuleDelegate(const ChromeNSSCryptoModuleDelegate&) = delete;
-  ChromeNSSCryptoModuleDelegate& operator=(
-      const ChromeNSSCryptoModuleDelegate&) = delete;
 
   // crypto::CryptoModuleBlockingPasswordDelegate implementation.
   std::string RequestPassword(const std::string& slot_name,
@@ -52,6 +49,8 @@ class ChromeNSSCryptoModuleDelegate
   // Stores the results from the dialog for access on worker thread.
   std::string password_;
   bool cancelled_;
+
+  DISALLOW_COPY_AND_ASSIGN(ChromeNSSCryptoModuleDelegate);
 };
 
 // Create a delegate which only handles unlocking slots.

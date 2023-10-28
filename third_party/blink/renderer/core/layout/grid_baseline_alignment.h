@@ -7,8 +7,6 @@
 
 #include "third_party/blink/renderer/core/layout/grid_layout_utils.h"
 #include "third_party/blink/renderer/core/layout/layout_box.h"
-#include "third_party/blink/renderer/platform/heap/collection_support/heap_hash_map.h"
-#include "third_party/blink/renderer/platform/heap/collection_support/heap_hash_set.h"
 #include "third_party/blink/renderer/platform/wtf/allocator/allocator.h"
 
 namespace blink {
@@ -41,7 +39,6 @@ class BaselineGroup {
   LayoutUnit MaxAscent() const { return max_ascent_; }
   LayoutUnit MaxDescent() const { return max_descent_; }
   int size() const { return items_.size(); }
-  void Trace(Visitor* visitor) const { visitor->Trace(items_); }
 
  private:
   friend class BaselineContext;
@@ -65,7 +62,7 @@ class BaselineGroup {
   ItemPosition preference_;
   LayoutUnit max_ascent_;
   LayoutUnit max_descent_;
-  HeapHashSet<Member<const LayoutBox>> items_;
+  HashSet<const LayoutBox*> items_;
 };
 
 // Boxes share an alignment context along a particular axis when they
@@ -88,13 +85,15 @@ class BaselineGroup {
 // groups it handles are automatically updated, if there is one that
 // is compatible with such item. Otherwise, a new baseline-sharing
 // group is created, compatible with the new item.
-class BaselineContext : public GarbageCollected<BaselineContext> {
+class BaselineContext {
+  USING_FAST_MALLOC(BaselineContext);
+
  public:
   BaselineContext(const LayoutBox& child,
                   ItemPosition preference,
                   LayoutUnit ascent,
                   LayoutUnit descent);
-  HeapVector<BaselineGroup>& SharedGroups() { return shared_groups_; }
+  Vector<BaselineGroup>& SharedGroups() { return shared_groups_; }
   const BaselineGroup& GetSharedGroup(const LayoutBox& child,
                                       ItemPosition preference) const;
 
@@ -107,8 +106,6 @@ class BaselineContext : public GarbageCollected<BaselineContext> {
                          LayoutUnit ascent,
                          LayoutUnit descent);
 
-  void Trace(Visitor* visitor) const { visitor->Trace(shared_groups_); }
-
  private:
   // Returns the baseline-sharing group compatible with an item.
   // We pass the item's baseline-preference to avoid dependencies with
@@ -119,7 +116,7 @@ class BaselineContext : public GarbageCollected<BaselineContext> {
   BaselineGroup& FindCompatibleSharedGroup(const LayoutBox& child,
                                            ItemPosition preference);
 
-  HeapVector<BaselineGroup> shared_groups_;
+  Vector<BaselineGroup> shared_groups_;
 };
 
 static inline bool IsBaselinePosition(ItemPosition position) {
@@ -171,11 +168,6 @@ class GridBaselineAlignment {
   // classes and data structures.
   void Clear(GridAxis);
 
-  void Trace(Visitor* visitor) const {
-    visitor->Trace(row_axis_alignment_context_);
-    visitor->Trace(col_axis_alignment_context_);
-  }
-
  private:
   const BaselineGroup& GetBaselineGroupForChild(ItemPosition,
                                                 unsigned shared_context,
@@ -191,10 +183,10 @@ class GridBaselineAlignment {
   bool IsOrthogonalChildForBaseline(const LayoutBox&) const;
   bool IsParallelToBaselineAxisForChild(const LayoutBox&, GridAxis) const;
 
-  typedef HeapHashMap<unsigned,
-                      Member<BaselineContext>,
-                      DefaultHash<unsigned>::Hash,
-                      WTF::UnsignedWithZeroKeyHashTraits<unsigned>>
+  typedef HashMap<unsigned,
+                  std::unique_ptr<BaselineContext>,
+                  DefaultHash<unsigned>::Hash,
+                  WTF::UnsignedWithZeroKeyHashTraits<unsigned>>
       BaselineContextsMap;
 
   // Grid Container's WritingMode, used to determine grid item's orthogonality.
@@ -204,7 +196,5 @@ class GridBaselineAlignment {
 };
 
 }  // namespace blink
-
-WTF_ALLOW_CLEAR_UNUSED_SLOTS_WITH_MEM_FUNCTIONS(blink::BaselineGroup)
 
 #endif  // THIRD_PARTY_BLINK_RENDERER_CORE_LAYOUT_GRID_BASELINE_ALIGNMENT_H_

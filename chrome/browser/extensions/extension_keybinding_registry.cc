@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -13,11 +13,11 @@
 #include "chrome/browser/extensions/extension_tab_util.h"
 #include "chrome/browser/extensions/tab_helper.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/common/extensions/command.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/media_keys_listener_manager.h"
 #include "content/public/browser/web_contents.h"
 #include "extensions/browser/event_router.h"
-#include "extensions/common/command.h"
 #include "extensions/common/extension_set.h"
 #include "extensions/common/manifest_constants.h"
 
@@ -142,10 +142,10 @@ void ExtensionKeybindingRegistry::CommandExecuted(
   if (!extension)
     return;
 
-  base::Value::List args;
-  args.Append(command);
+  std::unique_ptr<base::ListValue> args(new base::ListValue());
+  args->AppendString(command);
 
-  base::Value tab_value;
+  std::unique_ptr<base::Value> tab_value;
   if (delegate_) {
     content::WebContents* web_contents =
         delegate_->GetWebContentsForExtension();
@@ -170,17 +170,21 @@ void ExtensionKeybindingRegistry::CommandExecuted(
       ExtensionTabUtil::ScrubTabBehavior scrub_tab_behavior =
           ExtensionTabUtil::GetScrubTabBehavior(extension, context_type,
                                                 web_contents);
-      tab_value = base::Value(ExtensionTabUtil::CreateTabObject(
-                                  web_contents, scrub_tab_behavior, extension)
-                                  .ToValue());
+      tab_value = ExtensionTabUtil::CreateTabObject(
+                      web_contents, scrub_tab_behavior, extension)
+                      ->ToValue();
     }
   }
 
-  args.Append(std::move(tab_value));
+  if (!tab_value) {
+    // No currently-active tab. Push a null value.
+    tab_value = std::make_unique<base::Value>();
+  }
+  args->Append(std::move(tab_value));
 
   auto event =
       std::make_unique<Event>(events::COMMANDS_ON_COMMAND, kOnCommandEventName,
-                              std::move(args), browser_context_);
+                              std::move(*args).TakeList(), browser_context_);
   event->user_gesture = EventRouter::USER_GESTURE_ENABLED;
   EventRouter::Get(browser_context_)
       ->DispatchEventToExtension(extension_id, std::move(event));

@@ -1,4 +1,4 @@
-// Copyright 2018 The Chromium Authors
+// Copyright (c) 2018 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -13,9 +13,8 @@
 #include "base/callback.h"
 #include "base/location.h"
 #include "base/memory/ref_counted.h"
+#include "base/post_task_and_reply_with_result_internal.h"
 #include "base/synchronization/lock.h"
-#include "base/task/post_task_and_reply_with_result_internal.h"
-#include "base/task/task_traits.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "net/base/net_export.h"
 
@@ -49,7 +48,7 @@ class NET_EXPORT_PRIVATE PrioritizedTaskRunner
     : public base::RefCountedThreadSafe<PrioritizedTaskRunner> {
  public:
   enum class ReplyRunnerType { kStandard, kPrioritized };
-  explicit PrioritizedTaskRunner(const base::TaskTraits& task_traits);
+  explicit PrioritizedTaskRunner(scoped_refptr<base::TaskRunner> task_runner);
   PrioritizedTaskRunner(const PrioritizedTaskRunner&) = delete;
   PrioritizedTaskRunner& operator=(const PrioritizedTaskRunner&) = delete;
 
@@ -63,8 +62,8 @@ class NET_EXPORT_PRIVATE PrioritizedTaskRunner
                         base::OnceClosure reply,
                         uint32_t priority);
 
-  // Similar to TaskRunner::PostTaskAndReplyWithResult, except that the task
-  // runs at |priority|. See PostTaskAndReply for a description of |priority|.
+  // Similar to base::PostTaskAndReplyWithResult, except that the task runs at
+  // |priority|. See PostTaskAndReply for a description of |priority|.
   template <typename TaskReturnType, typename ReplyArgType>
   void PostTaskAndReplyWithResult(const base::Location& from_here,
                                   base::OnceCallback<TaskReturnType()> task,
@@ -80,9 +79,7 @@ class NET_EXPORT_PRIVATE PrioritizedTaskRunner
         priority);
   }
 
-  void SetTaskRunnerForTesting(scoped_refptr<base::TaskRunner> task_runner) {
-    task_runner_for_testing_ = std::move(task_runner);
-  }
+  base::TaskRunner* task_runner() { return task_runner_.get(); }
 
  private:
   friend class base::RefCountedThreadSafe<PrioritizedTaskRunner>;
@@ -129,8 +126,8 @@ class NET_EXPORT_PRIVATE PrioritizedTaskRunner
   std::vector<Job> reply_job_heap_;
   base::Lock reply_job_heap_lock_;
 
-  const base::TaskTraits task_traits_;
-  scoped_refptr<base::TaskRunner> task_runner_for_testing_;
+  // Accessed on the reply task runner.
+  scoped_refptr<base::TaskRunner> task_runner_;
 
   // Used to preserve order of jobs of equal priority. This can overflow and
   // cause periodic priority inversion. This should be infrequent enough to be

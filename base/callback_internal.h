@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,8 +7,6 @@
 
 #ifndef BASE_CALLBACK_INTERNAL_H_
 #define BASE_CALLBACK_INTERNAL_H_
-
-#include <utility>
 
 #include "base/base_export.h"
 #include "base/callback_forward.h"
@@ -33,12 +31,12 @@ struct BindState;
 class CallbackBase;
 class CallbackBaseCopyable;
 
-struct BASE_EXPORT BindStateBaseRefCountTraits {
+struct BindStateBaseRefCountTraits {
   static void Destruct(const BindStateBase*);
 };
 
 template <typename T>
-using PassingType = std::conditional_t<std::is_scalar_v<T>, T, T&&>;
+using PassingType = std::conditional_t<std::is_scalar<T>::value, T, T&&>;
 
 // BindStateBase is used to provide an opaque handle that the Callback
 // class can use to represent a function object with bound arguments.  It
@@ -152,7 +150,7 @@ class BASE_EXPORT CallbackBase {
   // Returns true if this callback equals |other|. |other| may be null.
   bool EqualsInternal(const CallbackBase& other) const;
 
-  inline constexpr CallbackBase();
+  constexpr inline CallbackBase();
 
   // Allow initializing of |bind_state_| via the constructor to avoid default
   // initialization of the scoped_refptr.
@@ -231,7 +229,7 @@ struct ThenHelper<OriginalCallback<OriginalR(OriginalArgs...)>,
                 "has a non-void return type.");
   // TODO(dcheng): This should probably check is_convertible as well (same with
   // `AssertBindArgsValidity`).
-  static_assert(std::is_constructible_v<ThenArgs..., OriginalR&&>,
+  static_assert(std::is_constructible<ThenArgs..., OriginalR&&>::value,
                 "|then| callback's parameter must be constructible from "
                 "return type of |this|.");
 

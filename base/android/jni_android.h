@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -16,6 +16,7 @@
 #include "base/compiler_specific.h"
 #include "base/debug/debugging_buildflags.h"
 #include "base/debug/stack_trace.h"
+#include "base/macros.h"
 
 #if BUILDFLAG(CAN_UNWIND_WITH_FRAME_POINTERS)
 
@@ -162,15 +163,13 @@ BASE_EXPORT std::string GetJavaExceptionInfo(JNIEnv* env,
 class BASE_EXPORT JNIStackFrameSaver {
  public:
   JNIStackFrameSaver(void* current_fp);
-
-  JNIStackFrameSaver(const JNIStackFrameSaver&) = delete;
-  JNIStackFrameSaver& operator=(const JNIStackFrameSaver&) = delete;
-
   ~JNIStackFrameSaver();
   static void* SavedFrame();
 
  private:
   void* previous_fp_;
+
+  DISALLOW_COPY_AND_ASSIGN(JNIStackFrameSaver);
 };
 
 #endif  // BUILDFLAG(CAN_UNWIND_WITH_FRAME_POINTERS)

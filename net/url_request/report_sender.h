@@ -1,4 +1,4 @@
-// Copyright 2015 The Chromium Authors
+// Copyright 2015 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -9,7 +9,7 @@
 #include <memory>
 
 #include "base/callback.h"
-#include "base/memory/raw_ptr.h"
+#include "base/macros.h"
 #include "net/base/net_export.h"
 #include "net/http/transport_security_state.h"
 #include "net/traffic_annotation/network_traffic_annotation.h"
@@ -46,9 +46,6 @@ class NET_EXPORT ReportSender
   explicit ReportSender(URLRequestContext* request_context,
                         net::NetworkTrafficAnnotationTag traffic_annotation);
 
-  ReportSender(const ReportSender&) = delete;
-  ReportSender& operator=(const ReportSender&) = delete;
-
   ~ReportSender() override;
 
   // TransportSecurityState::ReportSenderInterface implementation.
@@ -64,9 +61,11 @@ class NET_EXPORT ReportSender
   void OnReadCompleted(URLRequest* request, int bytes_read) override;
 
  private:
-  const raw_ptr<net::URLRequestContext> request_context_;
+  net::URLRequestContext* const request_context_;
   std::map<URLRequest*, std::unique_ptr<URLRequest>> inflight_requests_;
   const net::NetworkTrafficAnnotationTag traffic_annotation_;
+
+  DISALLOW_COPY_AND_ASSIGN(ReportSender);
 };
 
 }  // namespace net

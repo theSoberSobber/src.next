@@ -6,22 +6,12 @@
 #define THIRD_PARTY_BLINK_RENDERER_CORE_FRAME_LOCAL_FRAME_MOJO_HANDLER_H_
 
 #include "build/build_config.h"
-#include "components/power_scheduler/power_mode_voter.h"
-#include "services/device/public/mojom/device_posture_provider.mojom-blink.h"
-#include "third_party/blink/public/mojom/frame/back_forward_cache_controller.mojom-blink.h"
 #include "third_party/blink/public/mojom/frame/frame.mojom-blink.h"
 #include "third_party/blink/public/mojom/media/fullscreen_video_element.mojom-blink.h"
-#include "third_party/blink/public/mojom/reporting/reporting.mojom-blink.h"
-#include "third_party/blink/renderer/platform/heap/garbage_collected.h"
-#include "third_party/blink/renderer/platform/heap/persistent.h"
+#include "third_party/blink/renderer/platform/heap/handle.h"
 #include "third_party/blink/renderer/platform/mojo/heap_mojo_associated_receiver.h"
 #include "third_party/blink/renderer/platform/mojo/heap_mojo_associated_remote.h"
 #include "third_party/blink/renderer/platform/mojo/heap_mojo_receiver.h"
-#include "third_party/blink/renderer/platform/mojo/heap_mojo_remote.h"
-
-#if BUILDFLAG(IS_MAC)
-#include "third_party/blink/public/mojom/input/text_input_host.mojom-blink.h"
-#endif
 
 namespace blink {
 
@@ -30,14 +20,8 @@ class LocalDOMWindow;
 class LocalFrame;
 class Page;
 
-// LocalFrameMojoHandler is a part of LocalFrame, and is responsible for having
-// Mojo-related stuff in order to avoid including full mojom headers from
-// local_frame.h.
-//
-// This class should have:
-//  - Mojo receivers
-//  - Mojo remotes
-//  - Data members of which types are defined by mojom.
+// LocalFrameMojoHandler is responsible for providing Mojo receivers and
+// remotes associated to blink::LocalFrame.
 //
 // A single LocalFrame instance owns a single LocalFrameMojoHandler instance.
 class LocalFrameMojoHandler
@@ -45,8 +29,7 @@ class LocalFrameMojoHandler
       public mojom::blink::LocalFrame,
       public mojom::blink::LocalMainFrame,
       public mojom::blink::HighPriorityLocalFrame,
-      public mojom::blink::FullscreenVideoElementHandler,
-      public device::mojom::blink::DevicePostureProviderClient {
+      public mojom::blink::FullscreenVideoElementHandler {
  public:
   explicit LocalFrameMojoHandler(blink::LocalFrame& frame);
   void Trace(Visitor* visitor) const;
@@ -59,18 +42,6 @@ class LocalFrameMojoHandler
   mojom::blink::LocalFrameHost& LocalFrameHostRemote() const {
     return *local_frame_host_remote_.get();
   }
-
-  mojom::blink::ReportingServiceProxy* ReportingService();
-  mojom::blink::BackForwardCacheControllerHost&
-  BackForwardCacheControllerHostRemote();
-
-#if BUILDFLAG(IS_MAC)
-  mojom::blink::TextInputHost& TextInputHost();
-  void ResetTextInputHostForTesting();
-  void RebindTextInputHostForTesting();
-#endif
-
-  device::mojom::blink::DevicePostureType GetDevicePosture();
 
  private:
   Page* GetPage() const;
@@ -126,7 +97,7 @@ class LocalFrameMojoHandler
   void AdvanceFocusInFrame(
       mojom::blink::FocusType focus_type,
       const absl::optional<RemoteFrameToken>& source_frame_token) final;
-  void AdvanceFocusForIME(mojom::blink::FocusType focus_type) final;
+  void AdvanceFocusInForm(mojom::blink::FocusType focus_type) final;
   void ReportContentSecurityPolicyViolation(
       network::mojom::blink::CSPViolationPtr csp_violation) final;
   // Updates the snapshotted policy attributes (sandbox flags and permissions
@@ -135,6 +106,7 @@ class LocalFrameMojoHandler
   // frame's sandbox flags or container policy. The new policy won't take effect
   // until the next navigation.
   void DidUpdateFramePolicy(const FramePolicy& frame_policy) final;
+  void OnScreensChange() final;
   void PostMessageEvent(
       const absl::optional<RemoteFrameToken>& source_frame_token,
       const String& source_origin,
@@ -143,7 +115,7 @@ class LocalFrameMojoHandler
   void JavaScriptMethodExecuteRequest(
       const String& object_name,
       const String& method_name,
-      base::Value::List arguments,
+      base::Value arguments,
       bool wants_result,
       JavaScriptMethodExecuteRequestCallback callback) final;
   void JavaScriptExecuteRequest(
@@ -161,7 +133,7 @@ class LocalFrameMojoHandler
       bool wants_result,
       int32_t world_id,
       JavaScriptExecuteRequestInIsolatedWorldCallback callback) final;
-#if BUILDFLAG(IS_MAC)
+#if defined(OS_MAC)
   void GetCharacterIndexAtPoint(const gfx::Point& point) final;
   void GetFirstRectForRange(const gfx::Range& range) final;
   void GetStringForRange(const gfx::Range& range,
@@ -180,21 +152,18 @@ class LocalFrameMojoHandler
       const KURL& url_before_redirects,
       bool had_redirect,
       network::mojom::blink::SourceLocationPtr source_location) final;
+  void ActivateForPrerendering(base::TimeTicks activation_start) final;
   void BindDevToolsAgent(
       mojo::PendingAssociatedRemote<mojom::blink::DevToolsAgentHost> host,
       mojo::PendingAssociatedReceiver<mojom::blink::DevToolsAgent> receiver)
       final;
-#if BUILDFLAG(IS_ANDROID)
+#if defined(OS_ANDROID)
   void ExtractSmartClipData(const gfx::Rect& rect,
                             ExtractSmartClipDataCallback callback) final;
 #endif
   void HandleRendererDebugURL(const KURL& url) final;
   void GetCanonicalUrlForSharing(
       GetCanonicalUrlForSharingCallback callback) final;
-  void GetOpenGraphMetadata(GetOpenGraphMetadataCallback callback) final;
-
-  void SetNavigationApiHistoryEntriesForRestore(
-      mojom::blink::NavigationApiHistoryEntryArraysPtr) final;
 
   // blink::mojom::LocalMainFrame overrides:
   void AnimateDoubleTapZoom(const gfx::Point& point,
@@ -208,9 +177,12 @@ class LocalFrameMojoHandler
   void EnablePreferredSizeChangedMode() override;
   void ZoomToFindInPageRect(const gfx::Rect& rect_in_root_frame) override;
   void InstallCoopAccessMonitor(
+      network::mojom::blink::CoopAccessReportType report_type,
       const FrameToken& accessed_window,
-      network::mojom::blink::CrossOriginOpenerPolicyReporterParamsPtr
-          coop_reporter_params) final;
+      mojo::PendingRemote<
+          network::mojom::blink::CrossOriginOpenerPolicyReporter> reporter,
+      bool endpoint_defined,
+      const WTF::String& reported_window_url) final;
   void OnPortalActivated(
       const PortalToken& portal_token,
       mojo::PendingAssociatedRemote<mojom::blink::Portal> portal,
@@ -233,23 +205,7 @@ class LocalFrameMojoHandler
   // mojom::FullscreenVideoElementHandler implementation:
   void RequestFullscreenVideoElement() final;
 
-  // DevicePostureServiceClient implementation:
-  void OnPostureChanged(device::mojom::blink::DevicePostureType posture) final;
-
   Member<blink::LocalFrame> frame_;
-
-  HeapMojoAssociatedRemote<mojom::blink::BackForwardCacheControllerHost>
-      back_forward_cache_controller_host_remote_{nullptr};
-
-#if BUILDFLAG(IS_MAC)
-  HeapMojoRemote<mojom::blink::TextInputHost> text_input_host_{nullptr};
-#endif
-
-  HeapMojoRemote<mojom::blink::ReportingServiceProxy> reporting_service_{
-      nullptr};
-
-  HeapMojoRemote<device::mojom::blink::DevicePostureProvider>
-      device_posture_provider_service_{nullptr};
 
   HeapMojoAssociatedRemote<mojom::blink::LocalFrameHost>
       local_frame_host_remote_{nullptr};
@@ -268,17 +224,6 @@ class LocalFrameMojoHandler
   HeapMojoAssociatedReceiver<mojom::blink::FullscreenVideoElementHandler,
                              LocalFrameMojoHandler>
       fullscreen_video_receiver_{this, nullptr};
-
-  // LocalFrameMojoHandler can be reused by multiple ExecutionContext.
-  HeapMojoReceiver<device::mojom::blink::DevicePostureProviderClient,
-                   LocalFrameMojoHandler>
-      device_posture_receiver_{this, nullptr};
-
-  device::mojom::blink::DevicePostureType current_device_posture_ =
-      device::mojom::blink::DevicePostureType::kContinuous;
-
-  std::unique_ptr<power_scheduler::PowerModeVoter>
-      script_execution_power_mode_voter_;
 };
 
 class ActiveURLMessageFilter : public mojo::MessageFilter {

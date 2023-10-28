@@ -1,4 +1,4 @@
-// Copyright 2015 The Chromium Authors
+// Copyright 2015 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -26,7 +26,6 @@ import org.chromium.base.library_loader.LibraryLoader;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.task.AsyncTask;
 import org.chromium.chrome.R;
-import org.chromium.chrome.browser.crash.ChromePureJavaExceptionReporter;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.toolbar.ControlContainer;
 import org.chromium.components.embedder_support.util.UrlConstants;
@@ -82,7 +81,7 @@ public class WarmupManager {
      */
     private class RenderProcessGoneObserver extends WebContentsObserver {
         @Override
-        public void renderProcessGone() {
+        public void renderProcessGone(boolean wasOomProtected) {
             long elapsed = SystemClock.elapsedRealtime() - mWebContentsCreationTimeMs;
             RecordHistogram.recordLongTimesHistogram(
                     "CustomTabs.SpareWebContents.TimeBeforeDeath", elapsed);
@@ -163,15 +162,8 @@ public class WarmupManager {
             }
             return mainView;
         } catch (InflateException e) {
-            // Warmup manager is only a performance improvement. If inflation failed, it will be
-            // redone when the CCT is actually launched using an activity context. So, swallow
-            // exceptions here to improve resilience. See https://crbug.com/606715.
+            // See https://crbug.com/606715.
             Log.e(TAG, "Inflation exception.", e);
-            // An exception caught here may indicate a real bug in production code. We report the
-            // exceptions to monitor any spikes or stacks that point to Chrome code.
-            Throwable throwable = new Throwable(
-                    "This is not a crash. See https://crbug.com/1259276 for details.", e);
-            ChromePureJavaExceptionReporter.postReportJavaException(throwable);
             return null;
         }
     }

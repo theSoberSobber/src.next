@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -50,7 +50,7 @@ class HttpNetworkLayerTest : public PlatformTest, public WithTaskEnvironment {
     cert_verifier_ = std::make_unique<MockCertVerifier>();
     transport_security_state_ = std::make_unique<TransportSecurityState>();
     proxy_resolution_service_ = std::move(proxy_resolution_service);
-    HttpNetworkSessionContext session_context;
+    HttpNetworkSession::Context session_context;
     session_context.client_socket_factory = &mock_socket_factory_;
     session_context.host_resolver = &host_resolver_;
     session_context.cert_verifier = cert_verifier_.get();
@@ -61,7 +61,7 @@ class HttpNetworkLayerTest : public PlatformTest, public WithTaskEnvironment {
     session_context.http_server_properties = &http_server_properties_;
     session_context.quic_context = &quic_context_;
     network_session_ = std::make_unique<HttpNetworkSession>(
-        HttpNetworkSessionParams(), session_context);
+        HttpNetworkSession::Params(), session_context);
     factory_ = std::make_unique<HttpNetworkLayer>(network_session_.get());
   }
 
@@ -265,9 +265,7 @@ class HttpNetworkLayerTest : public PlatformTest, public WithTaskEnvironment {
   }
 
   MockClientSocketFactory mock_socket_factory_;
-  MockHostResolver host_resolver_{
-      /*default_result=*/
-      MockHostResolverBase::RuleResolver::GetLocalhostResult()};
+  MockHostResolver host_resolver_;
   std::unique_ptr<CertVerifier> cert_verifier_;
   std::unique_ptr<TransportSecurityState> transport_security_state_;
   DefaultCTPolicyEnforcer ct_policy_enforcer_;

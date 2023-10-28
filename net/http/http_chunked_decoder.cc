@@ -1,4 +1,4 @@
-// Copyright 2011 The Chromium Authors
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -58,7 +58,13 @@ namespace net {
 // extensions.
 const size_t HttpChunkedDecoder::kMaxLineBufLen = 16384;
 
-HttpChunkedDecoder::HttpChunkedDecoder() = default;
+HttpChunkedDecoder::HttpChunkedDecoder()
+    : chunk_remaining_(0),
+      chunk_terminator_remaining_(false),
+      reached_last_chunk_(false),
+      reached_eof_(false),
+      bytes_after_eof_(0) {
+}
 
 int HttpChunkedDecoder::FilterBuf(char* buf, int buf_len) {
   int result = 0;

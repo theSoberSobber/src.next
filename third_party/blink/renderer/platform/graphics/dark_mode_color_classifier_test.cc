@@ -19,23 +19,22 @@ SkColor GetColorWithBrightness(int target_brightness) {
   return SkColorSetRGB(target_brightness, target_brightness, target_brightness);
 }
 
-TEST(DarkModeColorClassifierTest, ApplyFilterToDarkForegroundOnly) {
+TEST(DarkModeColorClassifierTest, ApplyFilterToDarkTextOnly) {
   DarkModeSettings settings;
   settings.mode = DarkModeInversionAlgorithm::kSimpleInvertForTesting;
-  settings.foreground_brightness_threshold = 200;
-  auto classifier =
-      DarkModeColorClassifier::MakeForegroundColorClassifier(settings);
+  settings.text_brightness_threshold = 200;
+  auto classifier = DarkModeColorClassifier::MakeTextColorClassifier(settings);
 
   // Verify that the following are inverted:
-  //   * black foreground
-  //   * foreground darker than the foreground brightness threshold
+  //   * black text
+  //   * text darker than the text brightness threshold
   // and the following are not inverted:
-  //   * white foreground
-  //   * foreground brighter than the foreground brightness threshold
-  //   * foreground at the brightness threshold
+  //   * white text
+  //   * text brighter than the text brightness threshold
+  //   * text at the brightness threshold
   EXPECT_EQ(DarkModeResult::kApplyFilter,
             classifier->ShouldInvertColor(GetColorWithBrightness(
-                settings.foreground_brightness_threshold - 5)));
+                settings.text_brightness_threshold - 5)));
   EXPECT_EQ(DarkModeResult::kApplyFilter,
             classifier->ShouldInvertColor(SK_ColorBLACK));
 
@@ -43,10 +42,10 @@ TEST(DarkModeColorClassifierTest, ApplyFilterToDarkForegroundOnly) {
             classifier->ShouldInvertColor(SK_ColorWHITE));
   EXPECT_EQ(DarkModeResult::kDoNotApplyFilter,
             classifier->ShouldInvertColor(GetColorWithBrightness(
-                settings.foreground_brightness_threshold + 5)));
+                settings.text_brightness_threshold + 5)));
   EXPECT_EQ(DarkModeResult::kDoNotApplyFilter,
-            classifier->ShouldInvertColor(GetColorWithBrightness(
-                settings.foreground_brightness_threshold)));
+            classifier->ShouldInvertColor(
+                GetColorWithBrightness(settings.text_brightness_threshold)));
 }
 
 TEST(DarkModeColorClassifierTest, ApplyFilterToLightBackgroundElementsOnly) {

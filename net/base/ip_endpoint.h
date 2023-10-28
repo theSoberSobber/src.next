@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,26 +7,24 @@
 
 #include <stdint.h>
 
-#include <ostream>
 #include <string>
 
+#include "base/compiler_specific.h"
 #include "build/build_config.h"
 #include "net/base/address_family.h"
 #include "net/base/ip_address.h"
 #include "net/base/net_export.h"
 
+#if defined(OS_WIN)
 // Replicate these from Windows headers to avoid pulling net/sys_addrinfo.h.
 // Doing that transitively brings in windows.h. Including windows.h pollutes the
 // global namespace with thousands of macro definitions. This file is
 // transitively included in enough files that including windows.h potentially
 // impacts build performance.
-// Similarly, just pull in the minimal header necessary on non-Windows platforms
-// to help with build performance.
 struct sockaddr;
-#if BUILDFLAG(IS_WIN)
 typedef int socklen_t;
 #else
-#include <sys/socket.h>
+#include "net/base/sys_addrinfo.h"
 #endif
 
 namespace net {
@@ -42,46 +40,37 @@ class NET_EXPORT IPEndPoint {
   IPEndPoint(const IPEndPoint& endpoint);
 
   const IPAddress& address() const { return address_; }
+  uint16_t port() const { return port_; }
 
-  // Returns the IPv4/IPv6 port if it has been set by the constructor or
-  // `FromSockAddr`. This function will crash if the IPEndPoint is for a
-  // Bluetooth socket.
-  uint16_t port() const;
-
-  // Returns AddressFamily of the address. Returns ADDRESS_FAMILY_UNSPECIFIED if
-  // this is the IPEndPoint for a Bluetooth socket.
+  // Returns AddressFamily of the address.
   AddressFamily GetFamily() const;
 
-  // Returns the sockaddr family of the address, AF_INET or AF_INET6. Returns
-  // AF_BTH if this is the IPEndPoint for a Bluetooth socket.
+  // Returns the sockaddr family of the address, AF_INET or AF_INET6.
   int GetSockAddrFamily() const;
 
-  // Convert to a provided sockaddr struct. This function will crash if the
-  // IPEndPoint is for a Bluetooth socket.
+  // Convert to a provided sockaddr struct.
   // |address| is the sockaddr to copy into.  Should be at least
   //    sizeof(struct sockaddr_storage) bytes.
   // |address_length| is an input/output parameter.  On input, it is the
   //    size of data in |address| available.  On output, it is the size of
   //    the address that was copied into |address|.
   // Returns true on success, false on failure.
-  [[nodiscard]] bool ToSockAddr(struct sockaddr* address,
-                                socklen_t* address_length) const;
+  bool ToSockAddr(struct sockaddr* address, socklen_t* address_length) const
+      WARN_UNUSED_RESULT;
 
   // Convert from a sockaddr struct.
   // |address| is the address.
   // |address_length| is the length of |address|.
   // Returns true on success, false on failure.
-  [[nodiscard]] bool FromSockAddr(const struct sockaddr* address,
-                                  socklen_t address_length);
+  bool FromSockAddr(const struct sockaddr* address,
+                    socklen_t address_length) WARN_UNUSED_RESULT;
 
   // Returns value as a string (e.g. "127.0.0.1:80"). Returns the empty string
-  // when |address_| is invalid (the port will be ignored). This function will
-  // crash if the IPEndPoint is for a Bluetooth socket.
+  // when |address_| is invalid (the port will be ignored).
   std::string ToString() const;
 
   // As above, but without port. Returns the empty string when address_ is
-  // invalid. The function will crash if the IPEndPoint is for a Bluetooth
-  // socket.
+  // invalid.
   std::string ToStringWithoutPort() const;
 
   bool operator<(const IPEndPoint& that) const;
@@ -90,11 +79,8 @@ class NET_EXPORT IPEndPoint {
 
  private:
   IPAddress address_;
-  uint16_t port_ = 0;
+  uint16_t port_;
 };
-
-NET_EXPORT_PRIVATE std::ostream& operator<<(std::ostream& os,
-                                            const IPEndPoint& ip_endpoint);
 
 }  // namespace net
 

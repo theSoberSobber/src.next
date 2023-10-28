@@ -21,7 +21,7 @@ String CSSLayoutFunctionValue::CustomCSSText() const {
   result.Append("layout(");
   result.Append(name_->CustomCSSText());
   result.Append(')');
-  return result.ReleaseString();
+  return result.ToString();
 }
 
 AtomicString CSSLayoutFunctionValue::GetName() const {

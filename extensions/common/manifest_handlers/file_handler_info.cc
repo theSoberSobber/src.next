@@ -1,4 +1,4 @@
-// Copyright 2014 The Chromium Authors
+// Copyright 2014 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -46,7 +46,7 @@ const FileHandlersInfo* FileHandlers::GetFileHandlers(
     const Extension* extension) {
   FileHandlers* info = static_cast<FileHandlers*>(
       extension->GetManifestData(keys::kFileHandlers));
-  return info ? &info->file_handlers : nullptr;
+  return info ? &info->file_handlers : NULL;
 }
 
 FileHandlersParser::FileHandlersParser() {
@@ -116,28 +116,28 @@ bool LoadFileHandler(const std::string& handler_id,
   }
 
   if (mime_types) {
-    const base::Value::List& list = mime_types->GetList();
-    for (size_t i = 0; i < list.size(); ++i) {
-      if (!list[i].is_string()) {
+    base::Value::ConstListView list_storage = mime_types->GetList();
+    for (size_t i = 0; i < list_storage.size(); ++i) {
+      if (!list_storage[i].is_string()) {
         *error = ErrorUtils::FormatErrorMessageUTF16(
             errors::kInvalidFileHandlerTypeElement, handler_id,
             base::NumberToString(i));
         return false;
       }
-      handler.types.insert(list[i].GetString());
+      handler.types.insert(list_storage[i].GetString());
     }
   }
 
   if (file_extensions) {
-    const base::Value::List& list = file_extensions->GetList();
-    for (size_t i = 0; i < list.size(); ++i) {
-      if (!list[i].is_string()) {
+    base::Value::ConstListView list_storage = file_extensions->GetList();
+    for (size_t i = 0; i < list_storage.size(); ++i) {
+      if (!list_storage[i].is_string()) {
         *error = ErrorUtils::FormatErrorMessageUTF16(
             errors::kInvalidFileHandlerExtensionElement, handler_id,
             base::NumberToString(i));
         return false;
       }
-      handler.extensions.insert(list[i].GetString());
+      handler.extensions.insert(list_storage[i].GetString());
     }
   }
 
@@ -159,18 +159,29 @@ bool LoadFileHandler(const std::string& handler_id,
 }
 
 bool FileHandlersParser::Parse(Extension* extension, std::u16string* error) {
+  // Don't load file handlers for hosted_apps unless they're also bookmark apps.
+  // This check can be removed when bookmark apps are migrated off hosted apps,
+  // and hosted_apps should be removed from the list of valid extension types
+  // for "file_handling" in extensions/common/api/_manifest_features.json.
+  if (extension->is_hosted_app() && !extension->from_bookmark()) {
+    extension->AddInstallWarning(
+        InstallWarning(errors::kInvalidFileHandlersHostedAppsNotSupported,
+                       keys::kFileHandlers));
+    return true;
+  }
+
   std::unique_ptr<FileHandlers> info(new FileHandlers);
   const base::Value* all_handlers = nullptr;
   if (!extension->manifest()->GetDictionary(keys::kFileHandlers,
                                             &all_handlers)) {
-    *error = errors::kInvalidFileHandlers;
+    *error = base::ASCIIToUTF16(errors::kInvalidFileHandlers);
     return false;
   }
 
   std::vector<InstallWarning> install_warnings;
   for (auto entry : all_handlers->DictItems()) {
     if (!entry.second.is_dict()) {
-      *error = errors::kInvalidFileHandlers;
+      *error = base::ASCIIToUTF16(errors::kInvalidFileHandlers);
       return false;
     }
     if (!LoadFileHandler(entry.first, entry.second, &info->file_handlers, error,
@@ -188,7 +199,8 @@ bool FileHandlersParser::Parse(Extension* extension, std::u16string* error) {
   }
 
   if (filter_count > kMaxTypeAndExtensionHandlers) {
-    *error = errors::kInvalidFileHandlersTooManyTypesAndExtensions;
+    *error = base::ASCIIToUTF16(
+        errors::kInvalidFileHandlersTooManyTypesAndExtensions);
     return false;
   }
 

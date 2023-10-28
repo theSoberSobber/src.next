@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -14,7 +14,7 @@
 #include "base/callback_forward.h"
 #include "base/files/file_path.h"
 #include "base/gtest_prod_util.h"
-#include "base/memory/raw_ptr.h"
+#include "base/macros.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/weak_ptr.h"
 #include "base/values.h"
@@ -34,10 +34,6 @@ class ExtensionSystem;
 class ComponentLoader {
  public:
   ComponentLoader(ExtensionSystem* extension_system, Profile* browser_context);
-
-  ComponentLoader(const ComponentLoader&) = delete;
-  ComponentLoader& operator=(const ComponentLoader&) = delete;
-
   virtual ~ComponentLoader();
 
   size_t registered_extensions_count() const {
@@ -138,10 +134,6 @@ class ComponentLoader {
     ComponentExtensionInfo(
         std::unique_ptr<base::DictionaryValue> manifest_param,
         const base::FilePath& root_directory);
-
-    ComponentExtensionInfo(const ComponentExtensionInfo&) = delete;
-    ComponentExtensionInfo& operator=(const ComponentExtensionInfo&) = delete;
-
     ~ComponentExtensionInfo();
 
     ComponentExtensionInfo(ComponentExtensionInfo&& other);
@@ -155,6 +147,9 @@ class ComponentLoader {
 
     // The component extension's ID.
     std::string extension_id;
+
+   private:
+    DISALLOW_COPY_AND_ASSIGN(ComponentExtensionInfo);
   };
 
   // Parses the given JSON manifest. Returns nullptr if it cannot be parsed or
@@ -191,10 +186,14 @@ class ComponentLoader {
 #if BUILDFLAG(IS_CHROMEOS_ASH)
   void AddChromeApp();
   void AddFileManagerExtension();
+  void AddVideoPlayerExtension();
+  void AddAudioPlayerExtension();
   void AddGalleryExtension();
   void AddImageLoaderExtension();
   void AddGuestModeTestExtension(const base::FilePath& path);
   void AddKeyboardApp();
+  void AddChromeCameraApp();
+  void AddZipArchiverExtension();
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
   scoped_refptr<const Extension> CreateExtension(
@@ -219,9 +218,9 @@ class ComponentLoader {
   void FinishLoadSpeechSynthesisExtension(const char* extension_id);
 #endif
 
-  raw_ptr<Profile> profile_;
+  Profile* profile_;
 
-  raw_ptr<ExtensionSystem> extension_system_;
+  ExtensionSystem* extension_system_;
 
   // List of registered component extensions (see mojom::ManifestLocation).
   typedef std::vector<ComponentExtensionInfo> RegisteredComponentExtensions;
@@ -232,6 +231,8 @@ class ComponentLoader {
   base::WeakPtrFactory<ComponentLoader> weak_factory_{this};
 
   friend class TtsApiTest;
+
+  DISALLOW_COPY_AND_ASSIGN(ComponentLoader);
 };
 
 }  // namespace extensions

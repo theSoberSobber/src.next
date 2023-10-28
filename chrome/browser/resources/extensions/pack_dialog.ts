@@ -1,20 +1,17 @@
-// Copyright 2016 The Chromium Authors
+// Copyright 2016 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import 'chrome://resources/cr_elements/cr_button/cr_button.js';
-import 'chrome://resources/cr_elements/cr_dialog/cr_dialog.js';
-import 'chrome://resources/cr_elements/cr_input/cr_input.js';
-import 'chrome://resources/cr_elements/cr_shared_style.css.js';
-import 'chrome://resources/cr_elements/cr_shared_vars.css.js';
+import 'chrome://resources/cr_elements/cr_button/cr_button.m.js';
+import 'chrome://resources/cr_elements/cr_dialog/cr_dialog.m.js';
+import 'chrome://resources/cr_elements/cr_input/cr_input.m.js';
+import 'chrome://resources/cr_elements/shared_style_css.m.js';
+import 'chrome://resources/cr_elements/shared_vars_css.m.js';
 import './pack_dialog_alert.js';
 import './strings.m.js';
 
-import {CrDialogElement} from 'chrome://resources/cr_elements/cr_dialog/cr_dialog.js';
-import {CrInputElement} from 'chrome://resources/cr_elements/cr_input/cr_input.js';
-import {PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
-
-import {getTemplate} from './pack_dialog.html.js';
+import {CrDialogElement} from 'chrome://resources/cr_elements/cr_dialog/cr_dialog.m.js';
+import {html, PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
 export interface PackDialogDelegate {
   /**
@@ -37,23 +34,19 @@ export interface PackDialogDelegate {
       void;
 }
 
-export interface ExtensionsPackDialogElement {
+interface ExtensionsPackDialogElement {
   $: {
     dialog: CrDialogElement,
-    keyFileBrowse: HTMLElement,
-    keyFile: CrInputElement,
-    rootDirBrowse: HTMLElement,
-    rootDir: CrInputElement,
   };
 }
 
-export class ExtensionsPackDialogElement extends PolymerElement {
+class ExtensionsPackDialogElement extends PolymerElement {
   static get is() {
     return 'extensions-pack-dialog';
   }
 
   static get template() {
-    return getTemplate();
+    return html`{__html_template__}`;
   }
 
   static get properties() {
@@ -75,7 +68,7 @@ export class ExtensionsPackDialogElement extends PolymerElement {
   private keyFile_: string;
   private lastResponse_: chrome.developerPrivate.PackDirectoryResponse|null;
 
-  override connectedCallback() {
+  connectedCallback() {
     super.connectedCallback();
     this.$.dialog.showModal();
   }
@@ -138,12 +131,6 @@ export class ExtensionsPackDialogElement extends PolymerElement {
     }
 
     this.lastResponse_ = null;
-  }
-}
-
-declare global {
-  interface HTMLElementTagNameMap {
-    'extensions-pack-dialog': ExtensionsPackDialogElement;
   }
 }
 

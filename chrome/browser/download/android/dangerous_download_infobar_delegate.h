@@ -1,11 +1,11 @@
-// Copyright 2016 The Chromium Authors
+// Copyright 2016 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_DOWNLOAD_ANDROID_DANGEROUS_DOWNLOAD_INFOBAR_DELEGATE_H_
 #define CHROME_BROWSER_DOWNLOAD_ANDROID_DANGEROUS_DOWNLOAD_INFOBAR_DELEGATE_H_
 
-#include "base/memory/raw_ptr.h"
+#include "base/macros.h"
 #include "components/download/public/common/download_item.h"
 #include "components/infobars/core/confirm_infobar_delegate.h"
 
@@ -22,11 +22,6 @@ class DangerousDownloadInfoBarDelegate
  public:
   static void Create(infobars::ContentInfoBarManager* infobar_manager,
                      download::DownloadItem* download_item);
-
-  DangerousDownloadInfoBarDelegate(const DangerousDownloadInfoBarDelegate&) =
-      delete;
-  DangerousDownloadInfoBarDelegate& operator=(
-      const DangerousDownloadInfoBarDelegate&) = delete;
 
   ~DangerousDownloadInfoBarDelegate() override;
 
@@ -48,8 +43,10 @@ class DangerousDownloadInfoBarDelegate
 
   // The download item that is requesting the infobar. Could get deleted while
   // the infobar is showing.
-  raw_ptr<download::DownloadItem> download_item_;
+  download::DownloadItem* download_item_;
   std::u16string message_text_;
+
+  DISALLOW_COPY_AND_ASSIGN(DangerousDownloadInfoBarDelegate);
 };
 
 #endif  // CHROME_BROWSER_DOWNLOAD_ANDROID_DANGEROUS_DOWNLOAD_INFOBAR_DELEGATE_H_

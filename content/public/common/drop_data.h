@@ -1,4 +1,4 @@
-// Copyright 2013 The Chromium Authors
+// Copyright 2013 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -46,8 +46,7 @@ struct CONTENT_EXPORT DropData {
     STRING = 0,
     FILENAME,
     FILESYSTEMFILE,
-    BINARY,
-    LAST = BINARY
+    LAST = FILESYSTEMFILE
   };
 
   struct Metadata {
@@ -56,7 +55,6 @@ struct CONTENT_EXPORT DropData {
                                       const std::u16string& mime_type);
     static Metadata CreateForFilePath(const base::FilePath& filename);
     static Metadata CreateForFileSystemUrl(const GURL& file_system_url);
-    static Metadata CreateForBinary(const GURL& file_contents_url);
     Metadata(const Metadata& other);
     ~Metadata();
 
@@ -64,7 +62,6 @@ struct CONTENT_EXPORT DropData {
     std::u16string mime_type;
     base::FilePath filename;
     GURL file_system_url;
-    GURL file_contents_url;
   };
 
   DropData();
@@ -79,9 +76,6 @@ struct CONTENT_EXPORT DropData {
 
   // Whether this drag originated from a renderer.
   bool did_originate_from_renderer;
-
-  // Whether this drag is from a privileged Web Contents.
-  bool is_from_privileged = false;
 
   // User is dragging a link or image.
   GURL url;
@@ -118,7 +112,6 @@ struct CONTENT_EXPORT DropData {
 
   // User is dragging an image out of the WebView.
   std::string file_contents;
-  bool file_contents_image_accessible = false;
   GURL file_contents_source_url;
   base::FilePath::StringType file_contents_filename_extension;
   std::string file_contents_content_disposition;

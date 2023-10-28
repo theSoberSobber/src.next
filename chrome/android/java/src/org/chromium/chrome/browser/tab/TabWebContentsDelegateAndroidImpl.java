@@ -1,4 +1,4 @@
-// Copyright 2015 The Chromium Authors
+// Copyright 2015 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -17,13 +17,9 @@ import org.chromium.base.ObserverList.RewindableIterator;
 import org.chromium.base.annotations.CalledByNative;
 import org.chromium.base.annotations.NativeMethods;
 import org.chromium.chrome.browser.AppHooks;
-import org.chromium.chrome.browser.app.bluetooth.BluetoothNotificationService;
-import org.chromium.chrome.browser.app.usb.UsbNotificationService;
-import org.chromium.chrome.browser.bluetooth.BluetoothNotificationManager;
 import org.chromium.chrome.browser.media.MediaCaptureNotificationServiceImpl;
 import org.chromium.chrome.browser.policy.PolicyAuditor;
 import org.chromium.chrome.browser.policy.PolicyAuditorJni;
-import org.chromium.chrome.browser.usb.UsbNotificationManager;
 import org.chromium.components.find_in_page.FindMatchRectsDetails;
 import org.chromium.components.find_in_page.FindNotificationDetails;
 import org.chromium.content_public.browser.InvalidateTypes;
@@ -131,14 +127,14 @@ final class TabWebContentsDelegateAndroidImpl extends TabWebContentsDelegateAndr
     }
 
     @Override
-    public void loadingStateChanged(boolean shouldShowLoadingUI) {
+    public void loadingStateChanged(boolean toDifferentDocument) {
         boolean isLoading = mTab.getWebContents() != null && mTab.getWebContents().isLoading();
         if (isLoading) {
-            mTab.onLoadStarted(shouldShowLoadingUI);
+            mTab.onLoadStarted(toDifferentDocument);
         } else {
             mTab.onLoadStopped();
         }
-        mDelegate.loadingStateChanged(shouldShowLoadingUI);
+        mDelegate.loadingStateChanged(toDifferentDocument);
     }
 
     @Override
@@ -159,14 +155,13 @@ final class TabWebContentsDelegateAndroidImpl extends TabWebContentsDelegateAndr
     }
 
     @Override
-    public void enterFullscreenModeForTab(boolean prefersNavigationBar, boolean prefersStatusBar) {
-        mDelegate.enterFullscreenModeForTab(prefersNavigationBar, prefersStatusBar);
+    public void enterFullscreenModeForTab(boolean prefersNavigationBar) {
+        mDelegate.enterFullscreenModeForTab(prefersNavigationBar);
     }
 
     @Override
-    public void fullscreenStateChangedForTab(
-            boolean prefersNavigationBar, boolean prefersStatusBar) {
-        mDelegate.fullscreenStateChangedForTab(prefersNavigationBar, prefersStatusBar);
+    public void fullscreenStateChangedForTab(boolean prefersNavigationBar) {
+        mDelegate.enterFullscreenModeForTab(prefersNavigationBar);
     }
 
     @Override
@@ -185,12 +180,6 @@ final class TabWebContentsDelegateAndroidImpl extends TabWebContentsDelegateAndr
             MediaCaptureNotificationServiceImpl.updateMediaNotificationForTab(
                     ContextUtils.getApplicationContext(), mTab.getId(), mTab.getWebContents(),
                     mTab.getUrl());
-            BluetoothNotificationManager.updateBluetoothNotificationForTab(
-                    ContextUtils.getApplicationContext(), BluetoothNotificationService.class,
-                    mTab.getId(), mTab.getWebContents(), mTab.getUrl(), mTab.isIncognito());
-            UsbNotificationManager.updateUsbNotificationForTab(ContextUtils.getApplicationContext(),
-                    UsbNotificationService.class, mTab.getId(), mTab.getWebContents(),
-                    mTab.getUrl(), mTab.isIncognito());
         }
         if ((flags & InvalidateTypes.TITLE) != 0) {
             // Update cached title then notify observers.
@@ -206,11 +195,9 @@ final class TabWebContentsDelegateAndroidImpl extends TabWebContentsDelegateAndr
     @Override
     public void visibleSSLStateChanged() {
         PolicyAuditor auditor = AppHooks.get().getPolicyAuditor();
-        if (auditor != null) {
-            auditor.notifyCertificateFailure(
-                    PolicyAuditorJni.get().getCertificateFailure(mTab.getWebContents()),
-                    ContextUtils.getApplicationContext());
-        }
+        auditor.notifyCertificateFailure(
+                PolicyAuditorJni.get().getCertificateFailure(mTab.getWebContents()),
+                ContextUtils.getApplicationContext());
         RewindableIterator<TabObserver> observers = mTab.getTabObservers();
         while (observers.hasNext()) observers.next().onSSLStateUpdated(mTab);
         mDelegate.visibleSSLStateChanged();
@@ -251,6 +238,9 @@ final class TabWebContentsDelegateAndroidImpl extends TabWebContentsDelegateAndr
 
     @Override
     public void rendererResponsive() {
+        if (mTab.getWebContents() != null) {
+            TabWebContentsDelegateAndroidImplJni.get().onRendererResponsive(mTab.getWebContents());
+        }
         mTab.handleRendererResponsiveStateChanged(true);
         mDelegate.rendererResponsive();
     }
@@ -293,15 +283,6 @@ final class TabWebContentsDelegateAndroidImpl extends TabWebContentsDelegateAndr
     @Override
     protected boolean isNightModeEnabled() {
         return mDelegate.isNightModeEnabled();
-    }
-
-    /**
-     * @return web preference for force dark mode.
-     */
-    @CalledByNative
-    @Override
-    protected boolean isForceDarkWebContentEnabled() {
-        return mDelegate.isForceDarkWebContentEnabled();
     }
 
     /**
@@ -389,6 +370,7 @@ final class TabWebContentsDelegateAndroidImpl extends TabWebContentsDelegateAndr
     @NativeMethods
     interface Natives {
         void onRendererUnresponsive(WebContents webContents);
+        void onRendererResponsive(WebContents webContents);
         void showFramebustBlockInfoBar(WebContents webContents, String url);
     }
 }

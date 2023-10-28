@@ -1,1 +1,3 @@
-mixins: "//components/ntp_tiles/COMMON_METADATA"
+monorail {
+  component: "UI>Browser>ContentSuggestions>History"
+}

@@ -1,4 +1,4 @@
-// Copyright 2020 The Chromium Authors
+// Copyright 2020 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -9,7 +9,6 @@
 #include "base/check.h"
 #include "base/location.h"
 #include "base/memory/ptr_util.h"
-#include "base/memory/raw_ptr.h"
 #include "base/scoped_observation.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "chrome/browser/browser_process.h"
@@ -19,6 +18,7 @@
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "components/signin/public/identity_manager/accounts_mutator.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
+
 
 // Waits until the tokens are loaded and calls the callback. The callback is
 // called immediately if the tokens are already loaded, and called with nullptr
@@ -43,7 +43,7 @@ class TokensLoadedCallbackRunner : public signin::IdentityManager::Observer {
   // signin::IdentityManager::Observer implementation:
   void OnRefreshTokensLoaded() override {
     scoped_identity_manager_observer_.Reset();
-    std::move(callback_).Run(profile_.get());
+    std::move(callback_).Run(profile_);
   }
 
   void OnIdentityManagerShutdown(signin::IdentityManager* manager) override {
@@ -51,8 +51,8 @@ class TokensLoadedCallbackRunner : public signin::IdentityManager::Observer {
     std::move(callback_).Run(nullptr);
   }
 
-  raw_ptr<Profile> profile_;
-  raw_ptr<signin::IdentityManager> identity_manager_;
+  Profile* profile_;
+  signin::IdentityManager* identity_manager_;
   base::ScopedObservation<signin::IdentityManager,
                           signin::IdentityManager::Observer>
       scoped_identity_manager_observer_{this};
@@ -84,7 +84,7 @@ TokensLoadedCallbackRunner::TokensLoadedCallbackRunner(
   DCHECK(identity_manager_);
   DCHECK(callback_);
   DCHECK(!identity_manager_->AreRefreshTokensLoaded());
-  scoped_identity_manager_observer_.Observe(identity_manager_.get());
+  scoped_identity_manager_observer_.Observe(identity_manager_);
 }
 
 DiceSignedInProfileCreator::DiceSignedInProfileCreator(
@@ -97,10 +97,6 @@ DiceSignedInProfileCreator::DiceSignedInProfileCreator(
     : source_profile_(source_profile),
       account_id_(account_id),
       callback_(std::move(callback)) {
-  auto initialized_callback =
-      base::BindOnce(&DiceSignedInProfileCreator::OnNewProfileInitialized,
-                     weak_pointer_factory_.GetWeakPtr());
-
   // Passing the sign-in token to an ephemeral Guest profile is part of the
   // experiment to surface a Guest mode link in the DiceWebSigninIntercept
   // and is only used to sign in to the web through account consistency and
@@ -118,7 +114,9 @@ DiceSignedInProfileCreator::DiceSignedInProfileCreator(
         base::BindOnce(&ProfileManager::CreateProfileAsync,
                        base::Unretained(g_browser_process->profile_manager()),
                        ProfileManager::GetGuestProfilePath(),
-                       std::move(initialized_callback), base::DoNothing()));
+                       base::BindRepeating(
+                           &DiceSignedInProfileCreator::OnNewProfileCreated,
+                           weak_pointer_factory_.GetWeakPtr())));
   } else {
     ProfileAttributesStorage& storage =
         g_browser_process->profile_manager()->GetProfileAttributesStorage();
@@ -127,9 +125,10 @@ DiceSignedInProfileCreator::DiceSignedInProfileCreator(
     std::u16string name = local_profile_name.empty()
                               ? storage.ChooseNameForNewProfile(*icon_index)
                               : local_profile_name;
-    ProfileManager::CreateMultiProfileAsync(name, *icon_index,
-                                            /*is_hidden=*/false,
-                                            std::move(initialized_callback));
+    ProfileManager::CreateMultiProfileAsync(
+        name, *icon_index, /*is_hidden=*/false,
+        base::BindRepeating(&DiceSignedInProfileCreator::OnNewProfileCreated,
+                            weak_pointer_factory_.GetWeakPtr()));
   }
 }
 
@@ -154,9 +153,31 @@ DiceSignedInProfileCreator::DiceSignedInProfileCreator(
 
 DiceSignedInProfileCreator::~DiceSignedInProfileCreator() = default;
 
+void DiceSignedInProfileCreator::OnNewProfileCreated(
+    Profile* new_profile,
+    Profile::CreateStatus status) {
+  switch (status) {
+    case Profile::CREATE_STATUS_CREATED:
+      // Ignore this, wait for profile to be initialized.
+      return;
+    case Profile::CREATE_STATUS_INITIALIZED:
+      OnNewProfileInitialized(new_profile);
+      return;
+    case Profile::CREATE_STATUS_REMOTE_FAIL:
+    case Profile::CREATE_STATUS_CANCELED:
+    case Profile::MAX_CREATE_STATUS:
+      NOTREACHED() << "Invalid profile creation status";
+      FALLTHROUGH;
+    case Profile::CREATE_STATUS_LOCAL_FAIL:
+      NOTREACHED() << "Error creating new profile";
+      if (callback_)
+        std::move(callback_).Run(nullptr);
+      return;
+  }
+}
+
 void DiceSignedInProfileCreator::OnNewProfileInitialized(Profile* new_profile) {
   if (!new_profile) {
-    NOTREACHED() << "Error creating new profile";
     if (callback_)
       std::move(callback_).Run(nullptr);
     return;

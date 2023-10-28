@@ -1,4 +1,4 @@
-// Copyright 2021 The Chromium Authors
+// Copyright 2021 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -14,18 +14,13 @@
 #include "content/browser/browsing_data/browsing_data_remover_impl.h"
 #include "content/browser/download/download_manager_impl.h"
 #include "content/browser/permissions/permission_controller_impl.h"
-#include "content/browser/preloading/prefetch/prefetch_service.h"
 #include "content/browser/speech/tts_controller_impl.h"
 #include "content/browser/storage_partition_impl_map.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_thread.h"
-#include "content/public/browser/render_process_host.h"
-#include "content/public/browser/shared_worker_service.h"
-#include "media/capabilities/webrtc_video_stats_db_impl.h"
 #include "media/learning/common/media_learning_tasks.h"
 #include "media/learning/impl/learning_session_impl.h"
 #include "media/mojo/services/video_decode_perf_history.h"
-#include "media/mojo/services/webrtc_video_perf_history.h"
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 #include "storage/browser/file_system/external_mount_points.h"
@@ -57,18 +52,13 @@ void RegisterMediaLearningTask(
 
 }  // namespace
 
-// static
-BrowserContextImpl* BrowserContextImpl::From(BrowserContext* self) {
-  return self->impl();
-}
-
-BrowserContextImpl::BrowserContextImpl(BrowserContext* self) : self_(self) {
+BrowserContext::Impl::Impl(BrowserContext* self) : self_(self) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
   background_sync_scheduler_ = base::MakeRefCounted<BackgroundSyncScheduler>();
 }
 
-BrowserContextImpl::~BrowserContextImpl() {
+BrowserContext::Impl::~Impl() {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   DCHECK(!storage_partition_map_)
       << "StoragePartitionMap is not shut down properly";
@@ -112,19 +102,19 @@ BrowserContextImpl::~BrowserContextImpl() {
   TtsControllerImpl::GetInstance()->OnBrowserContextDestroyed(self_);
 
   TRACE_EVENT_NESTABLE_ASYNC_END1(
-      "shutdown", "BrowserContextImpl::NotifyWillBeDestroyed() called.", this,
+      "shutdown", "BrowserContext::Impl::NotifyWillBeDestroyed() called.", this,
       "browser_context_impl", static_cast<void*>(this));
 }
 
-bool BrowserContextImpl::ShutdownStarted() {
+bool BrowserContext::Impl::ShutdownStarted() {
   return will_be_destroyed_soon_;
 }
 
-void BrowserContextImpl::NotifyWillBeDestroyed() {
-  TRACE_EVENT1("shutdown", "BrowserContextImpl::NotifyWillBeDestroyed",
+void BrowserContext::Impl::NotifyWillBeDestroyed() {
+  TRACE_EVENT1("shutdown", "BrowserContext::Impl::NotifyWillBeDestroyed",
                "browser_context_impl", static_cast<void*>(this));
   TRACE_EVENT_NESTABLE_ASYNC_BEGIN1(
-      "shutdown", "BrowserContextImpl::NotifyWillBeDestroyed() called.", this,
+      "shutdown", "BrowserContext::Impl::NotifyWillBeDestroyed() called.", this,
       "browser_context_impl", static_cast<void*>(this));
   // Make sure NotifyWillBeDestroyed is idempotent.  This helps facilitate the
   // pattern where NotifyWillBeDestroyed is called from *both*
@@ -149,12 +139,13 @@ void BrowserContextImpl::NotifyWillBeDestroyed() {
     RenderProcessHost* host = host_iterator.GetCurrentValue();
     if (host->GetBrowserContext() == self_) {
       // This will also clean up spare RPH references.
-      host->DisableRefCounts();
+      host->DisableKeepAliveRefCount();
     }
   }
 }
 
-StoragePartitionImplMap* BrowserContextImpl::GetOrCreateStoragePartitionMap() {
+StoragePartitionImplMap*
+BrowserContext::Impl::GetOrCreateStoragePartitionMap() {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
   if (!storage_partition_map_)
@@ -163,7 +154,7 @@ StoragePartitionImplMap* BrowserContextImpl::GetOrCreateStoragePartitionMap() {
   return storage_partition_map_.get();
 }
 
-BrowsingDataRemover* BrowserContextImpl::GetBrowsingDataRemover() {
+BrowsingDataRemover* BrowserContext::Impl::GetBrowsingDataRemover() {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
   if (!browsing_data_remover_) {
@@ -175,7 +166,7 @@ BrowsingDataRemover* BrowserContextImpl::GetBrowsingDataRemover() {
   return browsing_data_remover_.get();
 }
 
-media::learning::LearningSession* BrowserContextImpl::GetLearningSession() {
+media::learning::LearningSession* BrowserContext::Impl::GetLearningSession() {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
   if (!learning_session_) {
@@ -191,7 +182,8 @@ media::learning::LearningSession* BrowserContextImpl::GetLearningSession() {
   return learning_session_.get();
 }
 
-media::VideoDecodePerfHistory* BrowserContextImpl::GetVideoDecodePerfHistory() {
+media::VideoDecodePerfHistory*
+BrowserContext::Impl::GetVideoDecodePerfHistory() {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
   if (!video_decode_perf_history_)
@@ -200,33 +192,7 @@ media::VideoDecodePerfHistory* BrowserContextImpl::GetVideoDecodePerfHistory() {
   return video_decode_perf_history_.get();
 }
 
-std::unique_ptr<media::WebrtcVideoPerfHistory>
-BrowserContextImpl::CreateWebrtcVideoPerfHistory() {
-  // TODO(https://crbug.com/1187565): Implement in memory path in
-  // off_the_record_profile_impl.cc and web_engine_browser_context.cc
-
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
-  auto* db_provider =
-      self_->GetDefaultStoragePartition()->GetProtoDatabaseProvider();
-
-  std::unique_ptr<media::WebrtcVideoStatsDB> stats_db =
-      media::WebrtcVideoStatsDBImpl::Create(
-          self_->GetPath().Append(FILE_PATH_LITERAL("WebrtcVideoStats")),
-          db_provider);
-
-  return std::make_unique<media::WebrtcVideoPerfHistory>(std::move(stats_db));
-}
-
-media::WebrtcVideoPerfHistory* BrowserContextImpl::GetWebrtcVideoPerfHistory() {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
-
-  if (!webrtc_video_perf_history_)
-    webrtc_video_perf_history_ = CreateWebrtcVideoPerfHistory();
-
-  return webrtc_video_perf_history_.get();
-}
-
-void BrowserContextImpl::ShutdownStoragePartitions() {
+void BrowserContext::Impl::ShutdownStoragePartitions() {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
   // The BackgroundSyncScheduler keeps raw pointers to partitions; clear it
@@ -237,7 +203,7 @@ void BrowserContextImpl::ShutdownStoragePartitions() {
   storage_partition_map_.reset();
 }
 
-DownloadManager* BrowserContextImpl::GetDownloadManager() {
+DownloadManager* BrowserContext::Impl::GetDownloadManager() {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
   // Lazily populate `download_manager_`.  This is important to
@@ -257,15 +223,13 @@ DownloadManager* BrowserContextImpl::GetDownloadManager() {
   return download_manager_.get();
 }
 
-void BrowserContextImpl::SetDownloadManagerForTesting(
+void BrowserContext::Impl::SetDownloadManagerForTesting(
     std::unique_ptr<DownloadManager> download_manager) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
-  if (download_manager_)
-    download_manager_->Shutdown();
   download_manager_ = std::move(download_manager);
 }
 
-PermissionController* BrowserContextImpl::GetPermissionController() {
+PermissionController* BrowserContext::Impl::GetPermissionController() {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
   if (!permission_controller_)
@@ -274,13 +238,13 @@ PermissionController* BrowserContextImpl::GetPermissionController() {
   return permission_controller_.get();
 }
 
-void BrowserContextImpl::SetPermissionControllerForTesting(
+void BrowserContext::Impl::SetPermissionControllerForTesting(
     std::unique_ptr<PermissionController> permission_controller) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   permission_controller_ = std::move(permission_controller);
 }
 
-storage::ExternalMountPoints* BrowserContextImpl::GetMountPoints() {
+storage::ExternalMountPoints* BrowserContext::Impl::GetMountPoints() {
   // Ensure that these methods are called on the UI thread, except for
   // unittests where a UI thread might not have been created.
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI) ||
@@ -293,18 +257,6 @@ storage::ExternalMountPoints* BrowserContextImpl::GetMountPoints() {
 #else
   return nullptr;
 #endif
-}
-
-PrefetchService* BrowserContextImpl::GetPrefetchService() {
-  if (!prefetch_service_)
-    prefetch_service_ = PrefetchService::CreateIfPossible(self_);
-
-  return prefetch_service_.get();
-}
-
-void BrowserContextImpl::WriteIntoTrace(
-    perfetto::TracedProto<TraceProto> proto) const {
-  proto->set_id(UniqueId());
 }
 
 }  // namespace content

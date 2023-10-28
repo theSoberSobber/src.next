@@ -1,4 +1,4 @@
-// Copyright 2013 The Chromium Authors
+// Copyright 2013 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -121,12 +121,12 @@ void WebstoreDataFetcher::OnResponseStarted(
 
 void WebstoreDataFetcher::OnJsonParsed(
     data_decoder::DataDecoder::ValueOrError result) {
-  if (!result.has_value()) {
-    delegate_->OnWebstoreResponseParseFailure(id_, result.error());
+  if (!result.value) {
+    delegate_->OnWebstoreResponseParseFailure(id_, *result.error);
     return;
   }
 
-  if (!result->is_dict()) {
+  if (!result.value->is_dict()) {
     delegate_->OnWebstoreResponseParseFailure(id_,
                                               kInvalidWebstoreResponseError);
     return;
@@ -134,7 +134,7 @@ void WebstoreDataFetcher::OnJsonParsed(
 
   delegate_->OnWebstoreResponseParseSuccess(
       id_, base::DictionaryValue::From(
-               base::Value::ToUniquePtrValue(std::move(*result))));
+               base::Value::ToUniquePtrValue(std::move(*result.value))));
 }
 
 void WebstoreDataFetcher::OnSimpleLoaderComplete(

@@ -1,4 +1,4 @@
-// Copyright 2013 The Chromium Authors
+// Copyright (c) 2013 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -9,7 +9,7 @@
 
 #include <string>
 
-#include "base/memory/raw_ptr.h"
+#include "base/macros.h"
 #include "base/scoped_observation.h"
 #include "chrome/browser/ui/browser_list_observer.h"
 #include "extensions/browser/browser_context_keyed_api_factory.h"
@@ -40,10 +40,6 @@ class ExtensionMessageBubbleController : public BrowserListObserver,
   class Delegate {
    public:
     explicit Delegate(Profile* profile);
-
-    Delegate(const Delegate&) = delete;
-    Delegate& operator=(const Delegate&) = delete;
-
     virtual ~Delegate();
 
     virtual bool ShouldIncludeExtension(const Extension* extension) = 0;
@@ -118,26 +114,22 @@ class ExtensionMessageBubbleController : public BrowserListObserver,
 
    private:
     // A weak pointer to the profile we are associated with. Not owned by us.
-    raw_ptr<Profile> profile_;
+    Profile* profile_;
 
     // The extension service associated with the profile.
-    raw_ptr<ExtensionService> service_;
+    ExtensionService* service_;
 
     // The extension registry associated with the profile.
-    raw_ptr<ExtensionRegistry> registry_;
+    ExtensionRegistry* registry_;
 
     // Name for corresponding pref that keeps if the info the bubble contains
     // was acknowledged by user.
     std::string acknowledged_pref_name_;
+
+    DISALLOW_COPY_AND_ASSIGN(Delegate);
   };
 
   ExtensionMessageBubbleController(Delegate* delegate, Browser* browser);
-
-  ExtensionMessageBubbleController(const ExtensionMessageBubbleController&) =
-      delete;
-  ExtensionMessageBubbleController& operator=(
-      const ExtensionMessageBubbleController&) = delete;
-
   ~ExtensionMessageBubbleController() override;
 
   Delegate* delegate() const { return delegate_.get(); }
@@ -205,10 +197,10 @@ class ExtensionMessageBubbleController : public BrowserListObserver,
   void OnClose();
 
   // A weak pointer to the Browser we are associated with. Not owned by us.
-  const raw_ptr<Browser> browser_;
+  Browser* const browser_;
 
   // The associated ToolbarActionsModel. Not owned.
-  raw_ptr<ToolbarActionsModel> model_;
+  ToolbarActionsModel* model_;
 
   // The list of extensions found.
   ExtensionIdList extension_list_;
@@ -230,6 +222,8 @@ class ExtensionMessageBubbleController : public BrowserListObserver,
 
   base::ScopedObservation<ExtensionRegistry, ExtensionRegistryObserver>
       extension_registry_observation_{this};
+
+  DISALLOW_COPY_AND_ASSIGN(ExtensionMessageBubbleController);
 };
 
 }  // namespace extensions

@@ -33,14 +33,9 @@ void OpenedFrameTracker::Remove(Frame* frame) {
 void OpenedFrameTracker::TransferTo(Frame* opener) const {
   // Copy the set of opened frames, since changing the owner will mutate this
   // set.
-  HeapHashSet<Member<Frame>> frames(opened_frames_);
+  HeapHashSet<WeakMember<Frame>> frames(opened_frames_);
   for (const auto& frame : frames)
     frame->SetOpenerDoNotNotify(opener);
-}
-
-void OpenedFrameTracker::Dispose() {
-  TransferTo(nullptr);
-  DCHECK(IsEmpty());
 }
 
 }  // namespace blink

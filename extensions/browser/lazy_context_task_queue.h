@@ -1,4 +1,4 @@
-// Copyright 2017 The Chromium Authors
+// Copyright 2017 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -6,7 +6,6 @@
 #define EXTENSIONS_BROWSER_LAZY_CONTEXT_TASK_QUEUE_H_
 
 #include "base/callback.h"
-#include "base/memory/raw_ptr_exclusion.h"
 #include "extensions/common/extension_id.h"
 #include "url/gurl.h"
 
@@ -32,22 +31,16 @@ class LazyContextTaskQueue {
   // consumers that add tasks to LazyContextTaskQueue.
   struct ContextInfo {
     const ExtensionId extension_id;
-    // `render_process_host` is not a raw_ptr<...> for performance reasons
-    // (based on analysis of sampling profiler data).
-    RAW_PTR_EXCLUSION content::RenderProcessHost* const render_process_host;
+    content::RenderProcessHost* const render_process_host;
     const int64_t service_worker_version_id;
     const int worker_thread_id;
     const GURL url;
     // TODO(dbertoni): This needs to be initialized for the Service Worker
     // version of the constructor.
-    // `browser_context` is not a raw_ptr<...> for performance reasons (based on
-    // analysis of sampling profiler data).
-    RAW_PTR_EXCLUSION content::BrowserContext* const browser_context = nullptr;
+    content::BrowserContext* const browser_context = nullptr;
     // This data member will have a nullptr value for Service Worker-related
     // tasks.
-    // `web_contents` is not a raw_ptr<...> for performance reasons (based on
-    // analysis of sampling profiler data).
-    RAW_PTR_EXCLUSION content::WebContents* const web_contents = nullptr;
+    content::WebContents* const web_contents = nullptr;
 
     explicit ContextInfo(ExtensionHost* host);
 

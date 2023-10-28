@@ -1,4 +1,4 @@
-// Copyright 2017 The Chromium Authors
+// Copyright 2017 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -30,11 +30,6 @@ class RoundedCornersImageSource : public gfx::CanvasImageSource {
  public:
   explicit RoundedCornersImageSource(const gfx::ImageSkia& icon)
       : gfx::CanvasImageSource(icon.size()), icon_(icon) {}
-
-  RoundedCornersImageSource(const RoundedCornersImageSource&) = delete;
-  RoundedCornersImageSource& operator=(const RoundedCornersImageSource&) =
-      delete;
-
   ~RoundedCornersImageSource() override {}
 
  private:
@@ -61,6 +56,8 @@ class RoundedCornersImageSource : public gfx::CanvasImageSource {
   }
 
   gfx::ImageSkia icon_;
+
+  DISALLOW_COPY_AND_ASSIGN(RoundedCornersImageSource);
 };
 
 }  // namespace
@@ -157,10 +154,12 @@ void ChromeAppIcon::UpdateIcon() {
   }
 #endif
 
-  // TODO(crbug.com/1065748): Remove arg `from_bookmark` from ApplyEffects()
-  // function signature.
+  const Extension* extension =
+      ExtensionRegistry::Get(browser_context_)->GetInstalledExtension(app_id_);
+  bool from_bookmark = extension && extension->from_bookmark();
+
   ApplyEffects(resource_size_in_dip_, resize_function_, app_launchable,
-               /*from_bookmark=*/false, badge_type, &image_skia_);
+               from_bookmark, badge_type, &image_skia_);
 
   delegate_->OnIconUpdated(this);
 }

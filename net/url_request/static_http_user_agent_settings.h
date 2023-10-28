@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -8,6 +8,7 @@
 #include <string>
 
 #include "base/compiler_specific.h"
+#include "base/macros.h"
 #include "net/base/http_user_agent_settings.h"
 #include "net/base/net_export.h"
 
@@ -19,11 +20,6 @@ class NET_EXPORT StaticHttpUserAgentSettings : public HttpUserAgentSettings {
  public:
   StaticHttpUserAgentSettings(const std::string& accept_language,
                               const std::string& user_agent);
-
-  StaticHttpUserAgentSettings(const StaticHttpUserAgentSettings&) = delete;
-  StaticHttpUserAgentSettings& operator=(const StaticHttpUserAgentSettings&) =
-      delete;
-
   ~StaticHttpUserAgentSettings() override;
 
   void set_accept_language(const std::string& new_accept_language) {
@@ -37,6 +33,8 @@ class NET_EXPORT StaticHttpUserAgentSettings : public HttpUserAgentSettings {
  private:
   std::string accept_language_;
   const std::string user_agent_;
+
+  DISALLOW_COPY_AND_ASSIGN(StaticHttpUserAgentSettings);
 };
 
 }  // namespace net

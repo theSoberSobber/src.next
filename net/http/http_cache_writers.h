@@ -1,27 +1,21 @@
-// Copyright 2017 The Chromium Authors
+// Copyright (c) 2017 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef NET_HTTP_HTTP_CACHE_WRITERS_H_
 #define NET_HTTP_HTTP_CACHE_WRITERS_H_
 
+#include <list>
 #include <map>
 #include <memory>
 
-#include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "net/base/completion_once_callback.h"
 #include "net/http/http_cache.h"
-#include "net/http/http_response_info.h"
-
-namespace crypto {
-class SecureHash;
-}
 
 namespace net {
 
 class HttpResponseInfo;
-class IOBuffer;
 class PartialData;
 
 // If multiple HttpCache::Transactions are accessing the same cache entry
@@ -52,17 +46,13 @@ class NET_EXPORT_PRIVATE HttpCache::Writers {
     TransactionInfo& operator=(const TransactionInfo&);
     TransactionInfo(const TransactionInfo&);
 
-    raw_ptr<PartialData> partial;
+    PartialData* partial;
     bool truncated;
     HttpResponseInfo response_info;
   };
 
   // |cache| and |entry| must outlive this object.
   Writers(HttpCache* cache, HttpCache::ActiveEntry* entry);
-
-  Writers(const Writers&) = delete;
-  Writers& operator=(const Writers&) = delete;
-
   ~Writers();
 
   // Retrieves data from the network transaction associated with the Writers
@@ -115,6 +105,9 @@ class NET_EXPORT_PRIVATE HttpCache::Writers {
   // Returns true if this object is empty.
   bool IsEmpty() const { return all_writers_.empty(); }
 
+  // Invoked during HttpCache's destruction.
+  void Clear() { all_writers_.clear(); }
+
   // Returns true if |transaction| is part of writers.
   bool HasTransaction(const Transaction* transaction) const {
     return all_writers_.count(const_cast<Transaction*>(transaction)) > 0;
@@ -139,12 +132,10 @@ class NET_EXPORT_PRIVATE HttpCache::Writers {
   LoadState GetLoadState() const;
 
   // Sets the network transaction argument to |network_transaction_|. Must be
-  // invoked before Read can be invoked. If |checksum| is set it will be
-  // validated and the cache entry will be marked unusable if it doesn't match.
+  // invoked before Read can be invoked.
   void SetNetworkTransaction(
       Transaction* transaction,
-      std::unique_ptr<HttpTransaction> network_transaction,
-      std::unique_ptr<crypto::SecureHash> checksum);
+      std::unique_ptr<HttpTransaction> network_transaction);
 
   // Resets the network transaction to nullptr. Required for range requests as
   // they might use the current network transaction only for part of the
@@ -166,8 +157,6 @@ class NET_EXPORT_PRIVATE HttpCache::Writers {
     NETWORK_READ_COMPLETE,
     CACHE_WRITE_DATA,
     CACHE_WRITE_DATA_COMPLETE,
-    MARK_SINGLE_KEYED_CACHE_ENTRY_UNUSABLE,
-    MARK_SINGLE_KEYED_CACHE_ENTRY_UNUSABLE_COMPLETE,
   };
 
   // These transactions are waiting on Read. After the active transaction
@@ -176,7 +165,7 @@ class NET_EXPORT_PRIVATE HttpCache::Writers {
   struct WaitingForRead {
     scoped_refptr<IOBuffer> read_buf;
     int read_buf_len;
-    int write_len = 0;
+    int write_len;
     CompletionOnceCallback callback;
     WaitingForRead(scoped_refptr<IOBuffer> read_buf,
                    int len,
@@ -197,8 +186,6 @@ class NET_EXPORT_PRIVATE HttpCache::Writers {
   int DoNetworkReadComplete(int result);
   int DoCacheWriteData(int num_bytes);
   int DoCacheWriteDataComplete(int result);
-  int DoMarkSingleKeyedCacheEntryUnusable();
-  int DoMarkSingleKeyedCacheEntryUnusableComplete(int result);
 
   // Helper functions for callback.
   void OnNetworkReadFailure(int result);
@@ -243,10 +230,10 @@ class NET_EXPORT_PRIVATE HttpCache::Writers {
   // True if only reading from network and not writing to cache.
   bool network_read_only_ = false;
 
-  raw_ptr<HttpCache> const cache_ = nullptr;
+  HttpCache* cache_ = nullptr;
 
   // Owner of |this|.
-  raw_ptr<ActiveEntry, DanglingUntriaged> const entry_ = nullptr;
+  ActiveEntry* entry_ = nullptr;
 
   std::unique_ptr<HttpTransaction> network_transaction_;
 
@@ -259,7 +246,7 @@ class NET_EXPORT_PRIVATE HttpCache::Writers {
   // ::Read or writing to the entry and is waiting for the operation to be
   // completed. This is used to ensure there is at most one consumer of
   // network_transaction_ at a time.
-  raw_ptr<Transaction> active_transaction_ = nullptr;
+  Transaction* active_transaction_ = nullptr;
 
   // Transactions whose consumers have invoked Read, but another transaction is
   // currently the |active_transaction_|. After the network read and cache write
@@ -292,11 +279,6 @@ class NET_EXPORT_PRIVATE HttpCache::Writers {
   // written.
   bool should_keep_entry_ = true;
 
-  // Set if we are currently calculating a checksum of the resource to validate
-  // it against the expected checksum for the single-keyed cache. Initialised
-  // with selected headers and accumulates the body of the response.
-  std::unique_ptr<crypto::SecureHash> checksum_;
-
   CompletionOnceCallback callback_;  // Callback for active_transaction_.
 
   // Since cache_ can destroy |this|, |cache_callback_| is only invoked at the
@@ -304,6 +286,7 @@ class NET_EXPORT_PRIVATE HttpCache::Writers {
   base::OnceClosure cache_callback_;  // Callback for cache_.
 
   base::WeakPtrFactory<Writers> weak_factory_{this};
+  DISALLOW_COPY_AND_ASSIGN(Writers);
 };
 
 }  // namespace net

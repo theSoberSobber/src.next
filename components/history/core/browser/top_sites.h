@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "base/callback.h"
+#include "base/macros.h"
 #include "base/observer_list.h"
 #include "components/history/core/browser/history_types.h"
 #include "components/history/core/browser/top_sites_observer.h"
@@ -43,9 +44,6 @@ typedef std::vector<PrepopulatedPage> PrepopulatedPageList;
 class TopSites : public RefcountedKeyedService {
  public:
   TopSites();
-
-  TopSites(const TopSites&) = delete;
-  TopSites& operator=(const TopSites&) = delete;
 
   using GetMostVisitedURLsCallback =
       base::OnceCallback<void(const MostVisitedURLList&)>;
@@ -106,6 +104,8 @@ class TopSites : public RefcountedKeyedService {
   friend class base::RefCountedThreadSafe<TopSites>;
 
   base::ObserverList<TopSitesObserver, true>::Unchecked observer_list_;
+
+  DISALLOW_COPY_AND_ASSIGN(TopSites);
 };
 
 }  // namespace history

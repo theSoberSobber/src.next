@@ -6,35 +6,27 @@
 #define THIRD_PARTY_BLINK_RENDERER_CORE_PAINT_FRAGMENT_DATA_H_
 
 #include "third_party/abseil-cpp/absl/types/optional.h"
-#include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/layout/geometry/physical_rect.h"
 #include "third_party/blink/renderer/core/paint/object_paint_properties.h"
 #include "third_party/blink/renderer/platform/graphics/paint/cull_rect.h"
 #include "third_party/blink/renderer/platform/graphics/paint/ref_counted_property_tree_state.h"
-#include "third_party/blink/renderer/platform/heap/garbage_collected.h"
-#include "third_party/blink/renderer/platform/heap/member.h"
-#include "third_party/blink/renderer/platform/heap/visitor.h"
 #include "third_party/blink/renderer/platform/wtf/allocator/allocator.h"
 
 namespace blink {
 
 class PaintLayer;
-struct StickyPositionScrollingConstraints;
 
 // Represents the data for a particular fragment of a LayoutObject.
 // See README.md.
-class CORE_EXPORT FragmentData final : public GarbageCollected<FragmentData> {
+class CORE_EXPORT FragmentData {
+  USING_FAST_MALLOC(FragmentData);
+
  public:
   FragmentData* NextFragment() const {
-    return rare_data_ ? rare_data_->next_fragment_ : nullptr;
+    return rare_data_ ? rare_data_->next_fragment_.get() : nullptr;
   }
   FragmentData& EnsureNextFragment();
-
-  // We could let the compiler generate code to automatically clear the
-  // next_fragment_ chain, but the code would cause stack overflow in some
-  // cases (e.g. fast/multicol/infinitely-tall-content-in-outer-crash.html).
-  // This function crear the next_fragment_ chain non-recursively.
-  void ClearNextFragment();
+  void ClearNextFragment() { DestroyTail(); }
 
   FragmentData& LastFragment();
   const FragmentData& LastFragment() const;
@@ -55,17 +47,10 @@ class CORE_EXPORT FragmentData final : public GarbageCollected<FragmentData> {
 
   // The PaintLayer associated with this LayoutBoxModelObject. This can be null
   // depending on the return value of LayoutBoxModelObject::LayerTypeRequired().
-  PaintLayer* Layer() const { return rare_data_ ? rare_data_->layer : nullptr; }
-  void SetLayer(PaintLayer*);
-
-  StickyPositionScrollingConstraints* StickyConstraints() const {
-    return rare_data_ ? rare_data_->sticky_constraints : nullptr;
+  PaintLayer* Layer() const {
+    return rare_data_ ? rare_data_->layer.get() : nullptr;
   }
-  void SetStickyConstraints(StickyPositionScrollingConstraints* constraints) {
-    if (!rare_data_ && !constraints)
-      return;
-    EnsureRareData().sticky_constraints = constraints;
-  }
+  void SetLayer(std::unique_ptr<PaintLayer>);
 
   // A fragment ID unique within the LayoutObject. In NG block fragmentation,
   // this is the fragmentainer index. In legacy block fragmentation, it's the
@@ -105,6 +90,29 @@ class CORE_EXPORT FragmentData final : public GarbageCollected<FragmentData> {
   void SetLegacyPaginationOffset(const PhysicalOffset& pagination_offset) {
     if (rare_data_ || pagination_offset != PhysicalOffset())
       EnsureRareData().legacy_pagination_offset = pagination_offset;
+  }
+
+  bool IsClipPathCacheValid() const {
+    return rare_data_ && rare_data_->is_clip_path_cache_valid;
+  }
+  void InvalidateClipPathCache();
+
+  absl::optional<IntRect> ClipPathBoundingBox() const {
+    DCHECK(IsClipPathCacheValid());
+    return rare_data_ ? rare_data_->clip_path_bounding_box : absl::nullopt;
+  }
+  const RefCountedPath* ClipPathPath() const {
+    DCHECK(IsClipPathCacheValid());
+    return rare_data_ ? rare_data_->clip_path_path.get() : nullptr;
+  }
+  void SetClipPathCache(const IntRect& bounding_box,
+                        scoped_refptr<const RefCountedPath>);
+  void ClearClipPathCache() {
+    if (rare_data_) {
+      rare_data_->is_clip_path_cache_valid = true;
+      rare_data_->clip_path_bounding_box = absl::nullopt;
+      rare_data_->clip_path_path = nullptr;
+    }
   }
 
   // Holds references to the paint property nodes created by this object.
@@ -159,7 +167,7 @@ class CORE_EXPORT FragmentData final : public GarbageCollected<FragmentData> {
     EnsureRareData();
     if (!rare_data_->local_border_box_properties) {
       rare_data_->local_border_box_properties =
-          std::make_unique<RefCountedPropertyTreeStateOrAlias>(state);
+          std::make_unique<RefCountedPropertyTreeState>(state);
     } else {
       *rare_data_->local_border_box_properties = state;
     }
@@ -178,56 +186,74 @@ class CORE_EXPORT FragmentData final : public GarbageCollected<FragmentData> {
     return rare_data_ ? rare_data_->contents_cull_rect_ : CullRect();
   }
 
-  // This is the complete set of property nodes that can be used to paint the
-  // contents of this fragment. It is similar to LocalBorderBoxProperties()
-  // but includes properties (e.g., overflow clip, scroll translation,
-  // isolation nodes) that apply to contents.
+  // This is the complete set of property nodes that is inherited
+  // from the ancestor before applying any local CSS properties,
+  // but includes paint offset transform.
+  PropertyTreeStateOrAlias PreEffectProperties() const {
+    return PropertyTreeStateOrAlias(PreTransform(), PreClip(), PreEffect());
+  }
+
+  // This is the complete set of property nodes that can be used to
+  // paint the contents of this fragment. It is similar to
+  // |local_border_box_properties_| but includes properties (e.g.,
+  // overflow clip, scroll translation) that apply to contents.
   PropertyTreeStateOrAlias ContentsProperties() const {
-    return PropertyTreeStateOrAlias(ContentsTransform(), ContentsClip(),
-                                    ContentsEffect());
+    return PropertyTreeStateOrAlias(PostScrollTranslation(), PostOverflowClip(),
+                                    PostIsolationEffect());
   }
 
   const TransformPaintPropertyNodeOrAlias& PreTransform() const;
+  const TransformPaintPropertyNodeOrAlias& PostScrollTranslation() const;
   const ClipPaintPropertyNodeOrAlias& PreClip() const;
+  const ClipPaintPropertyNodeOrAlias& PostOverflowClip() const;
   const EffectPaintPropertyNodeOrAlias& PreEffect() const;
+  const EffectPaintPropertyNodeOrAlias& PreFilter() const;
+  const EffectPaintPropertyNodeOrAlias& PostIsolationEffect() const;
 
-  const TransformPaintPropertyNodeOrAlias& ContentsTransform() const;
-  const ClipPaintPropertyNodeOrAlias& ContentsClip() const;
-  const EffectPaintPropertyNodeOrAlias& ContentsEffect() const;
+  // Map a rect from |this|'s local border box space to |fragment|'s local
+  // border box space. Both fragments must have local border box properties.
+  void MapRectToFragment(const FragmentData& fragment, IntRect&) const;
 
-  ~FragmentData() = default;
-  void Trace(Visitor* visitor) const { visitor->Trace(rare_data_); }
+  ~FragmentData() {
+    if (NextFragment())
+      DestroyTail();
+  }
 
  private:
   friend class FragmentDataTest;
 
+  // We could let the compiler generate code to automatically destroy the
+  // next_fragment_ chain, but the code would cause stack overflow in some
+  // cases (e.g. fast/multicol/infinitely-tall-content-in-outer-crash.html).
+  // This function destroy the next_fragment_ chain non-recursively.
+  void DestroyTail();
+
   // Contains rare data that that is not needed on all fragments.
-  struct CORE_EXPORT RareData final : public GarbageCollected<RareData> {
+  struct CORE_EXPORT RareData {
+    USING_FAST_MALLOC(RareData);
+
    public:
     RareData();
     RareData(const RareData&) = delete;
     RareData& operator=(const RareData&) = delete;
     ~RareData();
 
-    void SetLayer(PaintLayer*);
-
-    void Trace(Visitor* visitor) const;
-
     // The following data fields are not fragment specific. Placed here just to
     // avoid separate data structure for them.
-    Member<PaintLayer> layer;
-    Member<StickyPositionScrollingConstraints> sticky_constraints;
+    std::unique_ptr<PaintLayer> layer;
     UniqueObjectId unique_id;
 
     // Fragment specific data.
     PhysicalOffset legacy_pagination_offset;
     wtf_size_t fragment_id = 0;
     std::unique_ptr<ObjectPaintProperties> paint_properties;
-    std::unique_ptr<RefCountedPropertyTreeStateOrAlias>
-        local_border_box_properties;
+    std::unique_ptr<RefCountedPropertyTreeState> local_border_box_properties;
+    bool is_clip_path_cache_valid = false;
+    absl::optional<IntRect> clip_path_bounding_box;
+    scoped_refptr<const RefCountedPath> clip_path_path;
     CullRect cull_rect_;
     CullRect contents_cull_rect_;
-    Member<FragmentData> next_fragment_;
+    std::unique_ptr<FragmentData> next_fragment_;
 
 #if DCHECK_IS_ON()
     // Legacy block fragmentation sets the flow thread offset for each
@@ -242,7 +268,7 @@ class CORE_EXPORT FragmentData final : public GarbageCollected<FragmentData> {
   RareData& EnsureRareData();
 
   PhysicalOffset paint_offset_;
-  Member<RareData> rare_data_;
+  std::unique_ptr<RareData> rare_data_;
 };
 
 }  // namespace blink

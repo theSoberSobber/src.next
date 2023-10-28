@@ -1,9 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-Copyright 2016 The Chromium Authors
-Use of this source code is governed by a BSD-style license that can be
-found in the LICENSE file.
--->
+<!-- Copyright 2016 The Chromium Authors. All rights reserved.
+     Use of this source code is governed by a BSD-style license that can be
+     found in the LICENSE file. -->
 
 <merge
     xmlns:android="http://schemas.android.com/apk/res/android"
@@ -67,8 +65,7 @@ found in the LICENSE file.
             <androidx.appcompat.widget.AppCompatSpinner
                 android:id="@+id/autofill_credit_card_editor_month_spinner"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:contentDescription="@string/autofill_credit_card_editor_expiration_month" />
+                android:layout_height="wrap_content" />
 
             <View style="@style/PreferenceSpinnerUnderlineView" />
 
@@ -83,8 +80,7 @@ found in the LICENSE file.
             <androidx.appcompat.widget.AppCompatSpinner
                 android:id="@+id/autofill_credit_card_editor_year_spinner"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:contentDescription="@string/autofill_credit_card_editor_expiration_year" />
+                android:layout_height="wrap_content" />
 
             <View style="@style/PreferenceSpinnerUnderlineView"  />
 

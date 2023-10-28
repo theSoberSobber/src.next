@@ -32,7 +32,6 @@
 #include "third_party/blink/renderer/core/events/mouse_event.h"
 #include "third_party/blink/renderer/core/events/pointer_event.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
-#include "third_party/blink/renderer/core/frame/deprecation/deprecation.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/frame/web_feature.h"
 #include "third_party/blink/renderer/core/svg/svg_element.h"
@@ -88,7 +87,7 @@ Event::Event(const AtomicString& event_type,
       fire_only_non_capture_listeners_at_target_(false),
       copy_event_path_from_underlying_event_(false),
       handling_passive_(PassiveMode::kNotPassiveDefault),
-      event_phase_(Event::PhaseType::kNone),
+      event_phase_(0),
       current_target_(nullptr),
       platform_time_stamp_(platform_time_stamp) {}
 
@@ -195,10 +194,6 @@ bool Event::IsPointerEvent() const {
   return false;
 }
 
-bool Event::IsHighlightPointerEvent() const {
-  return false;
-}
-
 bool Event::IsInputEvent() const {
   return false;
 }
@@ -290,8 +285,6 @@ void Event::InitEventPath(Node& node) {
 }
 
 ScriptValue Event::path(ScriptState* script_state) const {
-  Deprecation::CountDeprecation(ExecutionContext::From(script_state),
-                                WebFeature::kEventPath);
   return ScriptValue(
       script_state->GetIsolate(),
       ToV8(PathInternal(script_state, kNonEmptyAfterDispatch), script_state));
@@ -309,7 +302,7 @@ void Event::SetHandlingPassive(PassiveMode mode) {
 HeapVector<Member<EventTarget>> Event::PathInternal(ScriptState* script_state,
                                                     EventPathMode mode) const {
   if (!current_target_) {
-    DCHECK_EQ(Event::PhaseType::kNone, event_phase_);
+    DCHECK_EQ(Event::kNone, event_phase_);
     if (!event_path_) {
       // Before dispatching the event
       return HeapVector<Member<EventTarget>>();

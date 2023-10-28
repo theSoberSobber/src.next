@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -11,7 +11,6 @@
 #include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/i18n/file_util_icu.h"
-#include "base/memory/raw_ptr.h"
 #include "base/run_loop.h"
 #include "base/strings/stringprintf.h"
 #include "net/base/directory_lister.h"
@@ -35,7 +34,13 @@ const int kFilesPerDirectory = 5;
 
 class ListerDelegate : public DirectoryLister::DirectoryListerDelegate {
  public:
-  explicit ListerDelegate(DirectoryLister::ListingType type) : type_(type) {}
+  explicit ListerDelegate(DirectoryLister::ListingType type)
+      : cancel_lister_on_list_file_(false),
+        cancel_lister_on_list_done_(false),
+        lister_(nullptr),
+        done_(false),
+        error_(-1),
+        type_(type) {}
 
   // When set to true, this signals that the directory list operation should be
   // cancelled (And the run loop quit) in the first call to OnListFile.
@@ -108,16 +113,16 @@ class ListerDelegate : public DirectoryLister::DirectoryListerDelegate {
   bool done() const { return done_; }
 
  private:
-  bool cancel_lister_on_list_file_ = false;
-  bool cancel_lister_on_list_done_ = false;
+  bool cancel_lister_on_list_file_;
+  bool cancel_lister_on_list_done_;
 
   // This is owned by the individual tests, rather than the ListerDelegate.
-  raw_ptr<DirectoryLister> lister_ = nullptr;
+  DirectoryLister* lister_;
 
   base::RunLoop run_loop;
 
-  bool done_ = false;
-  int error_ = -1;
+  bool done_;
+  int error_;
   DirectoryLister::ListingType type_;
 
   std::vector<base::FileEnumerator::FileInfo> file_list_;
@@ -128,14 +133,16 @@ class ListerDelegate : public DirectoryLister::DirectoryListerDelegate {
 
 class DirectoryListerTest : public PlatformTest, public WithTaskEnvironment {
  public:
-  DirectoryListerTest() = default;
+  DirectoryListerTest()
+      : total_created_file_system_objects_in_temp_root_dir_(0),
+        created_file_system_objects_in_temp_root_dir_(0) {}
 
   void SetUp() override {
     // Randomly create a directory structure of depth 3 in a temporary root
     // directory.
     std::list<std::pair<base::FilePath, int> > directories;
     ASSERT_TRUE(temp_root_dir_.CreateUniqueTempDir());
-    directories.emplace_back(temp_root_dir_.GetPath(), 0);
+    directories.push_back(std::make_pair(temp_root_dir_.GetPath(), 0));
     while (!directories.empty()) {
       std::pair<base::FilePath, int> dir_data = directories.front();
       directories.pop_front();
@@ -157,7 +164,7 @@ class DirectoryListerTest : public PlatformTest, public WithTaskEnvironment {
           ++total_created_file_system_objects_in_temp_root_dir_;
           if (dir_data.first == temp_root_dir_.GetPath())
             ++created_file_system_objects_in_temp_root_dir_;
-          directories.emplace_back(dir_path, dir_data.second + 1);
+          directories.push_back(std::make_pair(dir_path, dir_data.second + 1));
         }
       }
     }
@@ -180,9 +187,9 @@ class DirectoryListerTest : public PlatformTest, public WithTaskEnvironment {
  private:
   // Number of files and directories created in SetUp, excluding
   // |temp_root_dir_| itself.  Includes all nested directories and their files.
-  int total_created_file_system_objects_in_temp_root_dir_ = 0;
+  int total_created_file_system_objects_in_temp_root_dir_;
   // Number of files and directories created directly in |temp_root_dir_|.
-  int created_file_system_objects_in_temp_root_dir_ = 0;
+  int created_file_system_objects_in_temp_root_dir_;
 
   base::ScopedTempDir temp_root_dir_;
 };
@@ -229,7 +236,8 @@ TEST_F(DirectoryListerTest, EmptyDirTest) {
 // regression.
 TEST_F(DirectoryListerTest, BasicCancelTest) {
   ListerDelegate delegate(DirectoryLister::ALPHA_DIRS_FIRST);
-  auto lister = std::make_unique<DirectoryLister>(root_path(), &delegate);
+  std::unique_ptr<DirectoryLister> lister(
+      new DirectoryLister(root_path(), &delegate));
   lister->Start();
   lister->Cancel();
   base::RunLoop().RunUntilIdle();

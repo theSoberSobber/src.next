@@ -1,4 +1,4 @@
-// Copyright 2014 The Chromium Authors
+// Copyright 2014 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -20,7 +20,12 @@ class WebContents;
 
 namespace gfx {
 class Rect;
+class Size;
 }  // namespace gfx
+
+namespace viz {
+class SurfaceId;
+}
 
 namespace extensions {
 class Extension;
@@ -73,7 +78,9 @@ class ExtensionHostDelegate {
   // entering Picture-in-Picture.
   // Returns the result of the enter request.
   virtual content::PictureInPictureResult EnterPictureInPicture(
-      content::WebContents* web_contents) = 0;
+      content::WebContents* web_contents,
+      const viz::SurfaceId& surface_id,
+      const gfx::Size& natural_size) = 0;
 
   // Updates the Picture-in-Picture controller with a signal that
   // Picture-in-Picture mode has ended.

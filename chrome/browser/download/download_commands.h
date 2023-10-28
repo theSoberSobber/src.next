@@ -1,4 +1,4 @@
-// Copyright 2015 The Chromium Authors
+// Copyright 2015 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -11,7 +11,7 @@
 #include "content/public/browser/page_navigator.h"
 #include "ui/gfx/image/image.h"
 
-#if !BUILDFLAG(IS_ANDROID)
+#if !defined(OS_ANDROID)
 class Browser;
 #endif
 
@@ -33,20 +33,14 @@ class DownloadCommands {
     LEARN_MORE_INTERRUPTED,    // Show information about interrupted downloads.
     LEARN_MORE_MIXED_CONTENT,  // Show info about mixed content downloads.
     COPY_TO_CLIPBOARD,         // Copy the contents to the clipboard.
+    ANNOTATE,                  // Open an app to annotate the image.
     DEEP_SCAN,                 // Send file to Safe Browsing for deep scanning.
     BYPASS_DEEP_SCANNING,      // Bypass the prompt to deep scan.
-    REVIEW,                    // Show enterprise download review dialog.
-    RETRY,                     // Retry the download.
-    MAX
   };
 
   // |model| must outlive DownloadCommands.
   // TODO(shaktisahu): Investigate if model lifetime is shorter than |this|.
   explicit DownloadCommands(base::WeakPtr<DownloadUIModel> model);
-
-  DownloadCommands(const DownloadCommands&) = delete;
-  DownloadCommands& operator=(const DownloadCommands&) = delete;
-
   virtual ~DownloadCommands();
 
   bool IsCommandEnabled(Command command) const;
@@ -54,8 +48,8 @@ class DownloadCommands {
   bool IsCommandVisible(Command command) const;
   void ExecuteCommand(Command command);
 
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || \
-    BUILDFLAG(IS_MAC) || BUILDFLAG(IS_FUCHSIA)
+#if defined(OS_WIN) || defined(OS_LINUX) || defined(OS_CHROMEOS) || \
+    defined(OS_MAC)
   bool IsDownloadPdf() const;
   bool CanOpenPdfInSystemViewer() const;
   Browser* GetBrowser() const;
@@ -73,6 +67,8 @@ class DownloadCommands {
   base::WeakPtr<DownloadUIModel> model_;
 
   scoped_refptr<base::SequencedTaskRunner> task_runner_;
+
+  DISALLOW_COPY_AND_ASSIGN(DownloadCommands);
 };
 
 #endif  // CHROME_BROWSER_DOWNLOAD_DOWNLOAD_COMMANDS_H_

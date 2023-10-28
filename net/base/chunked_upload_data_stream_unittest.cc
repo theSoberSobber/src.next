@@ -1,4 +1,4 @@
-// Copyright 2014 The Chromium Authors
+// Copyright 2014 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,6 +7,7 @@
 #include <memory>
 #include <string>
 
+#include "base/cxx17_backports.h"
 #include "net/base/io_buffer.h"
 #include "net/base/net_errors.h"
 #include "net/base/test_completion_callback.h"
@@ -24,7 +25,7 @@ namespace net {
 namespace {
 
 constexpr char kTestData[] = "0123456789";
-constexpr size_t kTestDataSize = std::size(kTestData) - 1;
+constexpr size_t kTestDataSize = base::size(kTestData) - 1;
 constexpr size_t kTestBufferSize = 1 << 14;  // 16KB.
 
 }  // namespace
@@ -339,7 +340,8 @@ TEST(ChunkedUploadDataStreamTest, RewindWhileReading) {
 
 // Check the behavior of ChunkedUploadDataStream::Writer.
 TEST(ChunkedUploadDataStreamTest, ChunkedUploadDataStreamWriter) {
-  auto stream = std::make_unique<ChunkedUploadDataStream>(0);
+  std::unique_ptr<ChunkedUploadDataStream> stream(
+      new ChunkedUploadDataStream(0));
   std::unique_ptr<ChunkedUploadDataStream::Writer> writer(
       stream->CreateWriter());
 

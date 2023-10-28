@@ -33,8 +33,7 @@ class ResourceLoadObserverForWorker final : public ResourceLoadObserver {
                        const ResourceResponse& redirect_response,
                        ResourceType,
                        const ResourceLoaderOptions&,
-                       RenderBlockingBehavior,
-                       const Resource*) override;
+                       RenderBlockingBehavior) override;
   void DidChangePriority(uint64_t identifier,
                          ResourceLoadPriority,
                          int intra_priority_value) override;

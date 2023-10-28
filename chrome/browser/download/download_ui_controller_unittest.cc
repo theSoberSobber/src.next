@@ -1,4 +1,4 @@
-// Copyright 2013 The Chromium Authors
+// Copyright 2013 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -10,7 +10,6 @@
 #include "base/bind.h"
 #include "base/callback.h"
 #include "base/files/file_path.h"
-#include "base/memory/raw_ptr.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
@@ -20,6 +19,7 @@
 #include "chrome/browser/download/download_history.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ssl/security_state_tab_helper.h"
+#include "chrome/browser/ssl/tls_deprecation_test_utils.h"
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
 #include "components/download/public/common/mock_download_item.h"
 #include "components/history/core/browser/download_row.h"
@@ -130,7 +130,7 @@ class DownloadUIControllerTest : public ChromeRenderViewHostTestHarness {
   // QueryDownloads is called.
   class HistoryAdapter : public DownloadHistory::HistoryAdapter {
    public:
-    HistoryAdapter() : DownloadHistory::HistoryAdapter(nullptr) {}
+    HistoryAdapter() : DownloadHistory::HistoryAdapter(NULL) {}
     HistoryService::DownloadQueryCallback download_query_callback_;
 
    private:
@@ -153,7 +153,7 @@ class DownloadUIControllerTest : public ChromeRenderViewHostTestHarness {
   download::DownloadItem* notified_item_;
   base::WeakPtrFactory<download::DownloadItem*> notified_item_receiver_factory_;
 
-  raw_ptr<HistoryAdapter> history_adapter_;
+  HistoryAdapter* history_adapter_;
 };
 
 // static
@@ -177,11 +177,12 @@ void DownloadUIControllerTest::SetUp() {
   EXPECT_CALL(*manager_, IsManagerInitialized()).Times(AnyNumber());
   EXPECT_CALL(*manager_, AddObserver(_))
       .WillOnce(SaveArg<0>(&download_history_manager_observer_));
-  EXPECT_CALL(*manager_, RemoveObserver(testing::Eq(testing::ByRef(
-                             download_history_manager_observer_))))
+  EXPECT_CALL(*manager_,
+              RemoveObserver(testing::Eq(
+                  testing::ByRef(download_history_manager_observer_))))
       .WillOnce(testing::Assign(
           &download_history_manager_observer_,
-          static_cast<content::DownloadManager::Observer*>(nullptr)));
+          static_cast<content::DownloadManager::Observer*>(NULL)));
   EXPECT_CALL(*manager_, GetAllDownloads(_)).Times(AnyNumber());
 
   std::unique_ptr<HistoryAdapter> history_adapter(new HistoryAdapter);
@@ -196,7 +197,7 @@ void DownloadUIControllerTest::SetUp() {
               RemoveObserver(testing::Eq(testing::ByRef(manager_observer_))))
       .WillOnce(testing::Assign(
           &manager_observer_,
-          static_cast<content::DownloadManager::Observer*>(nullptr)));
+          static_cast<content::DownloadManager::Observer*>(NULL)));
   TestDownloadCoreService* download_core_service =
       static_cast<TestDownloadCoreService*>(
           DownloadCoreServiceFactory::GetInstance()->SetTestingFactoryAndUse(
@@ -224,11 +225,7 @@ DownloadUIControllerTest::CreateMockInProgressDownload() {
   EXPECT_CALL(*item, GetUrlChain())
       .WillRepeatedly(ReturnRefOfCopy(std::vector<GURL>()));
   EXPECT_CALL(*item, GetReferrerUrl()).WillRepeatedly(ReturnRefOfCopy(GURL()));
-  EXPECT_CALL(*item, GetSerializedEmbedderDownloadData())
-      .WillRepeatedly(ReturnRefOfCopy(
-          manager_->StoragePartitionConfigToSerializedEmbedderDownloadData(
-              content::StoragePartitionConfig::CreateDefault(
-                  browser_context()))));
+  EXPECT_CALL(*item, GetSiteUrl()).WillRepeatedly(ReturnRefOfCopy(GURL()));
   EXPECT_CALL(*item, GetTabUrl()).WillRepeatedly(ReturnRefOfCopy(GURL()));
   EXPECT_CALL(*item, GetTabReferrerUrl())
       .WillRepeatedly(ReturnRefOfCopy(GURL()));
@@ -260,8 +257,8 @@ DownloadUIControllerTest::CreateMockInProgressDownload() {
   EXPECT_CALL(*item, IsSavePackageDownload()).WillRepeatedly(Return(false));
   EXPECT_CALL(*item, GetOriginalMimeType())
       .WillRepeatedly(Return(std::string()));
-  content::DownloadItemUtils::AttachInfoForTesting(item.get(),
-                                                   browser_context(), nullptr);
+  content::DownloadItemUtils::AttachInfo(item.get(), browser_context(),
+                                         nullptr);
 
   return item;
 }
@@ -308,32 +305,6 @@ TEST_F(DownloadUIControllerTest, DownloadUIController_NotifyBasic_Interrupted) {
   EXPECT_EQ(static_cast<download::DownloadItem*>(item.get()), notified_item());
 }
 
-// A download that's blocked by local policies should also be displayed even
-// when the destination hasn't been determined yet, except for silently blocked
-// mixed content downloads.
-TEST_F(DownloadUIControllerTest, DownloadUIController_NotifyBasic_FileBlocked) {
-  std::unique_ptr<MockDownloadItem> item = CreateMockInProgressDownload();
-  DownloadUIController controller(manager(), GetTestDelegate());
-  EXPECT_CALL(*item, GetTargetFilePath())
-      .WillRepeatedly(ReturnRefOfCopy(base::FilePath()));
-  EXPECT_CALL(*item, GetLastReason())
-      .WillRepeatedly(Return(download::DOWNLOAD_INTERRUPT_REASON_FILE_BLOCKED));
-
-  // If the download is a silently blocked mixed content download, don't notify.
-  EXPECT_CALL(*item, GetMixedContentStatus())
-      .WillRepeatedly(
-          Return(download::DownloadItem::MixedContentStatus::SILENT_BLOCK));
-  ASSERT_TRUE(manager_observer());
-  manager_observer()->OnDownloadCreated(manager(), item.get());
-  EXPECT_FALSE(notified_item());
-
-  // Notify even though the destination hasn't been determined yet.
-  EXPECT_CALL(*item, GetMixedContentStatus())
-      .WillRepeatedly(Return(download::DownloadItem::MixedContentStatus::SAFE));
-  item->NotifyObserversDownloadUpdated();
-  EXPECT_EQ(static_cast<download::DownloadItem*>(item.get()), notified_item());
-}
-
 // Downloads that have a target path on creation and are in the IN_PROGRESS
 // state should be displayed in the UI immediately without requiring an
 // additional OnDownloadUpdated() notification.
@@ -377,9 +348,6 @@ TEST_F(DownloadUIControllerTest, DownloadUIController_HistoryDownload) {
       *manager(),
       PostInitialization(content::DownloadManager::
                              DOWNLOAD_INITIALIZATION_DEPENDENCY_HISTORY_DB));
-  EXPECT_CALL(*manager(), GetStoragePartitionConfigForSiteUrl(_))
-      .WillRepeatedly(Return(
-          content::StoragePartitionConfig::CreateDefault(browser_context())));
 
   {
     testing::InSequence s;

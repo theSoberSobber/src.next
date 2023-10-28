@@ -13,7 +13,6 @@
 #include "third_party/blink/renderer/core/html/html_head_element.h"
 #include "third_party/blink/renderer/core/html/html_link_element.h"
 #include "third_party/blink/renderer/core/testing/page_test_base.h"
-#include "third_party/blink/renderer/platform/heap/thread_state.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_builder.h"
 
 namespace blink {
@@ -136,7 +135,7 @@ TEST_F(DocumentStatisticsCollectorTest, CountScoreSaturation) {
     }
     html.Append("</p>");
   }
-  SetHtmlInnerHTML(html.ReleaseString());
+  SetHtmlInnerHTML(html.ToString());
   WebDistillabilityFeatures features =
       DocumentStatisticsCollector::CollectStatistics(GetDocument());
 

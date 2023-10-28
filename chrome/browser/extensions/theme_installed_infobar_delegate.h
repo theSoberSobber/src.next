@@ -1,4 +1,4 @@
-// Copyright 2011 The Chromium Authors
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -8,7 +8,7 @@
 #include <string>
 
 #include "base/callback.h"
-#include "base/memory/raw_ptr.h"
+#include "base/compiler_specific.h"
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/themes/theme_service_observer.h"
 #include "components/infobars/core/confirm_infobar_delegate.h"
@@ -53,7 +53,7 @@ class ThemeInstalledInfoBarDelegate : public ConfirmInfoBarDelegate,
   // ThemeServiceObserver:
   void OnThemeChanged() override;
 
-  raw_ptr<ThemeService> theme_service_;
+  ThemeService* theme_service_;
 
   // Name of theme that's just been installed.
   std::string theme_name_;

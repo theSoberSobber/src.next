@@ -35,11 +35,10 @@
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/frame/page_scale_constraints.h"
 #include "third_party/blink/renderer/core/page/viewport_description.h"
+#include "third_party/blink/renderer/platform/geometry/int_size.h"
 #include "third_party/blink/renderer/platform/geometry/length.h"
-#include "third_party/blink/renderer/platform/heap/garbage_collected.h"
-#include "third_party/blink/renderer/platform/heap/member.h"
+#include "third_party/blink/renderer/platform/heap/handle.h"
 #include "third_party/blink/renderer/platform/wtf/allocator/allocator.h"
-#include "ui/gfx/geometry/size.h"
 
 namespace blink {
 
@@ -66,6 +65,7 @@ class CORE_EXPORT PageScaleConstraintsSet
                                     const Length& legacy_fallback_width);
   void AdjustForAndroidWebViewQuirks(const ViewportDescription&,
                                      int layout_fallback_width,
+                                     float device_scale_factor,
                                      bool support_target_density_dpi,
                                      bool wide_viewport_quirk_enabled,
                                      bool use_wide_viewport,
@@ -91,7 +91,7 @@ class CORE_EXPORT PageScaleConstraintsSet
     return final_constraints_;
   }
   void ComputeFinalConstraints();
-  void DidChangeContentsSize(gfx::Size contents_size,
+  void DidChangeContentsSize(IntSize contents_size,
                              int vertical_scrollbar_width,
                              float page_scale_factor);
 
@@ -103,9 +103,10 @@ class CORE_EXPORT PageScaleConstraintsSet
   // This is set when one of the inputs to finalConstraints changes.
   bool ConstraintsDirty() const { return constraints_dirty_; }
 
-  void DidChangeInitialContainingBlockSize(const gfx::Size&);
+  void DidChangeInitialContainingBlockSize(const IntSize&);
 
-  gfx::Size GetLayoutSize() const;
+  IntSize GetLayoutSize() const;
+  IntSize InitialViewportSize() const { return icb_size_; }
 
  private:
   PageScaleConstraints ComputeConstraintsStack() const;
@@ -122,7 +123,7 @@ class CORE_EXPORT PageScaleConstraintsSet
 
   int last_contents_width_;
   int last_vertical_scrollbar_width_;
-  gfx::Size icb_size_;
+  IntSize icb_size_;
 
   bool needs_reset_;
   bool constraints_dirty_;

@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -10,7 +10,6 @@
 #include "chrome/browser/platform_util.h"
 #include "chrome/browser/util/jni_headers/PlatformUtil_jni.h"
 #include "ui/android/view_android.h"
-#include "ui/android/window_android.h"
 #include "url/gurl.h"
 
 using base::android::ScopedJavaLocalRef;

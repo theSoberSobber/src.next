@@ -24,6 +24,7 @@
 
 #include "third_party/blink/renderer/core/layout/layout_theme_default.h"
 
+#include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/public/platform/web_theme_engine.h"
 #include "third_party/blink/public/resources/grit/blink_resources.h"
 #include "third_party/blink/renderer/core/css_value_keywords.h"
@@ -33,7 +34,6 @@
 #include "third_party/blink/renderer/core/style/computed_style.h"
 #include "third_party/blink/renderer/platform/data_resource_helper.h"
 #include "third_party/blink/renderer/platform/graphics/color.h"
-#include "third_party/blink/renderer/platform/theme/web_theme_engine_helper.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_builder.h"
 #include "ui/base/ui_base_features.h"
 
@@ -45,28 +45,13 @@ static const float kDefaultCancelButtonSize = 9;
 static const float kMinCancelButtonSize = 5;
 static const float kMaxCancelButtonSize = 21;
 
-Color LayoutThemeDefault::active_selection_background_color_ =
-    Color::FromRGBA32(0xFF1E90FF);
-Color LayoutThemeDefault::active_selection_foreground_color_ =
-    Color::FromRGBA32(0xFF000000);
-Color LayoutThemeDefault::inactive_selection_background_color_ =
-    Color::FromRGBA32(0xFFC8C8C8);
-Color LayoutThemeDefault::inactive_selection_foreground_color_ =
-    Color::FromRGBA32(0xFF323232);
-Color
-    LayoutThemeDefault::active_list_box_selection_background_color_dark_mode_ =
-        Color::FromRGBA32(0xFF99C8FF);
-Color
-    LayoutThemeDefault::active_list_box_selection_foreground_color_dark_mode_ =
-        Color::FromRGBA32(0xFF3B3B3B);
-Color LayoutThemeDefault::
-    inactive_list_box_selection_background_color_dark_mode_ =
-        Color::FromRGBA32(0x4D3B3B3B);
-Color LayoutThemeDefault::
-    inactive_list_box_selection_foreground_color_dark_mode_ =
-        Color::FromRGBA32(0xFF323232);
+Color LayoutThemeDefault::active_selection_background_color_ = 0xff1e90ff;
+Color LayoutThemeDefault::active_selection_foreground_color_ = Color::kBlack;
+Color LayoutThemeDefault::inactive_selection_background_color_ = 0xffc8c8c8;
+Color LayoutThemeDefault::inactive_selection_foreground_color_ = 0xff323232;
 
-LayoutThemeDefault::LayoutThemeDefault() : painter_(*this) {}
+LayoutThemeDefault::LayoutThemeDefault() : LayoutTheme(), painter_(*this) {
+}
 
 LayoutThemeDefault::~LayoutThemeDefault() = default;
 
@@ -84,6 +69,10 @@ String LayoutThemeDefault::ExtraDefaultStyleSheet() {
   builder.Append(extra_style_sheet);
   builder.Append(multiple_fields_style_sheet);
   return builder.ToString();
+}
+
+String LayoutThemeDefault::ExtraQuirksStyleSheet() {
+  return UncompressResourceAsASCIIString(IDR_UASTYLE_THEME_WIN_QUIRKS_CSS);
 }
 
 Color LayoutThemeDefault::PlatformActiveSelectionBackgroundColor(
@@ -106,38 +95,10 @@ Color LayoutThemeDefault::PlatformInactiveSelectionForegroundColor(
   return inactive_selection_foreground_color_;
 }
 
-Color LayoutThemeDefault::PlatformActiveListBoxSelectionBackgroundColor(
-    mojom::blink::ColorScheme color_scheme) const {
-  return color_scheme == mojom::blink::ColorScheme::kDark
-             ? active_list_box_selection_background_color_dark_mode_
-             : PlatformActiveSelectionBackgroundColor(color_scheme);
-}
-
-Color LayoutThemeDefault::PlatformInactiveListBoxSelectionBackgroundColor(
-    mojom::blink::ColorScheme color_scheme) const {
-  return color_scheme == mojom::blink::ColorScheme::kDark
-             ? inactive_list_box_selection_background_color_dark_mode_
-             : PlatformInactiveSelectionBackgroundColor(color_scheme);
-}
-
-Color LayoutThemeDefault::PlatformActiveListBoxSelectionForegroundColor(
-    mojom::blink::ColorScheme color_scheme) const {
-  return color_scheme == mojom::blink::ColorScheme::kDark
-             ? active_list_box_selection_foreground_color_dark_mode_
-             : PlatformActiveSelectionForegroundColor(color_scheme);
-}
-
-Color LayoutThemeDefault::PlatformInactiveListBoxSelectionForegroundColor(
-    mojom::blink::ColorScheme color_scheme) const {
-  return color_scheme == mojom::blink::ColorScheme::kDark
-             ? inactive_list_box_selection_foreground_color_dark_mode_
-             : PlatformInactiveSelectionForegroundColor(color_scheme);
-}
-
-gfx::Size LayoutThemeDefault::SliderTickSize() const {
+IntSize LayoutThemeDefault::SliderTickSize() const {
   // The value should be synchronized with a -webkit-slider-container rule in
   // html.css.
-  return gfx::Size(1, 4);
+  return IntSize(1, 4);
 }
 
 int LayoutThemeDefault::SliderTickOffsetFromTrackCenter() const {
@@ -147,16 +108,19 @@ int LayoutThemeDefault::SliderTickOffsetFromTrackCenter() const {
 }
 
 void LayoutThemeDefault::AdjustSliderThumbSize(ComputedStyle& style) const {
-  gfx::Size size = WebThemeEngineHelper::GetNativeThemeEngine()->GetSize(
-      WebThemeEngine::kPartSliderThumb);
+  if (!Platform::Current()->ThemeEngine())
+    return;
+
+  IntSize size = IntSize(Platform::Current()->ThemeEngine()->GetSize(
+      WebThemeEngine::kPartSliderThumb));
 
   float zoom_level = style.EffectiveZoom();
   if (style.EffectiveAppearance() == kSliderThumbHorizontalPart) {
-    style.SetWidth(Length::Fixed(size.width() * zoom_level));
-    style.SetHeight(Length::Fixed(size.height() * zoom_level));
+    style.SetWidth(Length::Fixed(size.Width() * zoom_level));
+    style.SetHeight(Length::Fixed(size.Height() * zoom_level));
   } else if (style.EffectiveAppearance() == kSliderThumbVerticalPart) {
-    style.SetWidth(Length::Fixed(size.height() * zoom_level));
-    style.SetHeight(Length::Fixed(size.width() * zoom_level));
+    style.SetWidth(Length::Fixed(size.Height() * zoom_level));
+    style.SetHeight(Length::Fixed(size.Width() * zoom_level));
   }
 }
 
@@ -164,30 +128,77 @@ void LayoutThemeDefault::SetSelectionColors(Color active_background_color,
                                             Color active_foreground_color,
                                             Color inactive_background_color,
                                             Color inactive_foreground_color) {
-  if (active_selection_background_color_ != active_background_color ||
-      active_selection_foreground_color_ != active_foreground_color ||
-      inactive_selection_background_color_ != inactive_background_color ||
-      inactive_selection_foreground_color_ != inactive_foreground_color) {
-    active_selection_background_color_ = active_background_color;
-    active_selection_foreground_color_ = active_foreground_color;
-    inactive_selection_background_color_ = inactive_background_color;
-    inactive_selection_foreground_color_ = inactive_foreground_color;
-    PlatformColorsDidChange();
-  }
+  active_selection_background_color_ = active_background_color;
+  active_selection_foreground_color_ = active_foreground_color;
+  inactive_selection_background_color_ = inactive_background_color;
+  inactive_selection_foreground_color_ = inactive_foreground_color;
+  PlatformColorsDidChange();
+}
+
+namespace {
+
+void SetSizeIfAuto(const IntSize& size, ComputedStyle& style) {
+  if (style.Width().IsAutoOrContentOrIntrinsic())
+    style.SetWidth(Length::Fixed(size.Width()));
+  if (style.Height().IsAutoOrContentOrIntrinsic())
+    style.SetHeight(Length::Fixed(size.Height()));
+}
+
+void SetMinimumSizeIfAuto(const IntSize& size, ComputedStyle& style) {
+  // We only want to set a minimum size if no explicit size is specified, to
+  // avoid overriding author intentions.
+  if (style.MinWidth().IsAutoOrContentOrIntrinsic() &&
+      style.Width().IsAutoOrContentOrIntrinsic())
+    style.SetMinWidth(Length::Fixed(size.Width()));
+  if (style.MinHeight().IsAutoOrContentOrIntrinsic() &&
+      style.Height().IsAutoOrContentOrIntrinsic())
+    style.SetMinHeight(Length::Fixed(size.Height()));
+}
+
+}  // namespace
+
+void LayoutThemeDefault::SetCheckboxSize(ComputedStyle& style) const {
+  // If the width and height are both specified, then we have nothing to do.
+  if (!style.Width().IsAutoOrContentOrIntrinsic() &&
+      !style.Height().IsAutoOrContentOrIntrinsic())
+    return;
+
+  IntSize size = IntSize(Platform::Current()->ThemeEngine()->GetSize(
+      WebThemeEngine::kPartCheckbox));
+  float zoom_level = style.EffectiveZoom();
+  size.SetWidth(size.Width() * zoom_level);
+  size.SetHeight(size.Height() * zoom_level);
+  SetMinimumSizeIfAuto(size, style);
+  SetSizeIfAuto(size, style);
+}
+
+void LayoutThemeDefault::SetRadioSize(ComputedStyle& style) const {
+  // If the width and height are both specified, then we have nothing to do.
+  if (!style.Width().IsAutoOrContentOrIntrinsic() &&
+      !style.Height().IsAutoOrContentOrIntrinsic())
+    return;
+
+  IntSize size = IntSize(
+      Platform::Current()->ThemeEngine()->GetSize(WebThemeEngine::kPartRadio));
+  float zoom_level = style.EffectiveZoom();
+  size.SetWidth(size.Width() * zoom_level);
+  size.SetHeight(size.Height() * zoom_level);
+  SetMinimumSizeIfAuto(size, style);
+  SetSizeIfAuto(size, style);
 }
 
 void LayoutThemeDefault::AdjustInnerSpinButtonStyle(
     ComputedStyle& style) const {
-  gfx::Size size = WebThemeEngineHelper::GetNativeThemeEngine()->GetSize(
-      WebThemeEngine::kPartInnerSpinButton);
+  IntSize size = IntSize(Platform::Current()->ThemeEngine()->GetSize(
+      WebThemeEngine::kPartInnerSpinButton));
 
   float zoom_level = style.EffectiveZoom();
-  style.SetWidth(Length::Fixed(size.width() * zoom_level));
-  style.SetMinWidth(Length::Fixed(size.width() * zoom_level));
+  style.SetWidth(Length::Fixed(size.Width() * zoom_level));
+  style.SetMinWidth(Length::Fixed(size.Width() * zoom_level));
 }
 
 Color LayoutThemeDefault::PlatformFocusRingColor() const {
-  constexpr Color focus_ring_color = Color::FromRGBA32(0xFFE59700);
+  constexpr Color focus_ring_color(0xFFE59700);
   return focus_ring_color;
 }
 
@@ -196,6 +207,11 @@ void LayoutThemeDefault::AdjustButtonStyle(ComputedStyle& style) const {
     // Ignore line-height.
     style.SetLineHeight(ComputedStyleInitialValues::InitialLineHeight());
   }
+}
+
+void LayoutThemeDefault::AdjustSearchFieldStyle(ComputedStyle& style) const {
+  // Ignore line-height.
+  style.SetLineHeight(ComputedStyleInitialValues::InitialLineHeight());
 }
 
 void LayoutThemeDefault::AdjustSearchFieldCancelButtonStyle(
@@ -247,7 +263,8 @@ int LayoutThemeDefault::PopupInternalPaddingBottom(
 }
 
 int LayoutThemeDefault::MenuListArrowWidthInDIP() const {
-  int width = WebThemeEngineHelper::GetNativeThemeEngine()
+  int width = Platform::Current()
+                  ->ThemeEngine()
                   ->GetSize(WebThemeEngine::kPartScrollbarUpArrow)
                   .width();
   return width > 0 ? width : 15;

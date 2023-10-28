@@ -1,4 +1,4 @@
-// Copyright 2018 The Chromium Authors
+// Copyright 2018 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -8,7 +8,6 @@
 #include "base/path_service.h"
 #include "base/strings/strcat.h"
 #include "base/strings/stringprintf.h"
-#include "base/strings/utf_string_conversions.h"
 #include "base/test/values_test_util.h"
 #include "base/values.h"
 #include "components/version_info/channel.h"
@@ -75,60 +74,6 @@ TEST(ExtensionActionHandlerTest, LoadInvisiblePageActionIconUnpacked) {
       error);
 }
 
-// Tests that an action is always validated in manifest V3.
-TEST(ExtensionActionHandlerTest, InvalidActionIcon_ManifestV3) {
-  base::FilePath extension_dir =
-      GetTestDataDir().AppendASCII("action_invalid_icon");
-  std::string error;
-  scoped_refptr<Extension> extension(file_util::LoadExtension(
-      extension_dir, mojom::ManifestLocation::kUnpacked, Extension::NO_FLAGS,
-      &error));
-  EXPECT_FALSE(extension);
-  EXPECT_EQ("Could not load icon 'nonexistent_icon.png' specified in 'action'.",
-            error);
-}
-
-using ExtensionActionHandlerManifestTest = ManifestTest;
-
-TEST_F(ExtensionActionHandlerManifestTest, NoActionSpecified_ManifestV2) {
-  constexpr char kManifest[] =
-      R"({
-           "name": "Test",
-           "manifest_version": 2,
-           "version": "0.1"
-         })";
-
-  base::Value manifest_value = base::test::ParseJson(kManifest);
-  ASSERT_TRUE(manifest_value.is_dict());
-  scoped_refptr<const Extension> extension =
-      LoadAndExpectSuccess(ManifestData(std::move(manifest_value), "test"));
-  ASSERT_TRUE(extension);
-
-  const ActionInfo* action_info =
-      GetActionInfoOfType(*extension, ActionInfo::TYPE_PAGE);
-  ASSERT_TRUE(action_info);
-}
-
-TEST_F(ExtensionActionHandlerManifestTest, NoActionSpecified_ManifestV3) {
-  constexpr char kManifest[] =
-      R"({
-           "name": "Test",
-           "manifest_version": 3,
-           "version": "0.1"
-         })";
-
-  base::Value manifest_value = base::test::ParseJson(kManifest);
-  ASSERT_TRUE(manifest_value.is_dict());
-  scoped_refptr<const Extension> extension =
-      LoadAndExpectSuccess(ManifestData(std::move(manifest_value), "test"));
-  ASSERT_TRUE(extension);
-
-  const ActionInfo* action_info =
-      GetActionInfoOfType(*extension, ActionInfo::TYPE_ACTION);
-  ASSERT_TRUE(action_info);
-  EXPECT_EQ(ActionInfo::STATE_DISABLED, action_info->default_state);
-}
-
 // A parameterized test suite to test each different extension action key
 // ("page_action", "browser_action", "action").
 class ExtensionActionManifestTest
@@ -136,11 +81,6 @@ class ExtensionActionManifestTest
       public testing::WithParamInterface<ActionInfo::Type> {
  public:
   ExtensionActionManifestTest() {}
-
-  ExtensionActionManifestTest(const ExtensionActionManifestTest&) = delete;
-  ExtensionActionManifestTest& operator=(const ExtensionActionManifestTest&) =
-      delete;
-
   ~ExtensionActionManifestTest() override {}
 
   // Constructs and returns a ManifestData object with the provided
@@ -166,6 +106,8 @@ class ExtensionActionManifestTest
  private:
   // The "action" key is restricted to trunk.
   ScopedCurrentChannel scoped_channel_{version_info::Channel::UNKNOWN};
+
+  DISALLOW_COPY_AND_ASSIGN(ExtensionActionManifestTest);
 };
 
 // Tests that parsing an action succeeds and properly populates the given
@@ -281,10 +223,8 @@ TEST_P(ExtensionActionManifestTest, DefaultState) {
 
   // default_state is only valid for "action" types.
   const bool default_state_allowed = GetParam() == ActionInfo::TYPE_ACTION;
-  const std::string key_disallowed_error =
-      base::UTF16ToUTF8(manifest_errors::kDefaultStateShouldNotBeSet);
-  const std::string invalid_action_error =
-      base::UTF16ToUTF8(manifest_errors::kInvalidActionDefaultState);
+  const char* key_disallowed_error =
+      manifest_errors::kDefaultStateShouldNotBeSet;
 
   struct {
     // The manifest definition of the action key.
@@ -295,16 +235,16 @@ TEST_P(ExtensionActionManifestTest, DefaultState) {
     absl::optional<ActionInfo::DefaultState> expected_state;
   } test_cases[] = {
       {kDefaultStateDisabled,
-       default_state_allowed ? nullptr : key_disallowed_error.c_str(),
+       default_state_allowed ? nullptr : key_disallowed_error,
        default_state_allowed ? absl::make_optional(ActionInfo::STATE_DISABLED)
                              : absl::nullopt},
       {kDefaultStateEnabled,
-       default_state_allowed ? nullptr : key_disallowed_error.c_str(),
+       default_state_allowed ? nullptr : key_disallowed_error,
        default_state_allowed ? absl::make_optional(ActionInfo::STATE_ENABLED)
                              : absl::nullopt},
       {kDefaultStateInvalid,
-       default_state_allowed ? invalid_action_error.c_str()
-                             : key_disallowed_error.c_str(),
+       default_state_allowed ? manifest_errors::kInvalidActionDefaultState
+                             : key_disallowed_error,
        absl::nullopt},
   };
 

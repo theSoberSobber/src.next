@@ -1,4 +1,4 @@
-// Copyright 2018 The Chromium Authors
+// Copyright 2018 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,8 +7,6 @@
 #include <utility>
 #include <vector>
 
-#include "base/check.h"
-
 bool NormalizeExtensionResourcePath(const base::FilePath& path,
                                     base::FilePath* result) {
   DCHECK(result);
@@ -16,8 +14,11 @@ bool NormalizeExtensionResourcePath(const base::FilePath& path,
   if (path.ReferencesParent())
     return false;
 
+  std::vector<base::FilePath::StringType> components;
+  path.GetComponents(&components);
+
   base::FilePath rv;
-  for (const auto& path_component : path.GetComponents()) {
+  for (const auto& path_component : components) {
     if (path_component != base::FilePath::kCurrentDirectory)
       rv = rv.Append(path_component);
   }

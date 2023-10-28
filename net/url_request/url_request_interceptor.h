@@ -1,4 +1,4 @@
-// Copyright 2014 The Chromium Authors
+// Copyright 2014 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,6 +7,7 @@
 
 #include <memory>
 
+#include "base/macros.h"
 #include "net/base/net_export.h"
 
 namespace net {
@@ -23,10 +24,6 @@ class URLRequestJob;
 class NET_EXPORT URLRequestInterceptor {
  public:
   URLRequestInterceptor();
-
-  URLRequestInterceptor(const URLRequestInterceptor&) = delete;
-  URLRequestInterceptor& operator=(const URLRequestInterceptor&) = delete;
-
   virtual ~URLRequestInterceptor();
 
   // Returns a URLRequestJob to handle |request|, if the interceptor wants to
@@ -34,6 +31,9 @@ class NET_EXPORT URLRequestInterceptor {
   // Otherwise, returns nullptr.
   virtual std::unique_ptr<URLRequestJob> MaybeInterceptRequest(
       URLRequest* request) const = 0;
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(URLRequestInterceptor);
 };
 
 }  // namespace net

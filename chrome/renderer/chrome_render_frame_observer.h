@@ -1,4 +1,4 @@
-// Copyright 2013 The Chromium Authors
+// Copyright 2013 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 
+#include "base/macros.h"
 #include "build/build_config.h"
 #include "chrome/common/chrome_render_frame.mojom.h"
 #include "components/safe_browsing/buildflags.h"
@@ -16,8 +17,6 @@
 #include "mojo/public/cpp/bindings/pending_associated_receiver.h"
 #include "services/service_manager/public/cpp/binder_registry.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_registry.h"
-
-class SkBitmap;
 
 namespace gfx {
 class Size;
@@ -46,11 +45,6 @@ class ChromeRenderFrameObserver : public content::RenderFrameObserver,
  public:
   ChromeRenderFrameObserver(content::RenderFrame* render_frame,
                             web_cache::WebCacheImpl* web_cache_impl);
-
-  ChromeRenderFrameObserver(const ChromeRenderFrameObserver&) = delete;
-  ChromeRenderFrameObserver& operator=(const ChromeRenderFrameObserver&) =
-      delete;
-
   ~ChromeRenderFrameObserver() override;
 
   service_manager::BinderRegistry* registry() { return &registry_; }
@@ -58,7 +52,7 @@ class ChromeRenderFrameObserver : public content::RenderFrameObserver,
     return &associated_interfaces_;
   }
 
-#if BUILDFLAG(IS_ANDROID)
+#if defined(OS_ANDROID)
   // This is called on the main thread for subresources or worker threads for
   // dedicated workers.
   static std::string GetCCTClientHeader(int render_frame_id);
@@ -94,7 +88,7 @@ class ChromeRenderFrameObserver : public content::RenderFrameObserver,
       chrome::mojom::ImageFormat image_format,
       RequestImageForContextNodeCallback callback) override;
   void RequestReloadImageForContextNode() override;
-#if BUILDFLAG(IS_ANDROID)
+#if defined(OS_ANDROID)
   void SetCCTClientHeader(const std::string& header) override;
 #endif
   void GetMediaFeedURL(GetMediaFeedURLCallback callback) override;
@@ -144,7 +138,7 @@ class ChromeRenderFrameObserver : public content::RenderFrameObserver,
   // Owned by ChromeContentRendererClient and outlive us.
   web_cache::WebCacheImpl* web_cache_impl_;
 
-#if !BUILDFLAG(IS_ANDROID)
+#if !defined(OS_ANDROID)
   // Save the JavaScript to preload if ExecuteWebUIJavaScript is invoked.
   std::vector<std::u16string> webui_javascript_;
 #endif
@@ -153,6 +147,8 @@ class ChromeRenderFrameObserver : public content::RenderFrameObserver,
 
   service_manager::BinderRegistry registry_;
   blink::AssociatedInterfaceRegistry associated_interfaces_;
+
+  DISALLOW_COPY_AND_ASSIGN(ChromeRenderFrameObserver);
 };
 
 #endif  // CHROME_RENDERER_CHROME_RENDER_FRAME_OBSERVER_H_

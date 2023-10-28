@@ -1,4 +1,4 @@
-// Copyright 2016 The Chromium Authors
+// Copyright 2016 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -15,6 +15,7 @@
 #include <vector>
 
 #include "base/check_op.h"
+#include "base/macros.h"
 #include "base/memory/ref_counted.h"
 #include "net/base/io_buffer.h"
 #include "net/base/net_errors.h"
@@ -22,7 +23,6 @@
 #include "net/http/http_request_headers.h"
 #include "net/http/http_request_info.h"
 #include "net/http/http_response_info.h"
-#include "net/log/net_log.h"
 #include "net/log/test_net_log.h"
 #include "net/socket/fuzzed_socket.h"
 #include "net/traffic_annotation/network_traffic_annotation_test_helper.h"
@@ -33,13 +33,10 @@
 // |data| is used to create a FuzzedSocket.
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
   net::TestCompletionCallback callback;
-  // Including an observer; even though the recorded results aren't currently
-  // used, it'll ensure the netlogging code is fuzzed as well.
-  net::RecordingNetLogObserver net_log_observer;
-  net::NetLogWithSource net_log_with_source =
-      net::NetLogWithSource::Make(net::NetLogSourceType::NONE);
+  net::RecordingBoundTestNetLog bound_test_net_log;
   FuzzedDataProvider data_provider(data, size);
-  net::FuzzedSocket fuzzed_socket(&data_provider, net::NetLog::Get());
+  net::FuzzedSocket fuzzed_socket(&data_provider,
+                                  bound_test_net_log.bound().net_log());
   CHECK_EQ(net::OK, fuzzed_socket.Connect(callback.callback()));
 
   net::HttpRequestInfo request_info;
@@ -52,7 +49,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
   // callbacks.
   net::HttpStreamParser parser(&fuzzed_socket, false /* is_reused */,
                                &request_info, read_buffer.get(),
-                               net_log_with_source);
+                               bound_test_net_log.bound());
 
   net::HttpResponseInfo response_info;
   int result = parser.SendRequest(

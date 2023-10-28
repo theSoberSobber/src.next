@@ -30,7 +30,6 @@ class HttpEquiv {
                       const AtomicString& equiv,
                       const AtomicString& content,
                       bool in_document_head_element,
-                      bool is_sync_parser,
                       Element*);
 
  private:
@@ -48,6 +47,7 @@ class HttpEquiv {
       LocalDOMWindow*,
       const AtomicString& equiv,
       const AtomicString& content);
+  static void ProcessHttpEquivAcceptCH(Document&, const AtomicString& content);
 };
 
 }  // namespace blink

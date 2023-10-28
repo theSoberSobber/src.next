@@ -26,38 +26,37 @@
 
 #include "third_party/blink/renderer/platform/graphics/graphics_types.h"
 
-#include "base/notreached.h"
+#include "base/cxx17_backports.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
 
 namespace blink {
 
-// TODO(vmpstr): Move these closer to canvas, along with the parsing code.
-static const char* const kCanvasCompositeOperatorNames[] = {"clear",
-                                                            "copy",
-                                                            "source-over",
-                                                            "source-in",
-                                                            "source-out",
-                                                            "source-atop",
-                                                            "destination-over",
-                                                            "destination-in",
-                                                            "destination-out",
-                                                            "destination-atop",
-                                                            "xor",
-                                                            "lighter"};
+static const char* const kCompositeOperatorNames[] = {"clear",
+                                                      "copy",
+                                                      "source-over",
+                                                      "source-in",
+                                                      "source-out",
+                                                      "source-atop",
+                                                      "destination-over",
+                                                      "destination-in",
+                                                      "destination-out",
+                                                      "destination-atop",
+                                                      "xor",
+                                                      "lighter"};
 
-static const char* const kCanvasBlendModeNames[] = {
+static const char* const kBlendModeNames[] = {
     "normal",     "multiply",   "screen",      "overlay",
     "darken",     "lighten",    "color-dodge", "color-burn",
     "hard-light", "soft-light", "difference",  "exclusion",
     "hue",        "saturation", "color",       "luminosity"};
-const int kNumCompositeOperatorNames = std::size(kCanvasCompositeOperatorNames);
-const int kNumBlendModeNames = std::size(kCanvasBlendModeNames);
+const int kNumCompositeOperatorNames = base::size(kCompositeOperatorNames);
+const int kNumBlendModeNames = base::size(kBlendModeNames);
 
-bool ParseCanvasCompositeAndBlendMode(const String& s,
-                                      CompositeOperator& op,
-                                      BlendMode& blend_op) {
+bool ParseCompositeAndBlendMode(const String& s,
+                                CompositeOperator& op,
+                                BlendMode& blend_op) {
   for (int i = 0; i < kNumCompositeOperatorNames; i++) {
-    if (s == kCanvasCompositeOperatorNames[i]) {
+    if (s == kCompositeOperatorNames[i]) {
       op = static_cast<CompositeOperator>(i);
       blend_op = BlendMode::kNormal;
       return true;
@@ -65,7 +64,7 @@ bool ParseCanvasCompositeAndBlendMode(const String& s,
   }
 
   for (int i = 0; i < kNumBlendModeNames; i++) {
-    if (s == kCanvasBlendModeNames[i]) {
+    if (s == kBlendModeNames[i]) {
       blend_op = static_cast<BlendMode>(i);
       op = kCompositeSourceOver;
       return true;
@@ -75,55 +74,13 @@ bool ParseCanvasCompositeAndBlendMode(const String& s,
   return false;
 }
 
-String CanvasCompositeOperatorName(CompositeOperator op, BlendMode blend_op) {
+String CompositeOperatorName(CompositeOperator op, BlendMode blend_op) {
   DCHECK_GE(op, 0);
   DCHECK_LT(op, kNumCompositeOperatorNames);
-  DCHECK_GE(static_cast<int>(blend_op), 0);
-  DCHECK_LT(static_cast<int>(blend_op), kNumBlendModeNames);
+  DCHECK_GE(static_cast<unsigned>(blend_op), 0u);
   if (blend_op != BlendMode::kNormal)
-    return kCanvasBlendModeNames[static_cast<unsigned>(blend_op)];
-  return kCanvasCompositeOperatorNames[op];
-}
-
-String BlendModeToString(BlendMode blend_op) {
-  switch (blend_op) {
-    case BlendMode::kNormal:
-      return "normal";
-    case BlendMode::kMultiply:
-      return "multiply";
-    case BlendMode::kScreen:
-      return "screen";
-    case BlendMode::kOverlay:
-      return "overlay";
-    case BlendMode::kDarken:
-      return "darken";
-    case BlendMode::kLighten:
-      return "lighten";
-    case BlendMode::kColorDodge:
-      return "color-dodge";
-    case BlendMode::kColorBurn:
-      return "color-burn";
-    case BlendMode::kHardLight:
-      return "hard-light";
-    case BlendMode::kSoftLight:
-      return "soft-light";
-    case BlendMode::kDifference:
-      return "difference";
-    case BlendMode::kExclusion:
-      return "exclusion";
-    case BlendMode::kHue:
-      return "hue";
-    case BlendMode::kSaturation:
-      return "saturation";
-    case BlendMode::kColor:
-      return "color";
-    case BlendMode::kLuminosity:
-      return "luminosity";
-    case BlendMode::kPlusLighter:
-      return "plus-lighter";
-  }
-  NOTREACHED();
-  return "";
+    return kBlendModeNames[static_cast<unsigned>(blend_op)];
+  return kCompositeOperatorNames[op];
 }
 
 bool ParseImageEncodingMimeType(const String& mime_type_name,
@@ -258,49 +215,6 @@ bool ParseTextBaseline(const String& s, TextBaseline& baseline) {
     return true;
   }
   return false;
-}
-
-String ImageDataStorageFormatName(ImageDataStorageFormat format) {
-  switch (format) {
-    case ImageDataStorageFormat::kUint8:
-      return "uint8";
-    case ImageDataStorageFormat::kUint16:
-      return "uint16";
-    case ImageDataStorageFormat::kFloat32:
-      return "float32";
-  }
-  NOTREACHED();
-  return String();
-}
-
-String PredefinedColorSpaceName(PredefinedColorSpace color_space) {
-  switch (color_space) {
-    case PredefinedColorSpace::kSRGB:
-      return "srgb";
-    case PredefinedColorSpace::kRec2020:
-      return "rec2020";
-    case PredefinedColorSpace::kP3:
-      return "display-p3";
-    case PredefinedColorSpace::kRec2100HLG:
-      return "rec2100-hlg";
-    case PredefinedColorSpace::kRec2100PQ:
-      return "rec2100-pq";
-    case PredefinedColorSpace::kSRGBLinear:
-      return "srgb-linear";
-  };
-  NOTREACHED();
-  return String();
-}
-
-String CanvasPixelFormatName(CanvasPixelFormat pixel_format) {
-  switch (pixel_format) {
-    case CanvasPixelFormat::kUint8:
-      return "uint8";
-    case CanvasPixelFormat::kF16:
-      return "float16";
-  }
-  NOTREACHED();
-  return String();
 }
 
 }  // namespace blink

@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium Authors
+// Copyright 2019 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -23,7 +23,7 @@ namespace content {
 namespace {
 
 bool SupportsSharedWorker() {
-#if BUILDFLAG(IS_ANDROID)
+#if defined(OS_ANDROID)
   // SharedWorkers are not enabled on Android. https://crbug.com/154571
   return false;
 #else
@@ -83,7 +83,7 @@ class WorkerNetworkIsolationKeyBrowserTest : public ContentBrowserTest {
   }
 
   RenderFrameHost* CreateSubframe(const GURL& subframe_url) {
-    DCHECK_EQ(shell()->web_contents()->GetLastCommittedURL().path(),
+    DCHECK_EQ(shell()->web_contents()->GetURL().path(),
               "/workers/frame_factory.html");
 
     content::TestNavigationObserver navigation_observer(
@@ -92,13 +92,13 @@ class WorkerNetworkIsolationKeyBrowserTest : public ContentBrowserTest {
 
     std::string subframe_name = GetUniqueSubframeName();
     EvalJsResult result = EvalJs(
-        shell()->web_contents()->GetPrimaryMainFrame(),
+        shell()->web_contents()->GetMainFrame(),
         JsReplace("createFrame($1, $2)", subframe_url.spec(), subframe_name));
     DCHECK(result.error.empty());
     navigation_observer.Wait();
 
     RenderFrameHost* subframe_rfh = FrameMatchingPredicate(
-        shell()->web_contents()->GetPrimaryPage(),
+        shell()->web_contents(),
         base::BindRepeating(&FrameMatchesName, subframe_name));
     DCHECK(subframe_rfh);
 

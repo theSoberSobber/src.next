@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -14,12 +14,13 @@
 
 #include "base/atomicops.h"
 #include "base/callback.h"
-#include "base/location.h"
+#include "base/macros.h"
 #include "base/memory/memory_pressure_listener.h"
 #include "base/memory/weak_ptr.h"
 #include "base/sequence_checker.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
+#include "components/ui_devtools/buildflags.h"
 #include "components/viz/host/gpu_host_impl.h"
 #include "content/common/content_export.h"
 #include "content/public/browser/browser_child_process_host_delegate.h"
@@ -31,7 +32,6 @@
 #include "gpu/config/gpu_mode.h"
 #include "mojo/public/cpp/bindings/generic_pending_receiver.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
-#include "sandbox/policy/mojom/sandbox.mojom.h"
 #include "services/viz/privileged/mojom/compositing/frame_sink_manager.mojom.h"
 #include "services/viz/privileged/mojom/gl/gpu_host.mojom.h"
 #include "services/viz/privileged/mojom/gl/gpu_service.mojom.h"
@@ -39,8 +39,12 @@
 #include "ui/gfx/gpu_extra_info.h"
 #include "url/gurl.h"
 
-#if BUILDFLAG(IS_WIN)
+#if defined(OS_WIN)
 #include "services/viz/privileged/mojom/gl/info_collection_gpu_service.mojom.h"
+#endif
+
+#if BUILDFLAG(USE_VIZ_DEVTOOLS)
+#include "content/browser/gpu/viz_devtools_connector.h"
 #endif
 
 namespace base {
@@ -50,7 +54,7 @@ class Thread;
 namespace content {
 class BrowserChildProcessHostImpl;
 
-#if BUILDFLAG(IS_MAC)
+#if defined(OS_MAC)
 class CATransactionGPUCoordinator;
 #endif
 
@@ -69,9 +73,6 @@ class GpuProcessHost : public BrowserChildProcessHostDelegate,
       GpuProcessKind kind = GPU_PROCESS_KIND_SANDBOXED,
       bool force_create = true);
 
-  GpuProcessHost(const GpuProcessHost&) = delete;
-  GpuProcessHost& operator=(const GpuProcessHost&) = delete;
-
   // Returns whether there is an active GPU process or not.
   static void GetHasGpuProcess(base::OnceCallback<void(bool)> callback);
 
@@ -80,7 +81,6 @@ class GpuProcessHost : public BrowserChildProcessHostDelegate,
   // called with a null host (e.g. when |force_create| is false, and no
   // GpuProcessHost instance exists).
   CONTENT_EXPORT static void CallOnIO(
-      const base::Location& location,
       GpuProcessKind kind,
       bool force_create,
       base::OnceCallback<void(GpuProcessHost*)> callback);
@@ -102,24 +102,12 @@ class GpuProcessHost : public BrowserChildProcessHostDelegate,
   void DumpProcessStack();
 
   // Asks the GPU process to run a service instance corresponding to the
-  // specific interface receiver type carried by |receiver|. The interface must
-  // have the [ServiceSandbox=sandbox.mojom.Sandbox.kGpu] mojom attribute.
-  template <typename Interface>
-  void RunService(mojo::PendingReceiver<Interface> receiver) {
-    // Note: consult chrome-security before changing these asserts.
-    using ProvidedSandboxType = decltype(Interface::kServiceSandbox);
-    static_assert(
-        std::is_same<ProvidedSandboxType, const sandbox::mojom::Sandbox>::value,
-        "This interface does not declare a proper ServiceSandbox attribute. "
-        "See //docs/mojo_and_services.md (Specifying a sandbox).");
-    static_assert(Interface::kServiceSandbox == sandbox::mojom::Sandbox::kGpu,
-                  "This interface must have [ServiceSandbox=kGpu].");
-    return RunServiceImpl(std::move(receiver));
-  }
+  // specific interface receiver type carried by |receiver|.
+  void RunService(mojo::GenericPendingReceiver receiver);
 
   CONTENT_EXPORT viz::mojom::GpuService* gpu_service();
 
-#if BUILDFLAG(IS_WIN)
+#if defined(OS_WIN)
   CONTENT_EXPORT viz::mojom::InfoCollectionGpuService*
   info_collection_gpu_service();
 #endif
@@ -167,15 +155,14 @@ class GpuProcessHost : public BrowserChildProcessHostDelegate,
   void DidCreateContextSuccessfully() override;
   void MaybeShutdownGpuProcess() override;
   void DidUpdateGPUInfo(const gpu::GPUInfo& gpu_info) override;
-#if BUILDFLAG(IS_WIN)
+#if defined(OS_WIN)
   void DidUpdateOverlayInfo(const gpu::OverlayInfo& overlay_info) override;
-  void DidUpdateDXGIInfo(gfx::mojom::DXGIInfoPtr dxgi_info) override;
+  void DidUpdateHDRStatus(bool hdr_enabled) override;
 #endif
-  void BlockDomainsFrom3DAPIs(const std::set<GURL>& urls,
-                              gpu::DomainGuilt guilt) override;
+  void BlockDomainFrom3DAPIs(const GURL& url, gpu::DomainGuilt guilt) override;
   void DisableGpuCompositing() override;
   bool GpuAccessAllowed() const override;
-  gpu::GpuDiskCacheFactory* GetGpuDiskCacheFactory() override;
+  gpu::ShaderCacheFactory* GetShaderCacheFactory() override;
   void RecordLogMessage(int32_t severity,
                         const std::string& header,
                         const std::string& message) override;
@@ -199,9 +186,7 @@ class GpuProcessHost : public BrowserChildProcessHostDelegate,
   // Update GPU crash counters.  Disable GPU if crash limit is reached.
   void RecordProcessCrash();
 
-  void RunServiceImpl(mojo::GenericPendingReceiver receiver);
-
-#if !BUILDFLAG(IS_ANDROID)
+#if !defined(OS_ANDROID)
   // Memory pressure handler, called by |memory_pressure_listener_|.
   void OnMemoryPressure(
       base::MemoryPressureListener::MemoryPressureLevel level);
@@ -249,7 +234,7 @@ class GpuProcessHost : public BrowserChildProcessHostDelegate,
   std::unique_ptr<BrowserChildProcessHostImpl> process_;
   std::unique_ptr<base::Thread> in_process_gpu_thread_;
 
-#if BUILDFLAG(IS_MAC)
+#if defined(OS_MAC)
   scoped_refptr<CATransactionGPUCoordinator> ca_transaction_gpu_coordinator_;
 #endif
 
@@ -260,7 +245,7 @@ class GpuProcessHost : public BrowserChildProcessHostDelegate,
   // automatic execution of 3D content from those domains.
   std::multiset<GURL> urls_with_live_offscreen_contexts_;
 
-#if !BUILDFLAG(IS_ANDROID)
+#if !defined(OS_ANDROID)
   // Responsible for forwarding the memory pressure notifications from the
   // browser process to the GPU process.
   std::unique_ptr<base::MemoryPressureListener> memory_pressure_listener_;
@@ -268,9 +253,15 @@ class GpuProcessHost : public BrowserChildProcessHostDelegate,
 
   std::unique_ptr<viz::GpuHostImpl> gpu_host_;
 
+#if BUILDFLAG(USE_VIZ_DEVTOOLS)
+  std::unique_ptr<VizDevToolsConnector> devtools_connector_;
+#endif
+
   SEQUENCE_CHECKER(sequence_checker_);
 
   base::WeakPtrFactory<GpuProcessHost> weak_ptr_factory_{this};
+
+  DISALLOW_COPY_AND_ASSIGN(GpuProcessHost);
 };
 
 }  // namespace content

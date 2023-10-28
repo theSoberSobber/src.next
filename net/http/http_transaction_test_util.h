@@ -1,24 +1,20 @@
-// Copyright 2014 The Chromium Authors
+// Copyright 2014 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef NET_HTTP_HTTP_TRANSACTION_TEST_UTIL_H_
 #define NET_HTTP_HTTP_TRANSACTION_TEST_UTIL_H_
 
-#include "base/memory/raw_ptr.h"
 #include "net/http/http_transaction.h"
 
 #include <stdint.h>
 
-#include <set>
 #include <string>
 #include <vector>
 
 #include "base/callback.h"
 #include "base/compiler_specific.h"
-#include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
-#include "base/time/time.h"
 #include "net/base/completion_once_callback.h"
 #include "net/base/io_buffer.h"
 #include "net/base/load_flags.h"
@@ -27,19 +23,18 @@
 #include "net/base/request_priority.h"
 #include "net/base/test_completion_callback.h"
 #include "net/base/transport_info.h"
-#include "net/cert/x509_certificate.h"
 #include "net/disk_cache/disk_cache.h"
 #include "net/http/http_cache.h"
 #include "net/http/http_request_info.h"
 #include "net/http/http_response_headers.h"
 #include "net/http/http_response_info.h"
-#include "net/log/net_log_source.h"
 #include "net/socket/connection_attempts.h"
 
 namespace net {
 
 class IOBuffer;
 class SSLPrivateKey;
+class X509Certificate;
 class NetLogWithSource;
 struct HttpRequestInfo;
 
@@ -87,10 +82,10 @@ struct MockTransaction {
   // If |response_time| is unspecified, the current time will be used.
   base::Time response_time;
   const char* data;
-  // Any aliases for the requested URL, as read from DNS records. Includes all
-  // known aliases, e.g. from A, AAAA, or HTTPS, not just from the address used
-  // for the connection, in no particular order.
-  std::set<std::string> dns_aliases;
+  // Any aliases for the requested URL, as read from DNS records. The alias
+  // chain order is preserved in reverse, from canonical name (i.e. address
+  // record name) through to query name.
+  std::vector<std::string> dns_aliases;
   int test_mode;
   MockTransactionHandler handler;
   MockTransactionReadHandler read_handler;
@@ -152,7 +147,7 @@ class TestTransactionConsumer {
 
   void Start(const HttpRequestInfo* request, const NetLogWithSource& net_log);
 
-  bool is_done() const { return state_ == State::kDone; }
+  bool is_done() const { return state_ == DONE; }
   int error() const { return error_; }
 
   const HttpResponseInfo* response_info() const {
@@ -162,7 +157,12 @@ class TestTransactionConsumer {
   const std::string& content() const { return content_; }
 
  private:
-  enum class State { kIdle, kStarting, kReading, kDone };
+  enum State {
+    IDLE,
+    STARTING,
+    READING,
+    DONE
+  };
 
   void DidStart(int result);
   void DidRead(int result);
@@ -171,11 +171,11 @@ class TestTransactionConsumer {
 
   void OnIOComplete(int result);
 
-  State state_ = State::kIdle;
+  State state_;
   std::unique_ptr<HttpTransaction> trans_;
   std::string content_;
   scoped_refptr<IOBuffer> read_buf_;
-  int error_ = OK;
+  int error_;
 
   static int quit_counter_;
 };
@@ -252,7 +252,7 @@ class MockNetworkTransaction
 
   int ResumeNetworkStart() override;
 
-  ConnectionAttempts GetConnectionAttempts() const override;
+  void GetConnectionAttempts(ConnectionAttempts* out) const override;
 
   void CloseConnectionOnDestruction() override;
 
@@ -277,29 +277,29 @@ class MockNetworkTransaction
   void CallbackLater(CompletionOnceCallback callback, int result);
   void RunCallback(CompletionOnceCallback callback, int result);
 
-  raw_ptr<const HttpRequestInfo> request_ = nullptr;
+  const HttpRequestInfo* request_;
   HttpResponseInfo response_;
   std::string data_;
-  int64_t data_cursor_ = 0;
-  int64_t content_length_ = 0;
+  int64_t data_cursor_;
+  int64_t content_length_;
   int test_mode_;
   RequestPriority priority_;
-  MockTransactionReadHandler read_handler_ = nullptr;
-  raw_ptr<CreateHelper> websocket_handshake_stream_create_helper_ = nullptr;
+  MockTransactionReadHandler read_handler_;
+  CreateHelper* websocket_handshake_stream_create_helper_;
   BeforeNetworkStartCallback before_network_start_callback_;
   ConnectedCallback connected_callback_;
   base::WeakPtr<MockNetworkLayer> transaction_factory_;
-  int64_t received_bytes_ = 0;
-  int64_t sent_bytes_ = 0;
+  int64_t received_bytes_;
+  int64_t sent_bytes_;
 
   // NetLog ID of the fake / non-existent underlying socket used by the
   // connection. Requires Start() be passed a NetLogWithSource with a real
   // NetLog to
   // be initialized.
-  unsigned int socket_log_id_ = NetLogSource::kInvalidId;
+  unsigned int socket_log_id_;
 
-  bool done_reading_called_ = false;
-  bool reading_ = false;
+  bool done_reading_called_;
+  bool reading_;
 
   CompletionOnceCallback resume_start_callback_;  // used for pause and restart.
 
@@ -357,14 +357,14 @@ class MockNetworkLayer : public HttpTransactionFactory,
   base::Time Now();
 
  private:
-  int transaction_count_ = 0;
-  bool done_reading_called_ = false;
-  bool stop_caching_called_ = false;
-  RequestPriority last_create_transaction_priority_ = DEFAULT_PRIORITY;
+  int transaction_count_;
+  bool done_reading_called_;
+  bool stop_caching_called_;
+  RequestPriority last_create_transaction_priority_;
 
   // By default clock_ is NULL but it can be set to a custom clock by test
   // frameworks using SetClock.
-  raw_ptr<base::Clock> clock_ = nullptr;
+  base::Clock* clock_;
 
   base::WeakPtr<MockNetworkTransaction> last_transaction_;
 };

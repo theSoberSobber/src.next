@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -83,6 +83,7 @@ void WebstoreInstallHelper::Start(
     icon_fetcher_ =
         std::make_unique<BitmapFetcher>(icon_url_, this, traffic_annotation);
     icon_fetcher_->Init(
+        std::string(),
         net::ReferrerPolicy::REDUCE_GRANULARITY_ON_TRANSITION_CROSS_ORIGIN,
         network::mojom::CredentialsMode::kOmit);
     icon_fetcher_->Start(loader_factory);
@@ -113,13 +114,11 @@ void WebstoreInstallHelper::OnJSONParsed(
     data_decoder::DataDecoder::ValueOrError result) {
   CHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   manifest_parse_complete_ = true;
-  if (result.has_value() && result->is_dict()) {
+  if (result.value && result.value->is_dict()) {
     parsed_manifest_ = base::DictionaryValue::From(
-        base::Value::ToUniquePtrValue(std::move(*result)));
+        base::Value::ToUniquePtrValue(std::move(*result.value)));
   } else {
-    error_ = (!result.has_value() || result.error().empty())
-                 ? "Invalid JSON response"
-                 : result.error();
+    error_ = result.error.value_or("Invalid JSON response");
     parse_error_ = Delegate::MANIFEST_ERROR;
   }
   ReportResultsIfComplete();

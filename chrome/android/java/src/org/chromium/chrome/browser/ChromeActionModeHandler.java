@@ -1,4 +1,4 @@
-// Copyright 2020 The Chromium Authors
+// Copyright 2020 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -18,12 +18,14 @@ import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.Callback;
 import org.chromium.base.CollectionUtil;
+import org.chromium.base.Consumer;
 import org.chromium.base.PackageManagerUtils;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.base.supplier.Supplier;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.firstrun.FirstRunStatus;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.locale.LocaleManager;
 import org.chromium.chrome.browser.share.ChromeShareExtras;
 import org.chromium.chrome.browser.share.ShareDelegate;
@@ -61,15 +63,14 @@ public class ChromeActionModeHandler {
      * @param searchCallback Callback to run when search action is selected in the action mode.
      * @param shareDelegateSupplier The {@link Supplier} of the {@link ShareDelegate} that will be
      *        notified when a share action is performed.
-     * @param canDrawOutsideScreen Whether floating action bar can be drawn outside the screen.
      */
     public ChromeActionModeHandler(ActivityTabProvider activityTabProvider,
-            Callback<String> searchCallback, Supplier<ShareDelegate> shareDelegateSupplier,
-            boolean canDrawOutsideScreen) {
+            Consumer<Boolean> actionBarObserver, Callback<String> searchCallback,
+            Supplier<ShareDelegate> shareDelegateSupplier) {
         mInitWebContentsObserver = (webContents) -> {
             SelectionPopupController.fromWebContents(webContents)
                     .setActionModeCallback(new ActionModeCallback(mActiveTab, webContents,
-                            searchCallback, shareDelegateSupplier, canDrawOutsideScreen));
+                            actionBarObserver, searchCallback, shareDelegateSupplier));
         };
 
         mActivityTabTabObserver =
@@ -94,7 +95,7 @@ public class ChromeActionModeHandler {
     }
 
     @VisibleForTesting
-    static class ActionModeCallback extends ActionMode.Callback2 {
+    static class ActionModeCallback implements ActionMode.Callback {
         /**
          * Android Intent size limitations prevent sending over a megabyte of data. Limit
          * query lengths to 100kB because other things may be added to the Intent.
@@ -103,20 +104,20 @@ public class ChromeActionModeHandler {
 
         private final Tab mTab;
         private final ActionModeCallbackHelper mHelper;
+        private final Consumer<Boolean> mActionBarObserver;
         private final Callback<String> mSearchCallback;
         private final Supplier<ShareDelegate> mShareDelegateSupplier;
-        private final boolean mCanDrawOutsideScreen;
 
         // Used for recording UMA histograms.
         private long mContextMenuStartTime;
 
-        ActionModeCallback(Tab tab, WebContents webContents, Callback<String> searchCallback,
-                Supplier<ShareDelegate> shareDelegateSupplier, boolean canDrawOutsideScreen) {
+        ActionModeCallback(Tab tab, WebContents webContents, Consumer<Boolean> observer,
+                Callback<String> searchCallback, Supplier<ShareDelegate> shareDelegateSupplier) {
             mTab = tab;
             mHelper = getActionModeCallbackHelper(webContents);
+            mActionBarObserver = observer;
             mSearchCallback = searchCallback;
             mShareDelegateSupplier = shareDelegateSupplier;
-            mCanDrawOutsideScreen = canDrawOutsideScreen;
         }
 
         @VisibleForTesting
@@ -128,6 +129,7 @@ public class ChromeActionModeHandler {
         @Override
         public boolean onCreateActionMode(ActionMode mode, Menu menu) {
             mContextMenuStartTime = System.currentTimeMillis();
+            notifyContextualActionBarVisibilityChanged(true);
 
             int allowedActionModes = ActionModeCallbackHelper.MENU_ITEM_PROCESS_TEXT
                     | ActionModeCallbackHelper.MENU_ITEM_SHARE;
@@ -145,6 +147,7 @@ public class ChromeActionModeHandler {
         @Override
         public boolean onPrepareActionMode(ActionMode mode, Menu menu) {
             recordUserAction();
+            notifyContextualActionBarVisibilityChanged(true);
             boolean res = mHelper.onPrepareActionMode(mode, menu);
             Set<String> browsers = getPackageNames(PackageManagerUtils.queryAllWebBrowsersInfo());
             Set<String> launchers = getPackageNames(PackageManagerUtils.queryAllLaunchersInfo());
@@ -168,6 +171,9 @@ public class ChromeActionModeHandler {
         }
 
         private void showShareIph() {
+            if (!ChromeFeatureList.isEnabled(ChromeFeatureList.SHARED_HIGHLIGHTING_V2)) {
+                return;
+            }
             View view = mTab.getView();
             int padding = view.getResources().getDimensionPixelSize(
                     R.dimen.iph_shared_highlighting_padding_top);
@@ -212,9 +218,8 @@ public class ChromeActionModeHandler {
                                 .build(),
                         new ChromeShareExtras.Builder()
                                 .setSaveLastUsed(true)
+                                .setIsUserHighlightedText(true)
                                 .setRenderFrameHost(mHelper.getRenderFrameHost())
-                                .setDetailedContentType(
-                                        ChromeShareExtras.DetailedContentType.HIGHLIGHTED_TEXT)
                                 .build(),
                         ShareOrigin.MOBILE_ACTION_MODE);
             } else {
@@ -226,22 +231,11 @@ public class ChromeActionModeHandler {
         @Override
         public void onDestroyActionMode(ActionMode mode) {
             mHelper.onDestroyActionMode();
+            notifyContextualActionBarVisibilityChanged(false);
         }
 
-        @Override
-        public void onGetContentRect(ActionMode mode, View view, Rect outRect) {
-            mHelper.onGetContentRect(mode, view, outRect);
-            if (mCanDrawOutsideScreen) {
-                // If the selected text is on the right side near the edge (over 3/4 of the screen),
-                // move it closer to the center to avoid the action mode being cut off.
-                int quarter = view.getWidth() / 4;
-                if (outRect.right - quarter * 3 > 0) {
-                    int xoffset = quarter
-                            + view.getResources().getDimensionPixelSize(
-                                    R.dimen.custom_tabs_actionmode_offset);
-                    outRect.offset(-xoffset, 0);
-                }
-            }
+        private void notifyContextualActionBarVisibilityChanged(boolean show) {
+            if (!mHelper.supportsFloatingActionMode()) mActionBarObserver.accept(show);
         }
 
         private Set<String> getPackageNames(List<ResolveInfo> list) {
@@ -256,7 +250,11 @@ public class ChromeActionModeHandler {
         }
 
         private void recordUserAction() {
-            RecordUserAction.record("MobileActionBarShown.Floating");
+            if (mHelper.supportsFloatingActionMode()) {
+                RecordUserAction.record("MobileActionBarShown.Floating");
+            } else {
+                RecordUserAction.record("MobileActionBarShown.Toolbar");
+            }
         }
 
         private static String sanitizeTextForShare(String text) {

@@ -1,4 +1,4 @@
-// Copyright 2011 The Chromium Authors
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,13 +7,14 @@
 #include <utility>
 
 #include "base/bind.h"
-#include "base/task/task_runner_util.h"
+#include "base/task_runner_util.h"
 #include "base/values.h"
 #include "content/common/font_list.h"
 
 namespace content {
 
-void GetFontListAsync(base::OnceCallback<void(base::Value::List)> callback) {
+void GetFontListAsync(
+    base::OnceCallback<void(std::unique_ptr<base::ListValue>)> callback) {
   base::PostTaskAndReplyWithResult(GetFontListTaskRunner().get(), FROM_HERE,
                                    base::BindOnce(&GetFontList_SlowBlocking),
                                    std::move(callback));

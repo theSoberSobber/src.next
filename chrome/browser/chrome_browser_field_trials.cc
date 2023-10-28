@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -15,20 +15,21 @@
 #include "base/time/time.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
-#include "chrome/browser/metrics/chrome_browser_sampling_trials.h"
 #include "chrome/browser/metrics/chrome_metrics_service_accessor.h"
 #include "chrome/browser/metrics/chrome_metrics_service_client.h"
+#include "chrome/browser/metrics/chrome_metrics_services_manager_client.h"
+#include "chrome/common/channel_info.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_switches.h"
 #include "components/metrics/metrics_pref_names.h"
 #include "components/metrics/persistent_histograms.h"
+#include "components/ukm/ukm_recorder_impl.h"
 #include "components/version_info/version_info.h"
 
-#if BUILDFLAG(IS_ANDROID)
+#if defined(OS_ANDROID)
 #include "base/android/build_info.h"
 #include "base/android/bundle_utils.h"
 #include "base/task/thread_pool/environment_config.h"
-#include "chrome/browser/android/signin/fre_mobile_identity_consistency_field_trial.h"
 #include "chrome/browser/chrome_browser_field_trials_mobile.h"
 #include "chrome/browser/flags/android/cached_feature_flags.h"
 #include "chrome/browser/flags/android/chrome_feature_list.h"
@@ -36,9 +37,29 @@
 #endif
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
-#include "ash/services/multidevice_setup/public/cpp/first_run_field_trial.h"
-#include "chrome/browser/ash/login/consolidated_consent_field_trial.h"
+#include "chrome/browser/ash/sync/split_settings_sync_field_trial.h"
+#include "chromeos/services/multidevice_setup/public/cpp/first_run_field_trial.h"
 #endif
+
+namespace {
+
+// Create a field trial to control metrics/crash sampling for Stable on
+// Windows/Android if no variations seed was applied.
+void CreateFallbackSamplingTrialIfNeeded(base::FeatureList* feature_list) {
+#if defined(OS_WIN) || defined(OS_ANDROID)
+  ChromeMetricsServicesManagerClient::CreateFallbackSamplingTrial(
+      chrome::GetChannel(), feature_list);
+#endif  // defined(OS_WIN) || defined(OS_ANDROID)
+}
+
+// Create a field trial to control UKM sampling for Stable if no variations
+// seed was applied.
+void CreateFallbackUkmSamplingTrialIfNeeded(base::FeatureList* feature_list) {
+  ukm::UkmRecorderImpl::CreateFallbackSamplingTrial(
+      chrome::GetChannel() == version_info::Channel::STABLE, feature_list);
+}
+
+}  // namespace
 
 ChromeBrowserFieldTrials::ChromeBrowserFieldTrials(PrefService* local_state)
     : local_state_(local_state) {
@@ -48,42 +69,40 @@ ChromeBrowserFieldTrials::ChromeBrowserFieldTrials(PrefService* local_state)
 ChromeBrowserFieldTrials::~ChromeBrowserFieldTrials() {
 }
 
-void ChromeBrowserFieldTrials::SetUpFieldTrials() {
+void ChromeBrowserFieldTrials::SetupFieldTrials() {
   // Field trials that are shared by all platforms.
   InstantiateDynamicTrials();
 
-#if BUILDFLAG(IS_ANDROID)
+#if defined(OS_ANDROID)
   chrome::SetupMobileFieldTrials();
 #endif
 }
 
-void ChromeBrowserFieldTrials::SetUpFeatureControllingFieldTrials(
+void ChromeBrowserFieldTrials::SetupFeatureControllingFieldTrials(
     bool has_seed,
     const base::FieldTrial::EntropyProvider* low_entropy_provider,
     base::FeatureList* feature_list) {
-#if BUILDFLAG(IS_CHROMEOS_ASH)
-  ash::consolidated_consent_field_trial::Create(feature_list, local_state_);
-#endif
-
   // Only create the fallback trials if there isn't already a variations seed
   // being applied. This should occur during first run when first-run variations
   // isn't supported. It's assumed that, if there is a seed, then it either
-  // contains the relevant studies, or is intentionally omitted, so no fallback
-  // is needed. The exception is for sampling trials. Fallback trials are
-  // created even if no variations seed was applied. This allows testing the
-  // fallback code by intentionally omitting the sampling trial from a
-  // variations seed.
-  metrics::CreateFallbackSamplingTrialsIfNeeded(feature_list);
-  metrics::CreateFallbackUkmSamplingTrialIfNeeded(feature_list);
+  // contains the relavent studies, or is intentionally omitted, so no fallback
+  // is needed.
   if (!has_seed) {
+    CreateFallbackSamplingTrialIfNeeded(feature_list);
+    CreateFallbackUkmSamplingTrialIfNeeded(feature_list);
 #if BUILDFLAG(IS_CHROMEOS_ASH)
-    ash::multidevice_setup::CreateFirstRunFieldTrial(feature_list);
+    chromeos::multidevice_setup::CreateFirstRunFieldTrial(feature_list);
 #endif
   }
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+  // This trial is fully client controlled and must be configured whether or
+  // not a seed is available.
+  split_settings_sync_field_trial::Create(feature_list, local_state_);
+#endif
 }
 
 void ChromeBrowserFieldTrials::RegisterSyntheticTrials() {
-#if BUILDFLAG(IS_ANDROID)
+#if defined(OS_ANDROID)
   static constexpr char kReachedCodeProfilerTrial[] =
       "ReachedCodeProfilerSynthetic2";
   std::string reached_code_profiler_group =
@@ -91,6 +110,31 @@ void ChromeBrowserFieldTrials::RegisterSyntheticTrials() {
   if (!reached_code_profiler_group.empty()) {
     ChromeMetricsServiceAccessor::RegisterSyntheticFieldTrial(
         kReachedCodeProfilerTrial, reached_code_profiler_group);
+  }
+
+  {
+    // EarlyLibraryLoadSynthetic field trial.
+    const char* group_name;
+    bool java_feature_enabled = chrome::android::IsJavaDrivenFeatureEnabled(
+        features::kEarlyLibraryLoad);
+    bool feature_enabled =
+        base::FeatureList::IsEnabled(features::kEarlyLibraryLoad);
+    // Use the default group if cc and java feature values don't agree (can
+    // happen on first startup after feature is enabled by Finch), or the
+    // feature is not overridden by Finch.
+    if (feature_enabled != java_feature_enabled ||
+        !base::FeatureList::GetInstance()->IsFeatureOverridden(
+            features::kEarlyLibraryLoad.name)) {
+      group_name = "Default";
+    } else if (java_feature_enabled) {
+      group_name = "Enabled";
+    } else {
+      group_name = "Disabled";
+    }
+    static constexpr char kEarlyLibraryLoadTrial[] =
+        "EarlyLibraryLoadSynthetic";
+    ChromeMetricsServiceAccessor::RegisterSyntheticFieldTrial(
+        kEarlyLibraryLoadTrial, group_name);
   }
 
   {
@@ -112,7 +156,7 @@ void ChromeBrowserFieldTrials::RegisterSyntheticTrials() {
     // command line flag. Check if this has happened -- it may not have happened
     // if this is the first startup after the feature is enabled.
     bool actually_enabled =
-        base::internal::CanUseBackgroundThreadTypeForWorkerThread();
+        base::internal::CanUseBackgroundPriorityForWorkerThread();
     // Use the default group if either the feature wasn't overridden or if the
     // feature target state and actual state don't agree. Also separate users
     // that override the feature via the commandline into separate groups.
@@ -132,33 +176,7 @@ void ChromeBrowserFieldTrials::RegisterSyntheticTrials() {
     ChromeMetricsServiceAccessor::RegisterSyntheticFieldTrial(
         kBackgroundThreadPoolTrial, group_name);
   }
-
-  {
-    // MobileIdentityConsistencyFRESynthetic field trial.
-    static constexpr char kFREMobileIdentityConsistencyTrial[] =
-        "FREMobileIdentityConsistencySynthetic";
-    const std::string group =
-        fre_mobile_identity_consistency_field_trial::GetFREFieldTrialGroup();
-    ChromeMetricsServiceAccessor::RegisterSyntheticFieldTrial(
-        kFREMobileIdentityConsistencyTrial, group,
-        variations::SyntheticTrialAnnotationMode::kCurrentLog);
-
-    if (fre_mobile_identity_consistency_field_trial::IsFREFieldTrialEnabled()) {
-      // MobileIdentityConsistencyFREVariationsSynthetic field trial.
-      // This trial experiments with different title and subtitle variation in
-      // the FRE UI. This is a follow up experiment to
-      // MobileIdentityConsistencyFRESynthetic and thus is only used for the
-      // enabled population of MobileIdentityConsistencyFRESynthetic.
-      static constexpr char kFREMobileIdentityConsistencyVariationsTrial[] =
-          "FREMobileIdentityConsistencyVariationsSynthetic";
-      const std::string variation_group =
-          fre_mobile_identity_consistency_field_trial::
-              GetFREVariationsFieldTrialGroup();
-      ChromeMetricsServiceAccessor::RegisterSyntheticFieldTrial(
-          kFREMobileIdentityConsistencyVariationsTrial, variation_group);
-    }
-  }
-#endif  // BUILDFLAG(IS_ANDROID)
+#endif  // defined(OS_ANDROID)
 }
 
 void ChromeBrowserFieldTrials::InstantiateDynamicTrials() {

@@ -30,9 +30,8 @@
 #include <utility>
 
 #include "base/memory/ptr_util.h"
-#include "third_party/blink/renderer/core/css/check_pseudo_has_cache_scope.h"
+#include "third_party/blink/renderer/core/css/has_matched_cache_scope.h"
 #include "third_party/blink/renderer/core/css/parser/css_parser.h"
-#include "third_party/blink/renderer/core/css/parser/css_selector_parser.h"
 #include "third_party/blink/renderer/core/css/selector_checker.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/element_traversal.h"
@@ -43,7 +42,7 @@
 #include "third_party/blink/renderer/core/html/html_document.h"
 #include "third_party/blink/renderer/core/html_names.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
-#include "third_party/blink/renderer/platform/heap/garbage_collected.h"
+#include "third_party/blink/renderer/platform/heap/heap.h"
 
 // Uncomment to run the SelectorQueryTests for stats in a release build.
 // #define RELEASE_QUERY_STATS
@@ -108,15 +107,13 @@ inline bool SelectorMatches(const CSSSelector& selector,
 
 bool SelectorQuery::Matches(Element& target_element) const {
   QUERY_STATS_RESET();
-  CheckPseudoHasCacheScope check_pseudo_has_cache_scope(
-      &target_element.GetDocument());
+  HasMatchedCacheScope has_matched_cache_scope(&target_element.GetDocument());
   return SelectorListMatches(target_element, target_element);
 }
 
 Element* SelectorQuery::Closest(Element& target_element) const {
   QUERY_STATS_RESET();
-  CheckPseudoHasCacheScope check_pseudo_has_cache_scope(
-      &target_element.GetDocument());
+  HasMatchedCacheScope has_matched_cache_scope(&target_element.GetDocument());
   if (selectors_.IsEmpty())
     return nullptr;
 
@@ -130,8 +127,7 @@ Element* SelectorQuery::Closest(Element& target_element) const {
 
 StaticElementList* SelectorQuery::QueryAll(ContainerNode& root_node) const {
   QUERY_STATS_RESET();
-  CheckPseudoHasCacheScope check_pseudo_has_cache_scope(
-      &root_node.GetDocument());
+  HasMatchedCacheScope has_matched_cache_scope(&root_node.GetDocument());
   NthIndexCache nth_index_cache(root_node.GetDocument());
   HeapVector<Member<Element>> result;
   Execute<AllElementsSelectorQueryTrait>(root_node, result);
@@ -140,8 +136,7 @@ StaticElementList* SelectorQuery::QueryAll(ContainerNode& root_node) const {
 
 Element* SelectorQuery::QueryFirst(ContainerNode& root_node) const {
   QUERY_STATS_RESET();
-  CheckPseudoHasCacheScope check_pseudo_has_cache_scope(
-      &root_node.GetDocument());
+  HasMatchedCacheScope has_matched_cache_scope(&root_node.GetDocument());
   NthIndexCache nth_index_cache(root_node.GetDocument());
   Element* matched_element = nullptr;
   Execute<SingleElementSelectorQueryTrait>(root_node, matched_element);
@@ -476,23 +471,18 @@ SelectorQuery* SelectorQueryCache::Add(const AtomicString& selectors,
   if (it != entries_.end())
     return it->value.get();
 
-  Arena arena;
-  CSSSelectorVector</*UseArena=*/true> selector_vector =
-      CSSParser::ParseSelector</*UseArena=*/true>(
-          MakeGarbageCollected<CSSParserContext>(
-              document, document.BaseURL(), true /* origin_clean */, Referrer(),
-              WTF::TextEncoding(), CSSParserContext::kSnapshotProfile),
-          nullptr, selectors, arena);
+  CSSSelectorList selector_list = CSSParser::ParseSelector(
+      MakeGarbageCollected<CSSParserContext>(
+          document, document.BaseURL(), true /* origin_clean */, Referrer(),
+          WTF::TextEncoding(), CSSParserContext::kSnapshotProfile),
+      nullptr, selectors);
 
-  if (selector_vector.IsEmpty()) {
+  if (!selector_list.First()) {
     exception_state.ThrowDOMException(
         DOMExceptionCode::kSyntaxError,
         "'" + selectors + "' is not a valid selector.");
     return nullptr;
   }
-
-  CSSSelectorList selector_list =
-      CSSSelectorList::AdoptSelectorVector</*UseArena=*/true>(selector_vector);
 
   const unsigned kMaximumSelectorQueryCacheSize = 256;
   if (entries_.size() == kMaximumSelectorQueryCacheSize)

@@ -12,7 +12,7 @@
 #include "third_party/blink/renderer/core/frame/navigator.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/scheduler/main_thread/pending_user_input.h"
-#include "third_party/blink/renderer/platform/scheduler/public/main_thread_scheduler.h"
+#include "third_party/blink/renderer/platform/scheduler/public/thread_scheduler.h"
 
 namespace blink {
 
@@ -32,13 +32,13 @@ Scheduling::Scheduling(Navigator& navigator)
 
 bool Scheduling::isInputPending(const IsInputPendingOptions* options) const {
   LocalDOMWindow* window = GetSupplementable()->DomWindow();
+  DCHECK(RuntimeEnabledFeatures::ExperimentalIsInputPendingEnabled(window));
   DCHECK(options);
   if (!window)
     return false;
 
   auto* scheduler = ThreadScheduler::Current();
-  auto info = scheduler->ToMainThreadScheduler()->GetPendingUserInputInfo(
-      options->includeContinuous());
+  auto info = scheduler->GetPendingUserInputInfo(options->includeContinuous());
 
   for (const auto& attribution : info) {
     if (window->GetFrame()->CanAccessEvent(attribution)) {
@@ -46,6 +46,11 @@ bool Scheduling::isInputPending(const IsInputPendingOptions* options) const {
     }
   }
   return false;
+}
+
+bool Scheduling::isFramePending() const {
+  auto* scheduler = ThreadScheduler::Current();
+  return scheduler->IsBeginMainFrameScheduled();
 }
 
 void Scheduling::Trace(Visitor* visitor) const {

@@ -29,7 +29,6 @@
 
 #include "third_party/blink/renderer/core/css/counter_style.h"
 
-#include "base/auto_reset.h"
 #include "third_party/blink/renderer/core/css/counter_style_map.h"
 #include "third_party/blink/renderer/core/css/css_custom_ident_value.h"
 #include "third_party/blink/renderer/core/css/css_identifier_value.h"
@@ -50,14 +49,6 @@ namespace {
 // that would be longer than 60 codepoints. Since WTF::String may use UTF-16, we
 // limit string length at 120.
 const wtf_size_t kCounterLengthLimit = 120;
-
-const CounterStyle& GetDisc() {
-  const CounterStyle* disc =
-      CounterStyleMap::GetUACounterStyleMap()->FindCounterStyleAcrossScopes(
-          "disc");
-  DCHECK(disc);
-  return *disc;
-}
 
 bool HasSymbols(CounterStyleSystem system) {
   switch (system) {
@@ -205,14 +196,133 @@ Vector<wtf_size_t> AdditiveAlgorithm(unsigned value,
   return result;
 }
 
+namespace {
+
+// TODO(xiaochengh): Reorganize these legacy implementations. Get rid of the
+// EListStyleType enum, and merge them into their callers if possible.
+
+static void ToHebrewUnder1000(int number, Vector<UChar>& letters) {
+  // FIXME: CSS3 mentions various refinements not implemented here.
+  // FIXME: Should take a look at Mozilla's HebrewToText function (in
+  // nsBulletFrame).
+  DCHECK_GE(number, 0);
+  DCHECK_LT(number, 1000);
+  int four_hundreds = number / 400;
+  for (int i = 0; i < four_hundreds; i++)
+    letters.push_front(1511 + 3);
+  number %= 400;
+  if (number / 100)
+    letters.push_front(1511 + (number / 100) - 1);
+  number %= 100;
+  if (number == 15 || number == 16) {
+    letters.push_front(1487 + 9);
+    letters.push_front(1487 + number - 9);
+  } else {
+    if (int tens = number / 10) {
+      static const UChar kHebrewTens[9] = {1497, 1499, 1500, 1502, 1504,
+                                           1505, 1506, 1508, 1510};
+      letters.push_front(kHebrewTens[tens - 1]);
+    }
+    if (int ones = number % 10)
+      letters.push_front(1487 + ones);
+  }
+}
+
+static String ToHebrew(int number) {
+  // FIXME: CSS3 mentions ways to make this work for much larger numbers.
+  DCHECK_GE(number, 0);
+  DCHECK_LE(number, 999999);
+
+  Vector<UChar> letters;
+
+  if (number == 0) {
+    static const UChar kHebrewZero[3] = {0x05E1, 0x05E4, 0x05D0};
+    letters.Append(kHebrewZero, 3);
+  } else {
+    if (number > 999) {
+      ToHebrewUnder1000(number / 1000, letters);
+      letters.push_front(kHebrewPunctuationGereshCharacter);
+      number = number % 1000;
+    }
+    ToHebrewUnder1000(number, letters);
+  }
+
+  // Since Hebrew is RTL, legacy implementation generates letters in the
+  // reversed ordering, which is actually wrong because characters in a String
+  // should always be in the logical ordering. We re-reverse it so that the
+  // output ordering is correct.
+  std::reverse(letters.begin(), letters.end());
+
+  return String(letters);
+}
+
+static int ToArmenianUnder10000(int number,
+                                bool upper,
+                                bool add_circumflex,
+                                UChar letters[9]) {
+  DCHECK_GE(number, 0);
+  DCHECK_LT(number, 10000);
+  int length = 0;
+
+  int lower_offset = upper ? 0 : 0x0030;
+
+  if (int thousands = number / 1000) {
+    if (thousands == 7) {
+      letters[length++] = 0x0552 + lower_offset;
+      if (add_circumflex)
+        letters[length++] = 0x0302;
+    } else {
+      letters[length++] = (0x054C - 1 + lower_offset) + thousands;
+      if (add_circumflex)
+        letters[length++] = 0x0302;
+    }
+  }
+
+  if (int hundreds = (number / 100) % 10) {
+    letters[length++] = (0x0543 - 1 + lower_offset) + hundreds;
+    if (add_circumflex)
+      letters[length++] = 0x0302;
+  }
+
+  if (int tens = (number / 10) % 10) {
+    letters[length++] = (0x053A - 1 + lower_offset) + tens;
+    if (add_circumflex)
+      letters[length++] = 0x0302;
+  }
+
+  if (int ones = number % 10) {
+    letters[length++] = (0x531 - 1 + lower_offset) + ones;
+    if (add_circumflex)
+      letters[length++] = 0x0302;
+  }
+
+  return length;
+}
+
+static String ToArmenian(int number, bool upper) {
+  DCHECK_GE(number, 1);
+  DCHECK_LE(number, 99999999);
+
+  const int kLettersSize = 18;  // twice what toArmenianUnder10000 needs
+  UChar letters[kLettersSize];
+
+  int length = ToArmenianUnder10000(number / 10000, upper, true, letters);
+  length +=
+      ToArmenianUnder10000(number % 10000, upper, false, letters + length);
+
+  DCHECK_LE(length, kLettersSize);
+  return String(letters, length);
+}
+
 enum CJKLang { kChinese = 1, kKorean, kJapanese };
 
 enum CJKStyle { kFormal, kInformal };
 
 // The table uses the order from the CSS3 specification:
-// first 3 group markers, then 3 digit markers, then ten digits.
-String CJKIdeoGraphicAlgorithm(unsigned number,
-                               const UChar table[21],
+// first 3 group markers, then 3 digit markers, then ten digits, then negative
+// symbols.
+static String ToCJKIdeographic(int number,
+                               const UChar table[26],
                                CJKStyle cjk_style) {
   enum AbstractCJKChar {
     kNoChar = 0,
@@ -234,19 +344,34 @@ String CJKIdeoGraphicAlgorithm(unsigned number,
     kDigit6,
     kDigit7,
     kDigit8,
-    kDigit9
+    kDigit9,
+    kNeg1,
+    kNeg2,
+    kNeg3,
+    kNeg4,
+    kNeg5
   };
 
   if (number == 0)
-    return String(&table[kDigit0], 1u);
+    return String(&table[kDigit0], 1);
 
-  const unsigned kGroupLength =
+  const bool negative = number < 0;
+  if (negative) {
+    // Negating the most negative integer (INT_MIN) doesn't work, since it has
+    // no positive counterpart. Deal with that here, manually.
+    if (UNLIKELY(number == INT_MIN))
+      number = INT_MAX;
+    else
+      number = -number;
+  }
+
+  const int kGroupLength =
       9;  // 4 digits, 3 digit markers, group marker of size 2.
-  const unsigned kBufferLength = 4 * kGroupLength;
+  const int kBufferLength = 4 * kGroupLength;
   AbstractCJKChar buffer[kBufferLength] = {kNoChar};
 
-  for (unsigned i = 0; i < 4; ++i) {
-    unsigned group_value = number % 10000;
+  for (int i = 0; i < 4; ++i) {
+    int group_value = number % 10000;
     number /= 10000;
 
     // Process least-significant group first, but put it in the buffer last.
@@ -258,7 +383,7 @@ String CJKIdeoGraphicAlgorithm(unsigned number,
     }
 
     // Put in the four digits and digit markers for any non-zero digits.
-    unsigned digit_value = (group_value % 10);
+    int digit_value = (group_value % 10);
     bool trailing_zero = table[kLang] == kChinese && !digit_value;
     if (digit_value) {
       bool drop_one = table[kLang] == kKorean && cjk_style == kInformal &&
@@ -316,10 +441,15 @@ String CJKIdeoGraphicAlgorithm(unsigned number,
 
   // Convert into characters, omitting consecutive runs of Digit0 and
   // any trailing Digit0.
-  unsigned length = 0;
-  UChar characters[kBufferLength];
+  int length = 0;
+  const int kMaxLengthForNegativeSymbols = 5;
+  UChar characters[kBufferLength + kMaxLengthForNegativeSymbols];
   AbstractCJKChar last = kNoChar;
-  for (unsigned i = 0; i < kBufferLength; ++i) {
+  if (negative) {
+    while (UChar a = table[kNeg1 + length])
+      characters[length++] = a;
+  }
+  for (int i = 0; i < kBufferLength; ++i) {
     AbstractCJKChar a = buffer[i];
     if (a != kNoChar) {
       if (a != kDigit0 || (table[kLang] == kChinese && last != kDigit0)) {
@@ -342,158 +472,99 @@ String CJKIdeoGraphicAlgorithm(unsigned number,
   return String(characters, length);
 }
 
-String SimpChineseInformalAlgorithm(unsigned value) {
-  static const UChar kSimpleChineseInformalTable[21] = {
-      kChinese, 0x4E07, 0x0000, 0x4EBF, 0x0000, 0x4E07, 0x4EBF,
-      0x5341,   0x767E, 0x5343, 0x96F6, 0x4E00, 0x4E8C, 0x4E09,
-      0x56DB,   0x4E94, 0x516D, 0x4E03, 0x516B, 0x4E5D, 0x0000};
-  return CJKIdeoGraphicAlgorithm(value, kSimpleChineseInformalTable, kInformal);
-}
+}  // namespace
 
-String SimpChineseFormalAlgorithm(unsigned value) {
-  static const UChar kSimpleChineseFormalTable[21] = {
-      kChinese, 0x4E07, 0x0000, 0x4EBF, 0x0000, 0x4E07, 0x4EBF,
-      0x62FE,   0x4F70, 0x4EDF, 0x96F6, 0x58F9, 0x8D30, 0x53C1,
-      0x8086,   0x4F0D, 0x9646, 0x67D2, 0x634C, 0x7396, 0x0000};
-  return CJKIdeoGraphicAlgorithm(value, kSimpleChineseFormalTable, kFormal);
-}
-
-String TradChineseInformalAlgorithm(unsigned value) {
-  static const UChar kTraditionalChineseInformalTable[21] = {
-      kChinese, 0x842C, 0x0000, 0x5104, 0x0000, 0x5146, 0x0000,
-      0x5341,   0x767E, 0x5343, 0x96F6, 0x4E00, 0x4E8C, 0x4E09,
-      0x56DB,   0x4E94, 0x516D, 0x4E03, 0x516B, 0x4E5D, 0x0000};
-  return CJKIdeoGraphicAlgorithm(value, kTraditionalChineseInformalTable,
-                                 kInformal);
-}
-
-String TradChineseFormalAlgorithm(unsigned value) {
-  static const UChar kTraditionalChineseFormalTable[21] = {
-      kChinese, 0x842C, 0x0000, 0x5104, 0x0000, 0x5146, 0x0000,
-      0x62FE,   0x4F70, 0x4EDF, 0x96F6, 0x58F9, 0x8CB3, 0x53C3,
-      0x8086,   0x4F0D, 0x9678, 0x67D2, 0x634C, 0x7396, 0x0000};
-  return CJKIdeoGraphicAlgorithm(value, kTraditionalChineseFormalTable,
-                                 kFormal);
-}
-
-String KoreanHangulFormalAlgorithm(unsigned value) {
-  static const UChar kKoreanHangulFormalTable[21] = {
-      kKorean, 0xB9CC, 0x0000, 0xC5B5, 0x0000, 0xC870, 0x0000,
-      0xC2ED,  0xBC31, 0xCC9C, 0xC601, 0xC77C, 0xC774, 0xC0BC,
-      0xC0AC,  0xC624, 0xC721, 0xCE60, 0xD314, 0xAD6C, 0x0000};
-  return CJKIdeoGraphicAlgorithm(value, kKoreanHangulFormalTable, kFormal);
-}
-
-String KoreanHanjaInformalAlgorithm(unsigned value) {
-  static const UChar kKoreanHanjaInformalTable[21] = {
-      kKorean, 0x842C, 0x0000, 0x5104, 0x0000, 0x5146, 0x0000,
-      0x5341,  0x767E, 0x5343, 0x96F6, 0x4E00, 0x4E8C, 0x4E09,
-      0x56DB,  0x4E94, 0x516D, 0x4E03, 0x516B, 0x4E5D, 0x0000};
-  return CJKIdeoGraphicAlgorithm(value, kKoreanHanjaInformalTable, kInformal);
-}
-
-String KoreanHanjaFormalAlgorithm(unsigned value) {
-  static const UChar kKoreanHanjaFormalTable[21] = {
-      kKorean, 0x842C, 0x0000, 0x5104, 0x0000, 0x5146, 0x0000,
-      0x62FE,  0x767E, 0x4EDF, 0x96F6, 0x58F9, 0x8CB3, 0x53C3,
-      0x56DB,  0x4E94, 0x516D, 0x4E03, 0x516B, 0x4E5D, 0x0000};
-  return CJKIdeoGraphicAlgorithm(value, kKoreanHanjaFormalTable, kFormal);
-}
-
-String HebrewAlgorithmUnder1000(unsigned number) {
-  // FIXME: CSS3 mentions various refinements not implemented here.
-  // FIXME: Should take a look at Mozilla's HebrewToText function (in
-  // CounterStyleManager.cpp).
-  DCHECK_LT(number, 1000u);
-  StringBuilder letters;
-  unsigned four_hundreds = number / 400;
-  for (unsigned i = 0; i < four_hundreds; i++) {
-    letters.Append(static_cast<UChar>(1511 + 3));
-  }
-  number %= 400;
-  if (number / 100)
-    letters.Append(static_cast<UChar>(1511 + (number / 100) - 1));
-  number %= 100;
-  if (number == 15 || number == 16) {
-    letters.Append(static_cast<UChar>(1487 + 9));
-    letters.Append(static_cast<UChar>(1487 + number - 9));
-  } else {
-    if (unsigned tens = number / 10) {
-      static const UChar kHebrewTens[9] = {1497, 1499, 1500, 1502, 1504,
-                                           1505, 1506, 1508, 1510};
-      letters.Append(kHebrewTens[tens - 1]);
-    }
-    if (unsigned ones = number % 10)
-      letters.Append(static_cast<UChar>(1487 + ones));
-  }
-  return letters.ReleaseString();
-}
-
-String HebrewAlgorithm(unsigned number) {
-  // FIXME: CSS3 mentions ways to make this work for much larger numbers.
-  if (number > 999999)
+String HebrewAlgorithm(unsigned value) {
+  if (value > 999999)
     return String();
-
-  if (number == 0) {
-    static const UChar kHebrewZero[3] = {0x05D0, 0x05E4, 0x05E1};
-    return String(kHebrewZero, 3u);
-  }
-
-  if (number <= 999)
-    return HebrewAlgorithmUnder1000(number);
-
-  return HebrewAlgorithmUnder1000(number / 1000) +
-         kHebrewPunctuationGereshCharacter +
-         HebrewAlgorithmUnder1000(number % 1000);
+  return ToHebrew(value);
 }
 
-String ArmenianAlgorithmUnder10000(unsigned number,
-                                   bool upper,
-                                   bool add_circumflex) {
-  DCHECK_LT(number, 10000u);
-  StringBuilder letters;
-
-  unsigned lower_offset = upper ? 0 : 0x0030;
-
-  if (unsigned thousands = number / 1000) {
-    if (thousands == 7) {
-      letters.Append(static_cast<UChar>(0x0552 + lower_offset));
-      if (add_circumflex)
-        letters.Append(static_cast<UChar>(0x0302));
-    } else {
-      letters.Append(
-          static_cast<UChar>((0x054C - 1 + lower_offset) + thousands));
-      if (add_circumflex)
-        letters.Append(static_cast<UChar>(0x0302));
-    }
-  }
-
-  if (unsigned hundreds = (number / 100) % 10) {
-    letters.Append(static_cast<UChar>((0x0543 - 1 + lower_offset) + hundreds));
-    if (add_circumflex)
-      letters.Append(static_cast<UChar>(0x0302));
-  }
-
-  if (unsigned tens = (number / 10) % 10) {
-    letters.Append(static_cast<UChar>((0x053A - 1 + lower_offset) + tens));
-    if (add_circumflex)
-      letters.Append(static_cast<UChar>(0x0302));
-  }
-
-  if (unsigned ones = number % 10) {
-    letters.Append(static_cast<UChar>((0x531 - 1 + lower_offset) + ones));
-    if (add_circumflex)
-      letters.Append(static_cast<UChar>(0x0302));
-  }
-
-  return letters.ReleaseString();
+int AbsoluteValueForLegacyCJKAlgorithms(int value) {
+  // @counter-style algorithm works on absolute value, but the legacy
+  // implementation works on the original value (and handles negative sign on
+  // its own). Clamp to the signed int range before proceeding.
+  if (UNLIKELY(value == std::numeric_limits<int>::min()))
+    return std::numeric_limits<int>::max();
+  else
+    return std::abs(value);
 }
 
-String ArmenianAlgorithm(unsigned number, bool upper) {
-  if (!number || number > 99999999)
+String SimpChineseInformalAlgorithm(int value) {
+  static const UChar kSimpleChineseInformalTable[22] = {
+      kChinese, 0x4E07, 0x0000, 0x4EBF, 0x0000, 0x4E07, 0x4EBF, 0x5341,
+      0x767E,   0x5343, 0x96F6, 0x4E00, 0x4E8C, 0x4E09, 0x56DB, 0x4E94,
+      0x516D,   0x4E03, 0x516B, 0x4E5D, 0x8D1F, 0x0000};
+  return ToCJKIdeographic(AbsoluteValueForLegacyCJKAlgorithms(value),
+                          kSimpleChineseInformalTable, kInformal);
+}
+
+String SimpChineseFormalAlgorithm(int value) {
+  static const UChar kSimpleChineseFormalTable[22] = {
+      kChinese, 0x4E07, 0x0000, 0x4EBF, 0x0000, 0x4E07, 0x4EBF, 0x62FE,
+      0x4F70,   0x4EDF, 0x96F6, 0x58F9, 0x8D30, 0x53C1, 0x8086, 0x4F0D,
+      0x9646,   0x67D2, 0x634C, 0x7396, 0x8D1F, 0x0000};
+  return ToCJKIdeographic(AbsoluteValueForLegacyCJKAlgorithms(value),
+                          kSimpleChineseFormalTable, kFormal);
+}
+
+String TradChineseInformalAlgorithm(int value) {
+  static const UChar kTraditionalChineseInformalTable[22] = {
+      kChinese, 0x842C, 0x0000, 0x5104, 0x0000, 0x5146, 0x0000, 0x5341,
+      0x767E,   0x5343, 0x96F6, 0x4E00, 0x4E8C, 0x4E09, 0x56DB, 0x4E94,
+      0x516D,   0x4E03, 0x516B, 0x4E5D, 0x8CA0, 0x0000};
+  return ToCJKIdeographic(AbsoluteValueForLegacyCJKAlgorithms(value),
+                          kTraditionalChineseInformalTable, kInformal);
+}
+
+String TradChineseFormalAlgorithm(int value) {
+  static const UChar kTraditionalChineseFormalTable[22] = {
+      kChinese, 0x842C, 0x0000, 0x5104, 0x0000, 0x5146, 0x0000, 0x62FE,
+      0x4F70,   0x4EDF, 0x96F6, 0x58F9, 0x8CB3, 0x53C3, 0x8086, 0x4F0D,
+      0x9678,   0x67D2, 0x634C, 0x7396, 0x8CA0, 0x0000};
+  return ToCJKIdeographic(AbsoluteValueForLegacyCJKAlgorithms(value),
+                          kTraditionalChineseFormalTable, kFormal);
+}
+
+String KoreanHangulFormalAlgorithm(int value) {
+  static const UChar kKoreanHangulFormalTable[26] = {
+      kKorean, 0xB9CC, 0x0000, 0xC5B5, 0x0000, 0xC870, 0x0000, 0xC2ED, 0xBC31,
+      0xCC9C,  0xC601, 0xC77C, 0xC774, 0xC0BC, 0xC0AC, 0xC624, 0xC721, 0xCE60,
+      0xD314,  0xAD6C, 0xB9C8, 0xC774, 0xB108, 0xC2A4, 0x0020, 0x0000};
+  return ToCJKIdeographic(AbsoluteValueForLegacyCJKAlgorithms(value),
+                          kKoreanHangulFormalTable, kFormal);
+}
+
+String KoreanHanjaInformalAlgorithm(int value) {
+  static const UChar kKoreanHanjaInformalTable[26] = {
+      kKorean, 0x842C, 0x0000, 0x5104, 0x0000, 0x5146, 0x0000, 0x5341, 0x767E,
+      0x5343,  0x96F6, 0x4E00, 0x4E8C, 0x4E09, 0x56DB, 0x4E94, 0x516D, 0x4E03,
+      0x516B,  0x4E5D, 0xB9C8, 0xC774, 0xB108, 0xC2A4, 0x0020, 0x0000};
+  return ToCJKIdeographic(AbsoluteValueForLegacyCJKAlgorithms(value),
+                          kKoreanHanjaInformalTable, kInformal);
+}
+
+String KoreanHanjaFormalAlgorithm(int value) {
+  static const UChar kKoreanHanjaFormalTable[26] = {
+      kKorean, 0x842C, 0x0000, 0x5104, 0x0000, 0x5146, 0x0000, 0x62FE, 0x767E,
+      0x4EDF,  0x96F6, 0x58F9, 0x8CB3, 0x53C3, 0x56DB, 0x4E94, 0x516D, 0x4E03,
+      0x516B,  0x4E5D, 0xB9C8, 0xC774, 0xB108, 0xC2A4, 0x0020, 0x0000};
+  return ToCJKIdeographic(AbsoluteValueForLegacyCJKAlgorithms(value),
+                          kKoreanHanjaFormalTable, kFormal);
+}
+
+String LowerArmenianAlgorithm(unsigned value) {
+  if (value > 99999999)
     return String();
-  return ArmenianAlgorithmUnder10000(number / 10000, upper, true) +
-         ArmenianAlgorithmUnder10000(number % 10000, upper, false);
+  const bool lower_case = false;
+  return ToArmenian(value, lower_case);
+}
+
+String UpperArmenianAlgorithm(unsigned value) {
+  if (value > 99999999)
+    return String();
+  const bool upper_case = true;
+  return ToArmenian(value, upper_case);
 }
 
 // https://drafts.csswg.org/css-counter-styles-3/#ethiopic-numeric-counter-style
@@ -507,7 +578,7 @@ String EthiopicNumericAlgorithm(unsigned value) {
   if (!value)
     return String();
   if (value < 10u)
-    return String(&units[value - 1], 1u);
+    return String(&units[value - 1], 1);
 
   // Generate characters in the reversed ordering
   Vector<UChar> result;
@@ -611,24 +682,6 @@ CounterStyleSystem CounterStyle::ToCounterStyleSystemEnum(
   }
 }
 
-// static
-CounterStyleSpeakAs ToCounterStyleSpeakAsEnum(
-    const CSSIdentifierValue& keyword) {
-  switch (keyword.GetValueID()) {
-    case CSSValueID::kAuto:
-      return CounterStyleSpeakAs::kAuto;
-    case CSSValueID::kBullets:
-      return CounterStyleSpeakAs::kBullets;
-    case CSSValueID::kNumbers:
-      return CounterStyleSpeakAs::kNumbers;
-    case CSSValueID::kWords:
-      return CounterStyleSpeakAs::kWords;
-    default:
-      NOTREACHED();
-      return CounterStyleSpeakAs::kAuto;
-  }
-}
-
 CounterStyle::~CounterStyle() = default;
 
 AtomicString CounterStyle::GetName() const {
@@ -705,17 +758,7 @@ CounterStyle::CounterStyle(const StyleRuleCounterStyle& rule)
   if (const CSSValue* suffix = rule.GetSuffix())
     suffix_ = SymbolToString(*suffix);
 
-  if (RuntimeEnabledFeatures::CSSAtRuleCounterStyleSpeakAsDescriptorEnabled()) {
-    if (const CSSValue* speak_as = rule.GetSpeakAs()) {
-      if (const auto* keyword = DynamicTo<CSSIdentifierValue>(speak_as)) {
-        speak_as_ = ToCounterStyleSpeakAsEnum(*keyword);
-      } else {
-        DCHECK(speak_as->IsCustomIdentValue());
-        speak_as_ = CounterStyleSpeakAs::kReference;
-        speak_as_name_ = To<CSSCustomIdentValue>(speak_as)->Value();
-      }
-    }
-  }
+  // TODO(crbug.com/1166766): Implement 'speak-as'.
 }
 
 void CounterStyle::ResolveExtends(CounterStyle& extended) {
@@ -754,13 +797,7 @@ void CounterStyle::ResolveExtends(CounterStyle& extended) {
   if (!style_rule_->GetSuffix())
     suffix_ = extended.suffix_;
 
-  if (RuntimeEnabledFeatures::CSSAtRuleCounterStyleSpeakAsDescriptorEnabled()) {
-    if (!style_rule_->GetSpeakAs()) {
-      speak_as_ = extended.speak_as_;
-      speak_as_name_ = extended.speak_as_name_;
-      speak_as_style_ = nullptr;
-    }
-  }
+  // TODO(crbug.com/1166766): Implement 'speak-as'.
 }
 
 bool CounterStyle::RangeContains(int value) const {
@@ -795,7 +832,7 @@ bool CounterStyle::RangeContains(int value) const {
       return value >= 0 && value <= 999999;
     case CounterStyleSystem::kLowerArmenian:
     case CounterStyleSystem::kUpperArmenian:
-      return value >= 1 && value <= 99999999;
+      return value >= 0 && value <= 99999999;
     case CounterStyleSystem::kUnresolvedExtends:
       NOTREACHED();
       return false;
@@ -853,10 +890,15 @@ String CounterStyle::GenerateRepresentation(int value) const {
 
   wtf_size_t initial_length = NumGraphemeClusters(initial_representation);
 
-  if (NeedsNegativeSign(value)) {
-    initial_length += NumGraphemeClusters(negative_prefix_);
-    initial_length += NumGraphemeClusters(negative_suffix_);
-  }
+  // TODO(crbug.com/687225): Spec requires us to further increment
+  // |initial_length| by the length of the negative sign, but no current
+  // implementation is doing that. For backward compatibility, we don't do that
+  // for now. See https://github.com/w3c/csswg-drafts/issues/5906 for details.
+  //
+  // if (NeedsNegativeSign(value)) {
+  //  initial_length += NumGraphemeClusters(negative_prefix_);
+  //  initial_length += NumGraphemeClusters(negative_suffix_);
+  // }
 
   wtf_size_t pad_copies =
       pad_length_ > initial_length ? pad_length_ - initial_length : 0;
@@ -869,7 +911,7 @@ String CounterStyle::GenerateRepresentation(int value) const {
   result.Append(initial_representation);
   if (NeedsNegativeSign(value))
     result.Append(negative_suffix_);
-  return result.ReleaseString();
+  return result.ToString();
 }
 
 String CounterStyle::GenerateInitialRepresentation(int value) const {
@@ -898,27 +940,23 @@ String CounterStyle::GenerateInitialRepresentation(int value) const {
     case CounterStyleSystem::kHebrew:
       return HebrewAlgorithm(abs_value);
     case CounterStyleSystem::kSimpChineseInformal:
-      return SimpChineseInformalAlgorithm(abs_value);
+      return SimpChineseInformalAlgorithm(value);
     case CounterStyleSystem::kSimpChineseFormal:
-      return SimpChineseFormalAlgorithm(abs_value);
+      return SimpChineseFormalAlgorithm(value);
     case CounterStyleSystem::kTradChineseInformal:
-      return TradChineseInformalAlgorithm(abs_value);
+      return TradChineseInformalAlgorithm(value);
     case CounterStyleSystem::kTradChineseFormal:
-      return TradChineseFormalAlgorithm(abs_value);
+      return TradChineseFormalAlgorithm(value);
     case CounterStyleSystem::kKoreanHangulFormal:
-      return KoreanHangulFormalAlgorithm(abs_value);
+      return KoreanHangulFormalAlgorithm(value);
     case CounterStyleSystem::kKoreanHanjaInformal:
-      return KoreanHanjaInformalAlgorithm(abs_value);
+      return KoreanHanjaInformalAlgorithm(value);
     case CounterStyleSystem::kKoreanHanjaFormal:
-      return KoreanHanjaFormalAlgorithm(abs_value);
-    case CounterStyleSystem::kLowerArmenian: {
-      const bool lower_case = false;
-      return ArmenianAlgorithm(abs_value, lower_case);
-    }
-    case CounterStyleSystem::kUpperArmenian: {
-      const bool upper_case = true;
-      return ArmenianAlgorithm(abs_value, upper_case);
-    }
+      return KoreanHanjaFormalAlgorithm(value);
+    case CounterStyleSystem::kLowerArmenian:
+      return LowerArmenianAlgorithm(abs_value);
+    case CounterStyleSystem::kUpperArmenian:
+      return UpperArmenianAlgorithm(abs_value);
     case CounterStyleSystem::kEthiopicNumeric:
       return EthiopicNumericAlgorithm(abs_value);
     case CounterStyleSystem::kUnresolvedExtends:
@@ -935,7 +973,7 @@ String CounterStyle::IndexesToString(
   StringBuilder result;
   for (wtf_size_t index : symbol_indexes)
     result.Append(symbols_[index]);
-  return result.ReleaseString();
+  return result.ToString();
 }
 
 void CounterStyle::TraverseAndMarkDirtyIfNeeded(
@@ -967,88 +1005,10 @@ void CounterStyle::TraverseAndMarkDirtyIfNeeded(
   }
 }
 
-CounterStyleSpeakAs CounterStyle::EffectiveSpeakAs() const {
-  switch (speak_as_) {
-    case CounterStyleSpeakAs::kBullets:
-    case CounterStyleSpeakAs::kNumbers:
-    case CounterStyleSpeakAs::kWords:
-      return speak_as_;
-    case CounterStyleSpeakAs::kReference:
-      return GetSpeakAsStyle().EffectiveSpeakAs();
-    case CounterStyleSpeakAs::kAuto:
-      switch (system_) {
-        case CounterStyleSystem::kCyclic:
-          return CounterStyleSpeakAs::kBullets;
-        case CounterStyleSystem::kAlphabetic:
-          // Spec requires 'spell-out', which we don't support. Use 'words'
-          // instead as the best effort, and also to align with Firefox.
-          return CounterStyleSpeakAs::kWords;
-        case CounterStyleSystem::kFixed:
-        case CounterStyleSystem::kSymbolic:
-        case CounterStyleSystem::kNumeric:
-        case CounterStyleSystem::kAdditive:
-        case CounterStyleSystem::kHebrew:
-        case CounterStyleSystem::kLowerArmenian:
-        case CounterStyleSystem::kUpperArmenian:
-        case CounterStyleSystem::kSimpChineseInformal:
-        case CounterStyleSystem::kSimpChineseFormal:
-        case CounterStyleSystem::kTradChineseInformal:
-        case CounterStyleSystem::kTradChineseFormal:
-        case CounterStyleSystem::kKoreanHangulFormal:
-        case CounterStyleSystem::kKoreanHanjaInformal:
-        case CounterStyleSystem::kKoreanHanjaFormal:
-        case CounterStyleSystem::kEthiopicNumeric:
-          return CounterStyleSpeakAs::kNumbers;
-        case CounterStyleSystem::kUnresolvedExtends:
-          NOTREACHED();
-          return CounterStyleSpeakAs::kNumbers;
-      }
-  }
-}
-
-String CounterStyle::GenerateTextAlternative(int value) const {
-  if (!RuntimeEnabledFeatures::CSSAtRuleCounterStyleSpeakAsDescriptorEnabled())
-    return GenerateRepresentationWithPrefixAndSuffix(value);
-
-  String text_without_prefix_suffix =
-      GenerateTextAlternativeWithoutPrefixSuffix(value);
-
-  // 'bullets' requires "a UA-defined phrase or audio cue", so we cannot use
-  // custom prefix or suffix. Use the suffix of the predefined symbolic
-  // styles instead.
-  if (EffectiveSpeakAs() == CounterStyleSpeakAs::kBullets)
-    return text_without_prefix_suffix + " ";
-
-  return prefix_ + text_without_prefix_suffix + suffix_;
-}
-
-String CounterStyle::GenerateTextAlternativeWithoutPrefixSuffix(
-    int value) const {
-  if (speak_as_ == CounterStyleSpeakAs::kReference) {
-    return GetSpeakAsStyle().GenerateTextAlternativeWithoutPrefixSuffix(value);
-  }
-
-  switch (EffectiveSpeakAs()) {
-    case CounterStyleSpeakAs::kNumbers:
-      return GetDecimal().GenerateRepresentation(value);
-    case CounterStyleSpeakAs::kBullets:
-      if (IsPredefinedSymbolMarker())
-        return GenerateRepresentation(value);
-      return GetDisc().GenerateRepresentation(value);
-    case CounterStyleSpeakAs::kWords:
-      return GenerateRepresentation(value);
-    case CounterStyleSpeakAs::kAuto:
-    case CounterStyleSpeakAs::kReference:
-      NOTREACHED();
-      return String();
-  }
-}
-
 void CounterStyle::Trace(Visitor* visitor) const {
   visitor->Trace(style_rule_);
   visitor->Trace(extended_style_);
   visitor->Trace(fallback_style_);
-  visitor->Trace(speak_as_style_);
 }
 
 }  // namespace blink

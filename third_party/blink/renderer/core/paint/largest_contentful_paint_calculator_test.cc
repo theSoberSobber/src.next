@@ -4,9 +4,7 @@
 
 #include "third_party/blink/renderer/core/paint/largest_contentful_paint_calculator.h"
 
-#include "base/test/scoped_feature_list.h"
 #include "base/test/simple_test_tick_clock.h"
-#include "third_party/blink/public/common/features.h"
 #include "third_party/blink/renderer/core/frame/web_local_frame_impl.h"
 #include "third_party/blink/renderer/core/html/html_image_element.h"
 #include "third_party/blink/renderer/core/paint/paint_timing_detector.h"
@@ -22,7 +20,7 @@ class LargestContentfulPaintCalculatorTest : public RenderingTest {
  public:
   void SetUp() override {
     // Advance the clock so we do not assign null TimeTicks.
-    simulated_clock_.Advance(base::Milliseconds(100));
+    simulated_clock_.Advance(base::TimeDelta::FromMilliseconds(100));
     EnableCompositing();
     RenderingTest::SetUp();
 
@@ -50,41 +48,25 @@ class LargestContentfulPaintCalculatorTest : public RenderingTest {
         .GetTextPaintTimingDetector();
   }
 
-  void SetImage(const char* id, int width, int height, int bytes = 0) {
+  void SetImage(const char* id, int width, int height) {
     To<HTMLImageElement>(GetDocument().getElementById(id))
-        ->SetImageForTest(CreateImageForTest(width, height, bytes));
+        ->SetImageForTest(CreateImageForTest(width, height));
   }
 
-  ImageResourceContent* CreateImageForTest(int width,
-                                           int height,
-                                           int bytes = 0) {
+  ImageResourceContent* CreateImageForTest(int width, int height) {
     sk_sp<SkColorSpace> src_rgb_color_space = SkColorSpace::MakeSRGB();
     SkImageInfo raster_image_info =
         SkImageInfo::MakeN32Premul(width, height, src_rgb_color_space);
     sk_sp<SkSurface> surface(SkSurface::MakeRaster(raster_image_info));
     sk_sp<SkImage> image = surface->makeImageSnapshot();
-    scoped_refptr<UnacceleratedStaticBitmapImage> original_image_data =
-        UnacceleratedStaticBitmapImage::Create(image);
-    // If a byte size is specified, then also assign a suitably-sized
-    // vector of 0s to the image. This is used for bits-per-pixel
-    // calculations.
-    if (bytes > 0) {
-      Vector<char> img_data(bytes);
-      scoped_refptr<SharedBuffer> shared_buffer =
-          SharedBuffer::AdoptVector(img_data);
-      original_image_data->SetData(shared_buffer, /*all_data_received=*/true);
-    }
     ImageResourceContent* original_image_content =
-        ImageResourceContent::CreateLoaded(original_image_data.get());
+        ImageResourceContent::CreateLoaded(
+            UnacceleratedStaticBitmapImage::Create(image).get());
     return original_image_content;
   }
 
   uint64_t LargestReportedSize() {
     return GetLargestContentfulPaintCalculator()->largest_reported_size_;
-  }
-
-  double LargestContentfulPaintCandidateImageBPP() {
-    return GetLargestContentfulPaintCalculator()->largest_image_bpp_;
   }
 
   uint64_t CountCandidates() {
@@ -146,12 +128,11 @@ TEST_F(LargestContentfulPaintCalculatorTest, SingleImage) {
     <!DOCTYPE html>
     <img id='target'/>
   )HTML");
-  SetImage("target", 100, 150, 1500);
+  SetImage("target", 100, 150);
   UpdateAllLifecyclePhasesForTest();
   SimulateImagePresentationPromise();
 
   EXPECT_EQ(LargestReportedSize(), 15000u);
-  EXPECT_FLOAT_EQ(LargestContentfulPaintCandidateImageBPP(), 0.8f);
   EXPECT_EQ(CountCandidates(), 1u);
 }
 
@@ -164,7 +145,6 @@ TEST_F(LargestContentfulPaintCalculatorTest, SingleText) {
   SimulateTextPresentationPromise();
 
   EXPECT_GT(LargestReportedSize(), 0u);
-  EXPECT_FLOAT_EQ(LargestContentfulPaintCandidateImageBPP(), 0.0f);
   EXPECT_EQ(CountCandidates(), 1u);
 }
 
@@ -174,7 +154,7 @@ TEST_F(LargestContentfulPaintCalculatorTest, ImageLargerText) {
     <img id='target'/>
     <p>This text should be larger than the image!!!!</p>
   )HTML");
-  SetImage("target", 3, 3, 100);
+  SetImage("target", 3, 3);
   UpdateAllLifecyclePhasesForTest();
   SimulateImagePresentationPromise();
   EXPECT_EQ(LargestReportedSize(), 9u);
@@ -200,7 +180,6 @@ TEST_F(LargestContentfulPaintCalculatorTest, ImageSmallerText) {
 
   // Text should not be reported, since it is smaller than the image.
   EXPECT_EQ(LargestReportedSize(), 20000u);
-  EXPECT_FLOAT_EQ(LargestContentfulPaintCandidateImageBPP(), 0.0f);
   EXPECT_EQ(CountCandidates(), 1u);
 }
 
@@ -230,7 +209,6 @@ TEST_F(LargestContentfulPaintCalculatorTest, TextSmallerImage) {
 
   // Image should not be reported, since it is smaller than the text.
   EXPECT_GT(LargestReportedSize(), 9u);
-  EXPECT_FLOAT_EQ(LargestContentfulPaintCandidateImageBPP(), 0.0f);
   EXPECT_EQ(CountCandidates(), 1u);
 }
 
@@ -241,21 +219,19 @@ TEST_F(LargestContentfulPaintCalculatorTest, LargestImageRemoved) {
     <img id='small'/>
     <p>Larger than the second image</p>
   )HTML");
-  SetImage("large", 100, 200, 200);
-  SetImage("small", 3, 3, 18);
+  SetImage("large", 100, 200);
+  SetImage("small", 3, 3);
   UpdateAllLifecyclePhasesForTest();
   SimulateImagePresentationPromise();
   SimulateTextPresentationPromise();
   // Image is larger than the text.
   EXPECT_EQ(LargestReportedSize(), 20000u);
-  EXPECT_FLOAT_EQ(LargestContentfulPaintCandidateImageBPP(), 0.08f);
   EXPECT_EQ(CountCandidates(), 1u);
 
   GetDocument().getElementById("large")->remove();
   UpdateAllLifecyclePhasesForTest();
-  // The LCP does not move after the image is removed.
+  // The LCP does not move after the text is removed.
   EXPECT_EQ(LargestReportedSize(), 20000u);
-  EXPECT_FLOAT_EQ(LargestContentfulPaintCandidateImageBPP(), 0.08f);
   EXPECT_EQ(CountCandidates(), 1u);
 }
 
@@ -284,76 +260,6 @@ TEST_F(LargestContentfulPaintCalculatorTest, LargestTextRemoved) {
   // The LCP should not move after removal.
   EXPECT_GT(LargestReportedSize(), 50u);
   EXPECT_EQ(CountCandidates(), 2u);
-}
-
-TEST_F(LargestContentfulPaintCalculatorTest, NoPaint) {
-  SetBodyInnerHTML(R"HTML(
-    <!DOCTYPE html>
-  )HTML");
-  UpdateAllLifecyclePhasesForTest();
-  UpdateLargestContentfulPaintCandidate();
-  EXPECT_EQ(LargestReportedSize(), 0u);
-  EXPECT_EQ(CountCandidates(), 0u);
-}
-
-TEST_F(LargestContentfulPaintCalculatorTest, SingleImageExcludedForEntropy) {
-  base::test::ScopedFeatureList scoped_features;
-  scoped_features.InitAndEnableFeatureWithParameters(
-      blink::features::kExcludeLowEntropyImagesFromLCP, {{"min_bpp", "2.0"}});
-  SetBodyInnerHTML(R"HTML(
-    <!DOCTYPE html>
-    <img id='target'/>
-  )HTML");
-  // 600 bytes will cause a calculated entropy of 0.32bpp, which is below the
-  // 2bpp threshold.
-  SetImage("target", 100, 150, 600);
-  UpdateAllLifecyclePhasesForTest();
-  UpdateLargestContentfulPaintCandidate();
-
-  EXPECT_EQ(LargestReportedSize(), 0u);
-  EXPECT_EQ(CountCandidates(), 0u);
-}
-
-TEST_F(LargestContentfulPaintCalculatorTest, LargerImageExcludedForEntropy) {
-  base::test::ScopedFeatureList scoped_features;
-  scoped_features.InitAndEnableFeatureWithParameters(
-      blink::features::kExcludeLowEntropyImagesFromLCP, {{"min_bpp", "2.0"}});
-  SetBodyInnerHTML(R"HTML(
-    <!DOCTYPE html>
-    <img id='small'/>
-    <img id='large'/>
-  )HTML");
-  // Smaller image has 16 bpp of entropy, enough to be considered for LCP.
-  // Larger image has only 0.32 bpp, which is below the 2bpp threshold.
-  SetImage("small", 3, 3, 18);
-  SetImage("large", 100, 200, 800);
-  UpdateAllLifecyclePhasesForTest();
-  SimulateImagePresentationPromise();
-
-  EXPECT_EQ(LargestReportedSize(), 9u);
-  EXPECT_FLOAT_EQ(LargestContentfulPaintCandidateImageBPP(), 16.0f);
-  EXPECT_EQ(CountCandidates(), 1u);
-}
-
-TEST_F(LargestContentfulPaintCalculatorTest,
-       LowEntropyImageNotExcludedAtLowerThreshold) {
-  base::test::ScopedFeatureList scoped_features;
-  scoped_features.InitAndEnableFeatureWithParameters(
-      blink::features::kExcludeLowEntropyImagesFromLCP, {{"min_bpp", "0.02"}});
-  SetBodyInnerHTML(R"HTML(
-    <!DOCTYPE html>
-    <img id='small'/>
-    <img id='large'/>
-  )HTML");
-  // Smaller image has 16 bpp of entropy, enough to be considered for LCP.
-  // Larger image has 0.32 bpp, which is now above the 0.2bpp threshold.
-  SetImage("small", 3, 3, 18);
-  SetImage("large", 100, 200, 800);
-  UpdateAllLifecyclePhasesForTest();
-  SimulateImagePresentationPromise();
-
-  EXPECT_EQ(LargestReportedSize(), 20000u);
-  EXPECT_FLOAT_EQ(LargestContentfulPaintCandidateImageBPP(), 0.32f);
 }
 
 }  // namespace blink

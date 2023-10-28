@@ -1,4 +1,4 @@
-// Copyright 2018 The Chromium Authors
+// Copyright 2018 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -24,7 +24,6 @@ import org.chromium.chrome.browser.omnibox.UrlBar.UrlTextChangeListener;
 import org.chromium.chrome.browser.omnibox.UrlBarCoordinator.SelectionState;
 import org.chromium.chrome.browser.omnibox.UrlBarProperties.AutocompleteText;
 import org.chromium.chrome.browser.omnibox.UrlBarProperties.UrlBarTextState;
-import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
 import org.chromium.components.omnibox.OmniboxUrlEmphasizer.UrlEmphasisSpan;
 import org.chromium.ui.modelutil.PropertyModel;
 
@@ -73,7 +72,7 @@ class UrlBarMediator
         mModel.set(UrlBarProperties.TEXT_CONTEXT_MENU_DELEGATE, this);
         mModel.set(UrlBarProperties.URL_TEXT_CHANGE_LISTENER, this);
         mModel.set(UrlBarProperties.TEXT_CHANGED_LISTENER, this);
-        setBrandedColorScheme(BrandedColorScheme.APP_DEFAULT);
+        setUseDarkTextColors(true);
     }
 
     public void destroy() {
@@ -224,26 +223,15 @@ class UrlBarMediator
     }
 
     /**
-     * Sets the color scheme.
+     * Sets whether to use dark text colors.
      *
-     * @param brandedColorScheme The {@link @BrandedColorScheme}.
      * @return Whether this resulted in a change from the previous value.
      */
-    public boolean setBrandedColorScheme(@BrandedColorScheme int brandedColorScheme) {
+    public boolean setUseDarkTextColors(boolean useDarkColors) {
         // TODO(bauerb): Make clients observe the property instead of checking the return value.
-        @BrandedColorScheme
-        int previousValue = mModel.get(UrlBarProperties.BRANDED_COLOR_SCHEME);
-        mModel.set(UrlBarProperties.BRANDED_COLOR_SCHEME, brandedColorScheme);
-        return previousValue != brandedColorScheme;
-    }
-
-    /**
-     * Sets whether to use incognito colors.
-     *
-     * @param incognitoColorsEnabled Whether to use incognito colors.
-     */
-    public void setIncognitoColorsEnabled(boolean incognitoColorsEnabled) {
-        mModel.set(UrlBarProperties.INCOGNITO_COLORS_ENABLED, incognitoColorsEnabled);
+        boolean previousValue = mModel.get(UrlBarProperties.USE_DARK_TEXT_COLORS);
+        mModel.set(UrlBarProperties.USE_DARK_TEXT_COLORS, useDarkColors);
+        return previousValue != useDarkColors;
     }
 
     /**

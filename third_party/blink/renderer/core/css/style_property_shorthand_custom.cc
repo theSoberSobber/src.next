@@ -21,6 +21,8 @@
 
 #include "third_party/blink/renderer/core/style_property_shorthand.h"
 
+#include "base/cxx17_backports.h"
+
 namespace blink {
 
 // The transition-property longhand appears last during parsing to prevent it
@@ -34,7 +36,7 @@ const StylePropertyShorthand& transitionShorthandForParsing() {
       &GetCSSPropertyTransitionDelay(), &GetCSSPropertyTransitionProperty()};
   static StylePropertyShorthand transition_longhands(
       CSSPropertyID::kTransition, kTransitionProperties,
-      std::size(kTransitionProperties));
+      base::size(kTransitionProperties));
   return transition_longhands;
 }
 

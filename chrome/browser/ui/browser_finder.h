@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -6,7 +6,6 @@
 #define CHROME_BROWSER_UI_BROWSER_FINDER_H_
 
 #include <stddef.h>
-#include <vector>
 
 #include "ui/display/types/display_constants.h"
 #include "ui/gfx/native_widget_types.h"
@@ -21,10 +20,6 @@ class WebContents;
 
 namespace tab_groups {
 class TabGroupId;
-}
-
-namespace ui {
-class ElementContext;
 }
 
 // Collection of functions to find Browsers based on various criteria.
@@ -54,10 +49,6 @@ Browser* FindAnyBrowser(Profile* profile, bool match_original_profiles);
 // returned. Returns NULL if no such browser currently exists.
 Browser* FindBrowserWithProfile(Profile* profile);
 
-// Find all tabbed browsers with the provided profile. Returns an empty vector
-// if no such browser currently exists.
-std::vector<Browser*> FindAllTabbedBrowsersWithProfile(Profile* profile);
-
 // Find an existing browser with the provided ID. Returns NULL if no such
 // browser currently exists.
 Browser* FindBrowserWithID(SessionID desired_id);
@@ -76,10 +67,6 @@ Browser* FindBrowserWithWebContents(const content::WebContents* web_contents);
 // found within the given |profile|. If the profile is not specified, find any
 // browser containing the group.
 Browser* FindBrowserWithGroup(tab_groups::TabGroupId group, Profile* profile);
-
-// Find the browser for the given element context. Returns NULL if no such
-// browser currently exists.
-Browser* FindBrowserWithUiElementContext(ui::ElementContext context);
 
 // Returns the Browser object owned by |profile| whose window was most recently
 // active. If no such Browsers exist, returns NULL.
@@ -105,14 +92,6 @@ Browser* FindLastActive();
 size_t GetTotalBrowserCount();
 
 // Returns the number of browsers with the Profile |profile|.
-// Note that:
-// 1. A profile may have non-browser windows. These are not counted.
-// 2. A profile may have child profiles that have windows.  Those are not
-//    counted. Thus, for example, a Guest profile (which is never displayed
-//    directly) will return 0. (For a Guest profile, only the child off-the-
-//    record profile is visible.)  Likewise, a parent profile with off-the-
-//    record (Incognito) child profiles that have windows will not count those
-//    child windows.
 size_t GetBrowserCount(Profile* profile);
 
 // Returns the number of tabbed browsers with the Profile |profile|.

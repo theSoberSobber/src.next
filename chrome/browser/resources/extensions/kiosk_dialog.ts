@@ -1,46 +1,49 @@
-// Copyright 2017 The Chromium Authors
+// Copyright 2017 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import 'chrome://resources/cr_elements/cr_button/cr_button.js';
-import 'chrome://resources/cr_elements/cr_checkbox/cr_checkbox.js';
-import 'chrome://resources/cr_elements/cr_dialog/cr_dialog.js';
-import 'chrome://resources/cr_elements/cr_icon_button/cr_icon_button.js';
-import 'chrome://resources/cr_elements/cr_icons.css.js';
-import 'chrome://resources/cr_elements/cr_input/cr_input.js';
-import 'chrome://resources/cr_elements/cr_shared_style.css.js';
+import 'chrome://resources/cr_elements/cr_button/cr_button.m.js';
+import 'chrome://resources/cr_elements/cr_checkbox/cr_checkbox.m.js';
+import 'chrome://resources/cr_elements/cr_dialog/cr_dialog.m.js';
+import 'chrome://resources/cr_elements/cr_icon_button/cr_icon_button.m.js';
+import 'chrome://resources/cr_elements/cr_icons_css.m.js';
+import 'chrome://resources/cr_elements/cr_input/cr_input.m.js';
+import 'chrome://resources/cr_elements/shared_style_css.m.js';
 
-import {CrButtonElement} from 'chrome://resources/cr_elements/cr_button/cr_button.js';
-import {CrCheckboxElement} from 'chrome://resources/cr_elements/cr_checkbox/cr_checkbox.js';
-import {CrDialogElement} from 'chrome://resources/cr_elements/cr_dialog/cr_dialog.js';
-import {CrInputElement} from 'chrome://resources/cr_elements/cr_input/cr_input.js';
-import {assert} from 'chrome://resources/js/assert_ts.js';
-import {WebUIListenerMixin} from 'chrome://resources/js/web_ui_listener_mixin.js';
-import {DomRepeatEvent, PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
+import {CrCheckboxElement} from 'chrome://resources/cr_elements/cr_checkbox/cr_checkbox.m.js';
+import {CrDialogElement} from 'chrome://resources/cr_elements/cr_dialog/cr_dialog.m.js';
+import {assert} from 'chrome://resources/js/assert.m.js';
+import {WebUIListenerBehavior} from 'chrome://resources/js/web_ui_listener_behavior.m.js';
+import {html, mixinBehaviors, PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
 import {KioskApp, KioskAppSettings, KioskBrowserProxy, KioskBrowserProxyImpl} from './kiosk_browser_proxy.js';
-import {getTemplate} from './kiosk_dialog.html.js';
 
-export interface ExtensionsKioskDialogElement {
+interface ExtensionsKioskDialogElement {
   $: {
-    addButton: CrButtonElement,
-    addInput: CrInputElement,
     bailout: CrCheckboxElement,
-    confirmDialog: CrDialogElement,
+    'confirm-dialog': CrDialogElement,
     dialog: CrDialogElement,
   };
 }
 
-const ExtensionsKioskDialogElementBase = WebUIListenerMixin(PolymerElement);
+/** Event interface for dom-repeat. */
+interface RepeaterEvent extends CustomEvent {
+  model: {
+    item: KioskApp,
+  };
+}
 
-export class ExtensionsKioskDialogElement extends
-    ExtensionsKioskDialogElementBase {
+const ExtensionsKioskDialogElementBase =
+    mixinBehaviors([WebUIListenerBehavior], PolymerElement) as
+    {new (): PolymerElement & WebUIListenerBehavior};
+
+class ExtensionsKioskDialogElement extends ExtensionsKioskDialogElementBase {
   static get is() {
     return 'extensions-kiosk-dialog';
   }
 
   static get template() {
-    return getTemplate();
+    return html`{__html_template__}`;
   }
 
   static get properties() {
@@ -62,13 +65,13 @@ export class ExtensionsKioskDialogElement extends
       KioskBrowserProxyImpl.getInstance();
 
   private addAppInput_: string|null;
-  private apps_: KioskApp[];
+  private apps_: Array<KioskApp>;
   private bailoutDisabled_: boolean;
   private canEditAutoLaunch_: boolean;
   private canEditBailout_: boolean;
   private errorAppId_: string|null;
 
-  override connectedCallback() {
+  connectedCallback() {
     super.connectedCallback();
 
     this.kioskBrowserProxy_.initializeKioskAppSettings()
@@ -108,7 +111,7 @@ export class ExtensionsKioskDialogElement extends
 
   private onAddAppTap_() {
     assert(this.addAppInput_);
-    this.kioskBrowserProxy_.addKioskApp(this.addAppInput_);
+    this.kioskBrowserProxy_.addKioskApp(this.addAppInput_!);
     this.addAppInput_ = null;
   }
 
@@ -116,7 +119,7 @@ export class ExtensionsKioskDialogElement extends
     this.errorAppId_ = null;
   }
 
-  private onAutoLaunchButtonTap_(event: DomRepeatEvent<KioskApp>) {
+  private onAutoLaunchButtonTap_(event: RepeaterEvent) {
     const app = event.model.item;
     if (app.autoLaunch) {  // If the app is originally set to
                            // auto-launch.
@@ -129,28 +132,28 @@ export class ExtensionsKioskDialogElement extends
   private onBailoutChanged_(event: Event) {
     event.preventDefault();
     if (this.$.bailout.checked) {
-      this.$.confirmDialog.showModal();
+      this.$['confirm-dialog'].showModal();
     } else {
       this.kioskBrowserProxy_.setDisableBailoutShortcut(false);
-      this.$.confirmDialog.close();
+      this.$['confirm-dialog'].close();
     }
   }
 
   private onBailoutDialogCancelTap_() {
     this.$.bailout.checked = false;
-    this.$.confirmDialog.cancel();
+    this.$['confirm-dialog'].cancel();
   }
 
   private onBailoutDialogConfirmTap_() {
     this.kioskBrowserProxy_.setDisableBailoutShortcut(true);
-    this.$.confirmDialog.close();
+    this.$['confirm-dialog'].close();
   }
 
   private onDoneTap_() {
     this.$.dialog.close();
   }
 
-  private onDeleteAppTap_(event: DomRepeatEvent<KioskApp>) {
+  private onDeleteAppTap_(event: RepeaterEvent) {
     this.kioskBrowserProxy_.removeKioskApp(event.model.item.id);
   }
 
@@ -163,13 +166,6 @@ export class ExtensionsKioskDialogElement extends
     e.stopPropagation();
   }
 }
-
-declare global {
-  interface HTMLElementTagNameMap {
-    'extensions-kiosk-dialog': ExtensionsKioskDialogElement;
-  }
-}
-
 
 customElements.define(
     ExtensionsKioskDialogElement.is, ExtensionsKioskDialogElement);

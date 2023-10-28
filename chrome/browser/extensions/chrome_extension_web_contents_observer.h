@@ -1,4 +1,4 @@
-// Copyright 2014 The Chromium Authors
+// Copyright 2014 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -9,6 +9,8 @@
 
 #include <string>
 
+#include "base/compiler_specific.h"
+#include "base/macros.h"
 #include "content/public/browser/web_contents_user_data.h"
 #include "extensions/browser/extension_web_contents_observer.h"
 #include "extensions/common/stack_frame.h"
@@ -26,11 +28,6 @@ class ChromeExtensionWebContentsObserver
     : public ExtensionWebContentsObserver,
       public content::WebContentsUserData<ChromeExtensionWebContentsObserver> {
  public:
-  ChromeExtensionWebContentsObserver(
-      const ChromeExtensionWebContentsObserver&) = delete;
-  ChromeExtensionWebContentsObserver& operator=(
-      const ChromeExtensionWebContentsObserver&) = delete;
-
   ~ChromeExtensionWebContentsObserver() override;
 
   // Creates and initializes an instance of this class for the given
@@ -68,6 +65,8 @@ class ChromeExtensionWebContentsObserver
   void ReloadIfTerminated(content::RenderFrameHost* render_frame_host);
 
   WEB_CONTENTS_USER_DATA_KEY_DECL();
+
+  DISALLOW_COPY_AND_ASSIGN(ChromeExtensionWebContentsObserver);
 };
 
 }  // namespace extensions

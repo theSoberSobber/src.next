@@ -38,7 +38,7 @@ String CSSFontStyleRangeValue::CustomCSSText() const {
   builder.Append(font_style_value_->CssText());
   builder.Append(" ");
   builder.Append(oblique_values_->CssText());
-  return builder.ReleaseString();
+  return builder.ToString();
 }
 
 bool CSSFontStyleRangeValue::Equals(const CSSFontStyleRangeValue& other) const {

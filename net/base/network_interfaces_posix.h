@@ -1,4 +1,4 @@
-// Copyright 2015 The Chromium Authors
+// Copyright 2015 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -12,11 +12,13 @@
 
 struct sockaddr;
 
-namespace net::internal {
+namespace net {
+namespace internal {
 
 bool ShouldIgnoreInterface(const std::string& name, int policy);
 bool IsLoopbackOrUnspecifiedAddress(const sockaddr* addr);
 
-}  // namespace net::internal
+}  // namespace internal
+}  // namespace net
 
 #endif  // NET_BASE_NETWORK_INTERFACES_POSIX_H_

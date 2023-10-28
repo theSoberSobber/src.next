@@ -16,12 +16,14 @@
 #include "third_party/blink/renderer/platform/graphics/paint/drawing_display_item.h"
 #include "third_party/blink/renderer/platform/graphics/paint/drawing_recorder.h"
 
-using testing::_;
 using testing::ElementsAre;
 
 namespace blink {
 
 INSTANTIATE_PAINT_TEST_SUITE_P(PaintControllerPaintTest);
+
+using PaintControllerPaintTestForCAP = PaintControllerPaintTest;
+INSTANTIATE_CAP_TEST_SUITE_P(PaintControllerPaintTestForCAP);
 
 TEST_P(PaintControllerPaintTest, InlineRelayout) {
   SetBodyInnerHTML(
@@ -42,7 +44,7 @@ TEST_P(PaintControllerPaintTest, InlineRelayout) {
 
   EXPECT_THAT(ContentDisplayItems(),
               ElementsAre(VIEW_SCROLLING_BACKGROUND_DISPLAY_ITEM,
-                          IsSameId(first_text_box->Id(), kForegroundType,
+                          IsSameId(first_text_box, kForegroundType,
                                    first_text_box_fragment_id)));
 
   div.setAttribute(html_names::kStyleAttr, "width: 10px; height: 200px");
@@ -65,9 +67,9 @@ TEST_P(PaintControllerPaintTest, InlineRelayout) {
 
   EXPECT_THAT(ContentDisplayItems(),
               ElementsAre(VIEW_SCROLLING_BACKGROUND_DISPLAY_ITEM,
-                          IsSameId(new_first_text_box->Id(), kForegroundType,
+                          IsSameId(new_first_text_box, kForegroundType,
                                    first_text_box_fragment_id),
-                          IsSameId(second_text_box->Id(), kForegroundType,
+                          IsSameId(second_text_box, kForegroundType,
                                    second_text_box_fragment_id)));
 }
 
@@ -86,8 +88,8 @@ TEST_P(PaintControllerPaintTest, ChunkIdClientCacheFlag) {
 
   EXPECT_THAT(ContentDisplayItems(),
               ElementsAre(VIEW_SCROLLING_BACKGROUND_DISPLAY_ITEM,
-                          IsSameId(sub_div.Id(), kBackgroundType),
-                          IsSameId(sub_div2.Id(), kBackgroundType)));
+                          IsSameId(&sub_div, kBackgroundType),
+                          IsSameId(&sub_div2, kBackgroundType)));
 
   EXPECT_FALSE(div.Layer()->IsJustCreated());
   // Client used by only paint chunks and non-cachaeable display items but not
@@ -109,10 +111,10 @@ TEST_P(PaintControllerPaintTest, CompositingNoFold) {
 
   EXPECT_THAT(ContentDisplayItems(),
               ElementsAre(VIEW_SCROLLING_BACKGROUND_DISPLAY_ITEM,
-                          IsSameId(sub_div.Id(), kBackgroundType)));
+                          IsSameId(&sub_div, kBackgroundType)));
 }
 
-TEST_P(PaintControllerPaintTest, FrameScrollingContents) {
+TEST_P(PaintControllerPaintTestForCAP, FrameScrollingContents) {
   SetBodyInnerHTML(R"HTML(
     <style>
       ::-webkit-scrollbar { display: none }
@@ -133,31 +135,30 @@ TEST_P(PaintControllerPaintTest, FrameScrollingContents) {
 
   EXPECT_THAT(ContentDisplayItems(),
               ElementsAre(VIEW_SCROLLING_BACKGROUND_DISPLAY_ITEM,
-                          IsSameId(div1.Id(), kBackgroundType),
-                          IsSameId(div2.Id(), kBackgroundType)));
+                          IsSameId(&div1, kBackgroundType),
+                          IsSameId(&div2, kBackgroundType)));
   HitTestData view_scroll_hit_test;
   view_scroll_hit_test.scroll_translation =
       GetLayoutView().FirstFragment().PaintProperties()->ScrollTranslation();
-  view_scroll_hit_test.scroll_hit_test_rect = gfx::Rect(0, 0, 800, 600);
+  view_scroll_hit_test.scroll_hit_test_rect = IntRect(0, 0, 800, 600);
   EXPECT_THAT(
       RootPaintController().PaintChunks()[0],
-      IsPaintChunk(
-          0, 0,
-          PaintChunk::Id(GetLayoutView().Id(), DisplayItem::kScrollHitTest),
-          GetLayoutView().FirstFragment().LocalBorderBoxProperties(),
-          &view_scroll_hit_test, gfx::Rect(0, 0, 800, 600)));
+      IsPaintChunk(0, 0,
+                   PaintChunk::Id(GetLayoutView(), DisplayItem::kScrollHitTest),
+                   GetLayoutView().FirstFragment().LocalBorderBoxProperties(),
+                   &view_scroll_hit_test, IntRect(0, 0, 800, 600)));
   auto contents_properties =
       GetLayoutView().FirstFragment().ContentsProperties();
-  EXPECT_THAT(ContentPaintChunks(),
-              ElementsAre(VIEW_SCROLLING_BACKGROUND_CHUNK_COMMON,
-                          IsPaintChunk(1, 2,
-                                       PaintChunk::Id(div1.Layer()->Id(),
-                                                      DisplayItem::kLayerChunk),
-                                       contents_properties),
-                          IsPaintChunk(2, 3,
-                                       PaintChunk::Id(div2.Layer()->Id(),
-                                                      DisplayItem::kLayerChunk),
-                                       contents_properties)));
+  EXPECT_THAT(
+      ContentPaintChunks(),
+      ElementsAre(
+          VIEW_SCROLLING_BACKGROUND_CHUNK_COMMON,
+          IsPaintChunk(1, 2,
+                       PaintChunk::Id(*div1.Layer(), DisplayItem::kLayerChunk),
+                       contents_properties),
+          IsPaintChunk(2, 3,
+                       PaintChunk::Id(*div2.Layer(), DisplayItem::kLayerChunk),
+                       contents_properties)));
 
   GetDocument().View()->LayoutViewport()->SetScrollOffset(
       ScrollOffset(5000, 5000), mojom::blink::ScrollType::kProgrammatic);
@@ -165,34 +166,32 @@ TEST_P(PaintControllerPaintTest, FrameScrollingContents) {
 
   EXPECT_THAT(ContentDisplayItems(),
               ElementsAre(VIEW_SCROLLING_BACKGROUND_DISPLAY_ITEM,
-                          IsSameId(div2.Id(), kBackgroundType),
-                          IsSameId(div3.Id(), kBackgroundType),
-                          IsSameId(div4.Id(), kBackgroundType)));
+                          IsSameId(&div2, kBackgroundType),
+                          IsSameId(&div3, kBackgroundType),
+                          IsSameId(&div4, kBackgroundType)));
   EXPECT_THAT(
       RootPaintController().PaintChunks()[0],
-      IsPaintChunk(
-          0, 0,
-          PaintChunk::Id(GetLayoutView().Id(), DisplayItem::kScrollHitTest),
-          GetLayoutView().FirstFragment().LocalBorderBoxProperties(),
-          &view_scroll_hit_test, gfx::Rect(0, 0, 800, 600)));
-  EXPECT_THAT(ContentPaintChunks(),
-              ElementsAre(VIEW_SCROLLING_BACKGROUND_CHUNK_COMMON,
-                          // html and div1 are out of the cull rect.
-                          IsPaintChunk(1, 2,
-                                       PaintChunk::Id(div2.Layer()->Id(),
-                                                      DisplayItem::kLayerChunk),
-                                       contents_properties),
-                          IsPaintChunk(2, 3,
-                                       PaintChunk::Id(div3.Layer()->Id(),
-                                                      DisplayItem::kLayerChunk),
-                                       contents_properties),
-                          IsPaintChunk(3, 4,
-                                       PaintChunk::Id(div4.Layer()->Id(),
-                                                      DisplayItem::kLayerChunk),
-                                       contents_properties)));
+      IsPaintChunk(0, 0,
+                   PaintChunk::Id(GetLayoutView(), DisplayItem::kScrollHitTest),
+                   GetLayoutView().FirstFragment().LocalBorderBoxProperties(),
+                   &view_scroll_hit_test, IntRect(0, 0, 800, 600)));
+  EXPECT_THAT(
+      ContentPaintChunks(),
+      ElementsAre(
+          VIEW_SCROLLING_BACKGROUND_CHUNK_COMMON,
+          // html and div1 are out of the cull rect.
+          IsPaintChunk(1, 2,
+                       PaintChunk::Id(*div2.Layer(), DisplayItem::kLayerChunk),
+                       contents_properties),
+          IsPaintChunk(2, 3,
+                       PaintChunk::Id(*div3.Layer(), DisplayItem::kLayerChunk),
+                       contents_properties),
+          IsPaintChunk(3, 4,
+                       PaintChunk::Id(*div4.Layer(), DisplayItem::kLayerChunk),
+                       contents_properties)));
 }
 
-TEST_P(PaintControllerPaintTest, BlockScrollingNonLayeredContents) {
+TEST_P(PaintControllerPaintTestForCAP, BlockScrollingNonLayeredContents) {
   SetBodyInnerHTML(R"HTML(
     <style>
       ::-webkit-scrollbar { display: none }
@@ -215,65 +214,69 @@ TEST_P(PaintControllerPaintTest, BlockScrollingNonLayeredContents) {
   auto& div3 = *GetLayoutObjectByElementId("div3");
   auto& div4 = *GetLayoutObjectByElementId("div4");
 
-  EXPECT_EQ(gfx::Rect(0, 0, 4200, 4200),
-            container.FirstFragment().GetContentsCullRect().Rect());
+  if (RuntimeEnabledFeatures::CullRectUpdateEnabled()) {
+    EXPECT_EQ(IntRect(0, 0, 4200, 4200),
+              container.FirstFragment().GetContentsCullRect().Rect());
+  }
   EXPECT_THAT(ContentDisplayItems(),
               ElementsAre(VIEW_SCROLLING_BACKGROUND_DISPLAY_ITEM,
-                          IsSameId(div1.Id(), kBackgroundType),
-                          IsSameId(div2.Id(), kBackgroundType)));
+                          IsSameId(&div1, kBackgroundType),
+                          IsSameId(&div2, kBackgroundType)));
   HitTestData container_scroll_hit_test;
   container_scroll_hit_test.scroll_translation =
       container.FirstFragment().PaintProperties()->ScrollTranslation();
-  container_scroll_hit_test.scroll_hit_test_rect = gfx::Rect(0, 0, 200, 200);
+  container_scroll_hit_test.scroll_hit_test_rect = IntRect(0, 0, 200, 200);
   EXPECT_THAT(
       ContentPaintChunks(),
       ElementsAre(
           VIEW_SCROLLING_BACKGROUND_CHUNK_COMMON,
           IsPaintChunk(
               1, 1,
-              PaintChunk::Id(container.Layer()->Id(), DisplayItem::kLayerChunk),
+              PaintChunk::Id(*container.Layer(), DisplayItem::kLayerChunk),
               container.FirstFragment().LocalBorderBoxProperties(), nullptr,
-              gfx::Rect(0, 0, 200, 200)),
+              IntRect(0, 0, 200, 200)),
+          IsPaintChunk(1, 1,
+                       PaintChunk::Id(container, DisplayItem::kScrollHitTest),
+                       container.FirstFragment().LocalBorderBoxProperties(),
+                       &container_scroll_hit_test, IntRect(0, 0, 200, 200)),
           IsPaintChunk(
-              1, 1, PaintChunk::Id(container.Id(), DisplayItem::kScrollHitTest),
-              container.FirstFragment().LocalBorderBoxProperties(),
-              &container_scroll_hit_test, gfx::Rect(0, 0, 200, 200)),
-          IsPaintChunk(1, 3,
-                       PaintChunk::Id(container.Id(),
-                                      kClippedContentsBackgroundChunkType),
-                       container.FirstFragment().ContentsProperties())));
+              1, 3,
+              PaintChunk::Id(container, kClippedContentsBackgroundChunkType),
+              container.FirstFragment().ContentsProperties())));
 
   container.GetScrollableArea()->SetScrollOffset(
       ScrollOffset(5000, 5000), mojom::blink::ScrollType::kProgrammatic);
   UpdateAllLifecyclePhasesForTest();
 
-  EXPECT_EQ(gfx::Rect(1000, 1000, 8100, 8100),
-            container.FirstFragment().GetContentsCullRect().Rect());
+  if (RuntimeEnabledFeatures::CullRectUpdateEnabled()) {
+    EXPECT_EQ(IntRect(1000, 1000, 8100, 8100),
+              container.FirstFragment().GetContentsCullRect().Rect());
+  }
   EXPECT_THAT(ContentDisplayItems(),
               ElementsAre(VIEW_SCROLLING_BACKGROUND_DISPLAY_ITEM,
-                          IsSameId(div2.Id(), kBackgroundType),
-                          IsSameId(div3.Id(), kBackgroundType),
-                          IsSameId(div4.Id(), kBackgroundType)));
+                          IsSameId(&div2, kBackgroundType),
+                          IsSameId(&div3, kBackgroundType),
+                          IsSameId(&div4, kBackgroundType)));
   EXPECT_THAT(
       ContentPaintChunks(),
       ElementsAre(
           VIEW_SCROLLING_BACKGROUND_CHUNK_COMMON,
           IsPaintChunk(
               1, 1,
-              PaintChunk::Id(container.Layer()->Id(), DisplayItem::kLayerChunk),
+              PaintChunk::Id(*container.Layer(), DisplayItem::kLayerChunk),
               container.FirstFragment().LocalBorderBoxProperties(), nullptr,
-              gfx::Rect(0, 0, 200, 200)),
+              IntRect(0, 0, 200, 200)),
+          IsPaintChunk(1, 1,
+                       PaintChunk::Id(container, DisplayItem::kScrollHitTest),
+                       container.FirstFragment().LocalBorderBoxProperties(),
+                       &container_scroll_hit_test, IntRect(0, 0, 200, 200)),
           IsPaintChunk(
-              1, 1, PaintChunk::Id(container.Id(), DisplayItem::kScrollHitTest),
-              container.FirstFragment().LocalBorderBoxProperties(),
-              &container_scroll_hit_test, gfx::Rect(0, 0, 200, 200)),
-          IsPaintChunk(1, 4,
-                       PaintChunk::Id(container.Id(),
-                                      kClippedContentsBackgroundChunkType),
-                       container.FirstFragment().ContentsProperties())));
+              1, 4,
+              PaintChunk::Id(container, kClippedContentsBackgroundChunkType),
+              container.FirstFragment().ContentsProperties())));
 }
 
-TEST_P(PaintControllerPaintTest, ScrollHitTestOrder) {
+TEST_P(PaintControllerPaintTestForCAP, ScrollHitTestOrder) {
   SetBodyInnerHTML(R"HTML(
     <style>
       ::-webkit-scrollbar { display: none }
@@ -298,41 +301,38 @@ TEST_P(PaintControllerPaintTest, ScrollHitTestOrder) {
   EXPECT_THAT(
       ContentDisplayItems(),
       ElementsAre(VIEW_SCROLLING_BACKGROUND_DISPLAY_ITEM,
-                  IsSameId(container.Id(), kBackgroundType),
-                  IsSameId(container.GetScrollableArea()
-                               ->GetScrollingBackgroundDisplayItemClient()
-                               .Id(),
+                  IsSameId(&container, kBackgroundType),
+                  IsSameId(&container.GetScrollableArea()
+                                ->GetScrollingBackgroundDisplayItemClient(),
                            kBackgroundType),
-                  IsSameId(child.Id(), kBackgroundType)));
+                  IsSameId(&child, kBackgroundType)));
   HitTestData view_scroll_hit_test;
   view_scroll_hit_test.scroll_translation =
       GetLayoutView().FirstFragment().PaintProperties()->ScrollTranslation();
-  view_scroll_hit_test.scroll_hit_test_rect = gfx::Rect(0, 0, 800, 600);
+  view_scroll_hit_test.scroll_hit_test_rect = IntRect(0, 0, 800, 600);
   HitTestData container_scroll_hit_test;
   container_scroll_hit_test.scroll_translation =
       container.FirstFragment().PaintProperties()->ScrollTranslation();
-  container_scroll_hit_test.scroll_hit_test_rect = gfx::Rect(0, 0, 200, 200);
+  container_scroll_hit_test.scroll_hit_test_rect = IntRect(0, 0, 200, 200);
   EXPECT_THAT(
       ContentPaintChunks(),
       ElementsAre(
           VIEW_SCROLLING_BACKGROUND_CHUNK_COMMON,
-          IsPaintChunk(1, 2,
-                       PaintChunk::Id(container.Id(), kBackgroundChunkType),
+          IsPaintChunk(
+              1, 2,
+              PaintChunk::Id(*container.Layer(), DisplayItem::kLayerChunk),
+              container.FirstFragment().LocalBorderBoxProperties(), nullptr,
+              IntRect(0, 0, 200, 200)),
+          IsPaintChunk(2, 2,
+                       PaintChunk::Id(container, DisplayItem::kScrollHitTest),
                        container.FirstFragment().LocalBorderBoxProperties(),
-                       nullptr, gfx::Rect(0, 0, 200, 200)),
-          IsPaintChunk(
-              2, 2, PaintChunk::Id(container.Id(), DisplayItem::kScrollHitTest),
-              container.FirstFragment().LocalBorderBoxProperties(),
-              &container_scroll_hit_test, gfx::Rect(0, 0, 200, 200)),
-          IsPaintChunk(
-              2, 4,
-              PaintChunk::Id(container.Id(), kScrollingBackgroundChunkType),
-              container.FirstFragment().ContentsProperties()),
-          // Hit test chunk for forceDocumentScroll.
-          IsPaintChunk(4, 4)));
+                       &container_scroll_hit_test, IntRect(0, 0, 200, 200)),
+          IsPaintChunk(2, 4,
+                       PaintChunk::Id(container, kScrollingBackgroundChunkType),
+                       container.FirstFragment().ContentsProperties())));
 }
 
-TEST_P(PaintControllerPaintTest, NonStackingScrollHitTestOrder) {
+TEST_P(PaintControllerPaintTestForCAP, NonStackingScrollHitTestOrder) {
   SetBodyInnerHTML(R"HTML(
     <style>
       ::-webkit-scrollbar { display: none }
@@ -368,52 +368,49 @@ TEST_P(PaintControllerPaintTest, NonStackingScrollHitTestOrder) {
   EXPECT_THAT(
       ContentDisplayItems(),
       ElementsAre(VIEW_SCROLLING_BACKGROUND_DISPLAY_ITEM,
-                  IsSameId(neg_z_child.Id(), kBackgroundType),
-                  IsSameId(container.Id(), kBackgroundType),
-                  IsSameId(container.GetScrollableArea()
-                               ->GetScrollingBackgroundDisplayItemClient()
-                               .Id(),
+                  IsSameId(&neg_z_child, kBackgroundType),
+                  IsSameId(&container, kBackgroundType),
+                  IsSameId(&container.GetScrollableArea()
+                                ->GetScrollingBackgroundDisplayItemClient(),
                            kBackgroundType),
-                  IsSameId(child.Id(), kBackgroundType),
-                  IsSameId(pos_z_child.Id(), kBackgroundType)));
+                  IsSameId(&child, kBackgroundType),
+                  IsSameId(&pos_z_child, kBackgroundType)));
   HitTestData container_scroll_hit_test;
   container_scroll_hit_test.scroll_translation =
       container.FirstFragment().PaintProperties()->ScrollTranslation();
-  container_scroll_hit_test.scroll_hit_test_rect = gfx::Rect(0, 0, 200, 200);
+  container_scroll_hit_test.scroll_hit_test_rect = IntRect(0, 0, 200, 200);
   EXPECT_THAT(
       ContentPaintChunks(),
       ElementsAre(
           VIEW_SCROLLING_BACKGROUND_CHUNK_COMMON,
-          IsPaintChunk(1, 2,
-                       PaintChunk::Id(neg_z_child.Layer()->Id(),
-                                      DisplayItem::kLayerChunk),
-                       neg_z_child.FirstFragment().LocalBorderBoxProperties()),
-          IsPaintChunk(2, 2,
-                       PaintChunk::Id(html.Layer()->Id(),
-                                      DisplayItem::kLayerChunkForeground),
-                       html.FirstFragment().LocalBorderBoxProperties(), nullptr,
-                       gfx::Rect(0, 0, 800, 200)),
+          IsPaintChunk(
+              1, 2,
+              PaintChunk::Id(*neg_z_child.Layer(), DisplayItem::kLayerChunk),
+              neg_z_child.FirstFragment().LocalBorderBoxProperties()),
+          IsPaintChunk(
+              2, 2,
+              PaintChunk::Id(*html.Layer(), DisplayItem::kLayerChunkForeground),
+              html.FirstFragment().LocalBorderBoxProperties(), nullptr,
+              IntRect(0, 0, 800, 200)),
           IsPaintChunk(
               2, 3,
-              PaintChunk::Id(container.Layer()->Id(), DisplayItem::kLayerChunk),
+              PaintChunk::Id(*container.Layer(), DisplayItem::kLayerChunk),
               container.FirstFragment().LocalBorderBoxProperties(), nullptr,
-              gfx::Rect(0, 0, 200, 200)),
-          IsPaintChunk(
-              3, 3, PaintChunk::Id(container.Id(), DisplayItem::kScrollHitTest),
-              container.FirstFragment().LocalBorderBoxProperties(),
-              &container_scroll_hit_test, gfx::Rect(0, 0, 200, 200)),
-          IsPaintChunk(
-              3, 5,
-              PaintChunk::Id(container.Id(), kScrollingBackgroundChunkType),
-              container.FirstFragment().ContentsProperties()),
+              IntRect(0, 0, 200, 200)),
+          IsPaintChunk(3, 3,
+                       PaintChunk::Id(container, DisplayItem::kScrollHitTest),
+                       container.FirstFragment().LocalBorderBoxProperties(),
+                       &container_scroll_hit_test, IntRect(0, 0, 200, 200)),
+          IsPaintChunk(3, 5,
+                       PaintChunk::Id(container, kScrollingBackgroundChunkType),
+                       container.FirstFragment().ContentsProperties()),
           IsPaintChunk(
               5, 6,
-              PaintChunk::Id(pos_z_child.Layer()->Id(),
-                             DisplayItem::kLayerChunk),
+              PaintChunk::Id(*pos_z_child.Layer(), DisplayItem::kLayerChunk),
               pos_z_child.FirstFragment().LocalBorderBoxProperties())));
 }
 
-TEST_P(PaintControllerPaintTest, StackingScrollHitTestOrder) {
+TEST_P(PaintControllerPaintTestForCAP, StackingScrollHitTestOrder) {
   SetBodyInnerHTML(R"HTML(
     <style>
       ::-webkit-scrollbar { display: none }
@@ -446,51 +443,48 @@ TEST_P(PaintControllerPaintTest, StackingScrollHitTestOrder) {
   EXPECT_THAT(
       ContentDisplayItems(),
       ElementsAre(VIEW_SCROLLING_BACKGROUND_DISPLAY_ITEM,
-                  IsSameId(container.Id(), kBackgroundType),
-                  IsSameId(container.GetScrollableArea()
-                               ->GetScrollingBackgroundDisplayItemClient()
-                               .Id(),
+                  IsSameId(&container, kBackgroundType),
+                  IsSameId(&container.GetScrollableArea()
+                                ->GetScrollingBackgroundDisplayItemClient(),
                            kBackgroundType),
-                  IsSameId(neg_z_child.Id(), kBackgroundType),
-                  IsSameId(child.Id(), kBackgroundType),
-                  IsSameId(pos_z_child.Id(), kBackgroundType)));
+                  IsSameId(&neg_z_child, kBackgroundType),
+                  IsSameId(&child, kBackgroundType),
+                  IsSameId(&pos_z_child, kBackgroundType)));
   HitTestData container_scroll_hit_test;
   container_scroll_hit_test.scroll_translation =
       container.FirstFragment().PaintProperties()->ScrollTranslation();
-  container_scroll_hit_test.scroll_hit_test_rect = gfx::Rect(0, 0, 200, 200);
+  container_scroll_hit_test.scroll_hit_test_rect = IntRect(0, 0, 200, 200);
   EXPECT_THAT(
       ContentPaintChunks(),
       ElementsAre(
           VIEW_SCROLLING_BACKGROUND_CHUNK_COMMON,
           IsPaintChunk(
               1, 2,
-              PaintChunk::Id(container.Layer()->Id(), DisplayItem::kLayerChunk),
+              PaintChunk::Id(*container.Layer(), DisplayItem::kLayerChunk),
               container.FirstFragment().LocalBorderBoxProperties(), nullptr,
-              gfx::Rect(0, 0, 200, 200)),
-          IsPaintChunk(
-              2, 2, PaintChunk::Id(container.Id(), DisplayItem::kScrollHitTest),
-              container.FirstFragment().LocalBorderBoxProperties(),
-              &container_scroll_hit_test, gfx::Rect(0, 0, 200, 200)),
-          IsPaintChunk(
-              2, 3,
-              PaintChunk::Id(container.Id(), kScrollingBackgroundChunkType),
-              container.FirstFragment().ContentsProperties()),
-          IsPaintChunk(3, 4,
-                       PaintChunk::Id(neg_z_child.Layer()->Id(),
-                                      DisplayItem::kLayerChunk),
-                       neg_z_child.FirstFragment().LocalBorderBoxProperties()),
-          IsPaintChunk(4, 5,
-                       PaintChunk::Id(container.Id(),
-                                      kClippedContentsBackgroundChunkType),
+              IntRect(0, 0, 200, 200)),
+          IsPaintChunk(2, 2,
+                       PaintChunk::Id(container, DisplayItem::kScrollHitTest),
+                       container.FirstFragment().LocalBorderBoxProperties(),
+                       &container_scroll_hit_test, IntRect(0, 0, 200, 200)),
+          IsPaintChunk(2, 3,
+                       PaintChunk::Id(container, kScrollingBackgroundChunkType),
                        container.FirstFragment().ContentsProperties()),
           IsPaintChunk(
+              3, 4,
+              PaintChunk::Id(*neg_z_child.Layer(), DisplayItem::kLayerChunk),
+              neg_z_child.FirstFragment().LocalBorderBoxProperties()),
+          IsPaintChunk(
+              4, 5,
+              PaintChunk::Id(container, kClippedContentsBackgroundChunkType),
+              container.FirstFragment().ContentsProperties()),
+          IsPaintChunk(
               5, 6,
-              PaintChunk::Id(pos_z_child.Layer()->Id(),
-                             DisplayItem::kLayerChunk),
+              PaintChunk::Id(*pos_z_child.Layer(), DisplayItem::kLayerChunk),
               pos_z_child.FirstFragment().LocalBorderBoxProperties())));
 }
 
-TEST_P(PaintControllerPaintTest,
+TEST_P(PaintControllerPaintTestForCAP,
        NonStackingScrollHitTestOrderWithoutBackground) {
   SetBodyInnerHTML(R"HTML(
     <style>
@@ -522,43 +516,42 @@ TEST_P(PaintControllerPaintTest,
   // should still be between the negative z-index child and the regular child.
   EXPECT_THAT(ContentDisplayItems(),
               ElementsAre(VIEW_SCROLLING_BACKGROUND_DISPLAY_ITEM,
-                          IsSameId(neg_z_child.Id(), kBackgroundType),
-                          IsSameId(child.Id(), kBackgroundType),
-                          IsSameId(pos_z_child.Id(), kBackgroundType)));
+                          IsSameId(&neg_z_child, kBackgroundType),
+                          IsSameId(&child, kBackgroundType),
+                          IsSameId(&pos_z_child, kBackgroundType)));
   HitTestData container_scroll_hit_test;
   container_scroll_hit_test.scroll_translation =
       container.FirstFragment().PaintProperties()->ScrollTranslation();
-  container_scroll_hit_test.scroll_hit_test_rect = gfx::Rect(0, 0, 200, 200);
+  container_scroll_hit_test.scroll_hit_test_rect = IntRect(0, 0, 200, 200);
   EXPECT_THAT(
       ContentPaintChunks(),
       ElementsAre(
           VIEW_SCROLLING_BACKGROUND_CHUNK_COMMON,
-          IsPaintChunk(1, 2,
-                       PaintChunk::Id(neg_z_child.Layer()->Id(),
-                                      DisplayItem::kLayerChunk),
-                       neg_z_child.FirstFragment().LocalBorderBoxProperties()),
-          IsPaintChunk(2, 2,
-                       PaintChunk::Id(html.Layer()->Id(),
-                                      DisplayItem::kLayerChunkForeground),
-                       html.FirstFragment().LocalBorderBoxProperties(), nullptr,
-                       gfx::Rect(0, 0, 800, 200)),
+          IsPaintChunk(
+              1, 2,
+              PaintChunk::Id(*neg_z_child.Layer(), DisplayItem::kLayerChunk),
+              neg_z_child.FirstFragment().LocalBorderBoxProperties()),
           IsPaintChunk(
               2, 2,
-              PaintChunk::Id(container.Layer()->Id(), DisplayItem::kLayerChunk),
-              container.FirstFragment().LocalBorderBoxProperties(), nullptr,
-              gfx::Rect(0, 0, 200, 200)),
+              PaintChunk::Id(*html.Layer(), DisplayItem::kLayerChunkForeground),
+              html.FirstFragment().LocalBorderBoxProperties(), nullptr,
+              IntRect(0, 0, 800, 200)),
           IsPaintChunk(
-              2, 2, PaintChunk::Id(container.Id(), DisplayItem::kScrollHitTest),
-              container.FirstFragment().LocalBorderBoxProperties(),
-              &container_scroll_hit_test, gfx::Rect(0, 0, 200, 200)),
-          IsPaintChunk(2, 3,
-                       PaintChunk::Id(container.Id(),
-                                      kClippedContentsBackgroundChunkType),
-                       container.FirstFragment().ContentsProperties()),
+              2, 2,
+              PaintChunk::Id(*container.Layer(), DisplayItem::kLayerChunk),
+              container.FirstFragment().LocalBorderBoxProperties(), nullptr,
+              IntRect(0, 0, 200, 200)),
+          IsPaintChunk(2, 2,
+                       PaintChunk::Id(container, DisplayItem::kScrollHitTest),
+                       container.FirstFragment().LocalBorderBoxProperties(),
+                       &container_scroll_hit_test, IntRect(0, 0, 200, 200)),
+          IsPaintChunk(
+              2, 3,
+              PaintChunk::Id(container, kClippedContentsBackgroundChunkType),
+              container.FirstFragment().ContentsProperties()),
           IsPaintChunk(
               3, 4,
-              PaintChunk::Id(pos_z_child.Layer()->Id(),
-                             DisplayItem::kLayerChunk),
+              PaintChunk::Id(*pos_z_child.Layer(), DisplayItem::kLayerChunk),
               pos_z_child.FirstFragment().LocalBorderBoxProperties())));
 }
 

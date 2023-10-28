@@ -1,4 +1,4 @@
-// Copyright 2018 The Chromium Authors
+// Copyright 2018 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -9,7 +9,7 @@
 
 #include "content/browser/browser_process_io_thread.h"
 #include "content/common/content_export.h"
-#include "content/public/common/startup_data.h"
+#include "content/public/browser/startup_data.h"
 #include "mojo/core/embedder/scoped_ipc_support.h"
 
 namespace content {

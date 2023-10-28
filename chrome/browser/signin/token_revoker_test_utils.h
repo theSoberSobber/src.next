@@ -1,4 +1,4 @@
-// Copyright 2016 The Chromium Authors
+// Copyright 2016 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -18,10 +18,6 @@ namespace token_revoker_test_utils {
 class RefreshTokenRevoker : public GaiaAuthConsumer {
  public:
   RefreshTokenRevoker();
-
-  RefreshTokenRevoker(const RefreshTokenRevoker&) = delete;
-  RefreshTokenRevoker& operator=(const RefreshTokenRevoker&) = delete;
-
   ~RefreshTokenRevoker() override;
 
   // Sends a request to Gaia servers to revoke the refresh token. Blocks until
@@ -35,6 +31,8 @@ class RefreshTokenRevoker : public GaiaAuthConsumer {
  private:
   GaiaAuthFetcher gaia_fetcher_;
   scoped_refptr<content::MessageLoopRunner> message_loop_runner_;
+
+  DISALLOW_COPY_AND_ASSIGN(RefreshTokenRevoker);
 };
 
 }  // namespace token_revoker_test_utils

@@ -5,11 +5,8 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_CORE_PAINT_TEXT_PAINTER_BASE_H_
 #define THIRD_PARTY_BLINK_RENDERER_CORE_PAINT_TEXT_PAINTER_BASE_H_
 
-#include "cc/paint/paint_flags.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/layout/geometry/physical_rect.h"
-#include "third_party/blink/renderer/core/paint/applied_decoration_painter.h"
-#include "third_party/blink/renderer/core/paint/paint_info.h"
 #include "third_party/blink/renderer/core/paint/text_decoration_info.h"
 #include "third_party/blink/renderer/core/paint/text_paint_style.h"
 #include "third_party/blink/renderer/core/style/applied_text_decoration.h"
@@ -17,30 +14,19 @@
 #include "third_party/blink/renderer/platform/fonts/font.h"
 #include "third_party/blink/renderer/platform/graphics/color.h"
 #include "third_party/blink/renderer/platform/graphics/draw_looper_builder.h"
-#include "third_party/blink/renderer/platform/graphics/graphics_context_state_saver.h"
 #include "third_party/blink/renderer/platform/transforms/affine_transform.h"
 #include "third_party/blink/renderer/platform/wtf/allocator/allocator.h"
 #include "third_party/blink/renderer/platform/wtf/text/atomic_string.h"
 
 namespace blink {
 
-struct AutoDarkMode;
 class ComputedStyle;
 class Document;
 class GraphicsContext;
-class NGInlinePaintContext;
+class GraphicsContextStateSaver;
 class Node;
-
-namespace {
-
-// We usually use the text decoration thickness to determine how far
-// ink-skipped text decorations should be away from the glyph
-// contours. Cap this at 5 CSS px in each direction when thickness
-// growths larger than that. A value of 13 closely matches FireFox'
-// implementation.
-constexpr float kDecorationClipMaxDilation = 13;
-
-}  // anonymous namespace
+class TextDecorationOffsetBase;
+struct PaintInfo;
 
 // Base class for text painting. Has no dependencies on the layout tree and thus
 // provides functionality and definitions that can be shared between both legacy
@@ -53,11 +39,12 @@ class CORE_EXPORT TextPainterBase {
                   const Font&,
                   const PhysicalOffset& text_origin,
                   const PhysicalRect& text_frame_rect,
-                  NGInlinePaintContext* inline_context,
                   bool horizontal);
   ~TextPainterBase();
 
-  const NGInlinePaintContext* InlineContext() const { return inline_context_; }
+  virtual void ClipDecorationsStripe(float upper,
+                                     float stripe_width,
+                                     float dilation) = 0;
 
   void SetEmphasisMark(const AtomicString&, TextEmphasisPosition);
   void SetEllipsisOffset(int offset) { ellipsis_offset_ = offset; }
@@ -65,6 +52,7 @@ class CORE_EXPORT TextPainterBase {
   enum ShadowMode { kBothShadowsAndTextProper, kShadowsOnly, kTextProperOnly };
   static void UpdateGraphicsContext(GraphicsContext&,
                                     const TextPaintStyle&,
+                                    bool horizontal,
                                     GraphicsContextStateSaver&,
                                     ShadowMode = kBothShadowsAndTextProper);
   static sk_sp<SkDrawLooper> CreateDrawLooper(
@@ -72,7 +60,12 @@ class CORE_EXPORT TextPainterBase {
       DrawLooperBuilder::ShadowAlphaMode,
       const Color& current_color,
       mojom::blink::ColorScheme color_scheme,
+      bool is_horizontal = true,
       ShadowMode = kBothShadowsAndTextProper);
+
+  void PaintDecorationUnderOrOverLine(GraphicsContext&,
+                                      TextDecorationInfo&,
+                                      TextDecoration line);
 
   static Color TextColorForWhiteBackground(Color);
   static TextPaintStyle TextPaintingStyle(const Document&,
@@ -93,7 +86,7 @@ class CORE_EXPORT TextPainterBase {
  protected:
   void UpdateGraphicsContext(const TextPaintStyle& style,
                              GraphicsContextStateSaver& saver) {
-    UpdateGraphicsContext(graphics_context_, style, saver);
+    UpdateGraphicsContext(graphics_context_, style, horizontal_, saver);
   }
   void DecorationsStripeIntercepts(
       float upper,
@@ -101,11 +94,21 @@ class CORE_EXPORT TextPainterBase {
       float dilation,
       const Vector<Font::TextIntercept>& text_intercepts);
 
+  // We have two functions to paint text decoations, because we should paint
+  // text and decorations in following order:
+  //   1. Paint text decorations except line through
+  //   2. Paint text
+  //   3. Paint line throguh
+  void PaintDecorationsExceptLineThrough(const TextDecorationOffsetBase&,
+                                         TextDecorationInfo&,
+                                         const PaintInfo&,
+                                         const Vector<AppliedTextDecoration>&,
+                                         const TextPaintStyle& text_style,
+                                         bool* has_line_through_decoration);
   void PaintDecorationsOnlyLineThrough(TextDecorationInfo&,
                                        const PaintInfo&,
                                        const Vector<AppliedTextDecoration>&,
-                                       const TextPaintStyle&,
-                                       const cc::PaintFlags* flags = nullptr);
+                                       const TextPaintStyle&);
 
   // Paints emphasis mark as for ideographic full stop character. Callers of
   // this function should rotate canvas to paint emphasis mark at left/right
@@ -115,12 +118,10 @@ class CORE_EXPORT TextPainterBase {
   // TODO(yosin): Once legacy inline layout gone, we should move this function
   // to |NGTextCombinePainter|.
   void PaintEmphasisMarkForCombinedText(const TextPaintStyle& text_style,
-                                        const Font& emphasis_mark_font,
-                                        const AutoDarkMode& auto_dark_mode);
+                                        const Font& emphasis_mark_font);
 
   enum PaintInternalStep { kPaintText, kPaintEmphasisMark };
 
-  NGInlinePaintContext* inline_context_ = nullptr;
   GraphicsContext& graphics_context_;
   const Font& font_;
   const PhysicalOffset text_origin_;

@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -45,8 +45,6 @@ void BrowserContentSettingBubbleModelDelegate::ShowContentSettingsPage(
     ContentSettingsType type) {
   if (type == ContentSettingsType::PROTOCOL_HANDLERS)
     chrome::ShowSettingsSubPage(browser_, chrome::kHandlerSettingsSubPage);
-  else if (type == ContentSettingsType::COOKIES)
-    chrome::ShowSettingsSubPage(browser_, chrome::kCookieSettingsSubPage);
   else
     chrome::ShowContentSettingsExceptions(browser_, type);
 }

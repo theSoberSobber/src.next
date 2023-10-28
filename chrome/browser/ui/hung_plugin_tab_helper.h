@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -8,6 +8,7 @@
 #include <map>
 #include <memory>
 
+#include "base/macros.h"
 #include "base/scoped_multi_source_observation.h"
 #include "base/timer/timer.h"
 #include "components/infobars/core/infobar_manager.h"
@@ -35,9 +36,6 @@ class HungPluginTabHelper
       public infobars::InfoBarManager::Observer,
       public content::WebContentsUserData<HungPluginTabHelper> {
  public:
-  HungPluginTabHelper(const HungPluginTabHelper&) = delete;
-  HungPluginTabHelper& operator=(const HungPluginTabHelper&) = delete;
-
   ~HungPluginTabHelper() override;
 
   // content::WebContentsObserver:
@@ -76,6 +74,8 @@ class HungPluginTabHelper
       infobar_observations_{this};
 
   WEB_CONTENTS_USER_DATA_KEY_DECL();
+
+  DISALLOW_COPY_AND_ASSIGN(HungPluginTabHelper);
 };
 
 #endif  // CHROME_BROWSER_UI_HUNG_PLUGIN_TAB_HELPER_H_

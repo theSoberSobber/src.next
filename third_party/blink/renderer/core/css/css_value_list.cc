@@ -26,7 +26,7 @@
 namespace blink {
 
 struct SameSizeAsCSSValueList : CSSValue {
-  HeapVector<Member<CSSValue>, 4> list_values;
+  Vector<Member<CSSValue>, 4> list_values;
 };
 ASSERT_SIZE(CSSValueList, SameSizeAsCSSValueList);
 
@@ -106,7 +106,7 @@ String CSSValueList::CustomCSSText() const {
     // null-pointer exception.
     result.Append(value ? value->CssText() : " ");
   }
-  return result.ReleaseString();
+  return result.ToString();
 }
 
 bool CSSValueList::Equals(const CSSValueList& other) const {

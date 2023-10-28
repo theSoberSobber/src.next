@@ -1,10 +1,9 @@
-// Copyright 2013 The Chromium Authors
+// Copyright 2013 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include "extensions/browser/extension_registry.h"
 
-#include "base/observer_list.h"
 #include "base/strings/string_util.h"
 #include "extensions/browser/extension_registry_factory.h"
 #include "extensions/browser/extension_registry_observer.h"
@@ -144,7 +143,7 @@ const Extension* ExtensionRegistry::GetExtensionById(const std::string& id,
     if (extension)
       return extension;
   }
-  return nullptr;
+  return NULL;
 }
 
 const Extension* ExtensionRegistry::GetInstalledExtension(

@@ -1,4 +1,4 @@
-// Copyright 2014 The Chromium Authors
+// Copyright 2014 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -19,7 +19,7 @@ const base::FilePath::CharType kTopSitesFilename[] =
 const int kMaxTitleChanges = 10;
 
 base::TimeDelta GetTitleSettingWindow() {
-  const auto value = base::Seconds(5);
+  const auto value = base::TimeDelta::FromSeconds(5);
   return value;
 }
 

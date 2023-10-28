@@ -7,14 +7,14 @@
 
 #include <utility>
 
-#include "base/time/time.h"
-#include "third_party/blink/renderer/core/core_export.h"
+#include "third_party/blink/public/web/web_swap_result.h"
 #include "third_party/blink/renderer/core/dom/element.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
-#include "third_party/blink/renderer/platform/heap/collection_support/heap_hash_map.h"
-#include "third_party/blink/renderer/platform/heap/collection_support/heap_vector.h"
+#include "third_party/blink/renderer/platform/heap/heap_allocator.h"
 #include "third_party/blink/renderer/platform/supplementable.h"
 #include "third_party/blink/renderer/platform/wtf/functional.h"
+#include "third_party/blink/renderer/platform/wtf/hash_set.h"
+
 #include "third_party/blink/renderer/platform/wtf/vector.h"
 
 namespace blink {
@@ -53,13 +53,13 @@ class CORE_EXPORT ImageElementTiming final
       const LayoutObject&,
       const ImageResourceContent& cached_image,
       const PropertyTreeStateOrAlias& current_paint_chunk_properties,
-      const gfx::Rect& image_border);
+      const IntRect& image_border);
 
   void NotifyBackgroundImagePainted(
       Node&,
       const StyleFetchedImage& background_image,
       const PropertyTreeStateOrAlias& current_paint_chunk_properties,
-      const gfx::Rect& image_border);
+      const IntRect& image_border);
 
   void NotifyImageRemoved(const LayoutObject*,
                           const ImageResourceContent* image);
@@ -75,19 +75,20 @@ class CORE_EXPORT ImageElementTiming final
       const ImageResourceContent& cached_image,
       const PropertyTreeStateOrAlias& current_paint_chunk_properties,
       base::TimeTicks load_time,
-      const gfx::Rect& image_border);
+      const IntRect& image_border);
 
   // Callback for the presentation promise. Reports paint timestamps.
-  void ReportImagePaintPresentationTime(base::TimeTicks timestamp);
+  void ReportImagePaintPresentationTime(WebSwapResult,
+                                        base::TimeTicks timestamp);
 
   // Class containing information about image element timing.
   class ElementTimingInfo final : public GarbageCollected<ElementTimingInfo> {
    public:
     ElementTimingInfo(const String& url,
-                      const gfx::RectF& rect,
+                      const FloatRect& rect,
                       const base::TimeTicks& response_end,
                       const AtomicString& identifier,
-                      const gfx::Size& intrinsic_size,
+                      const IntSize& intrinsic_size,
                       const AtomicString& id,
                       Element* element)
         : url(url),
@@ -104,10 +105,10 @@ class CORE_EXPORT ImageElementTiming final
     void Trace(Visitor* visitor) const { visitor->Trace(element); }
 
     String url;
-    gfx::RectF rect;
+    FloatRect rect;
     base::TimeTicks response_end;
     AtomicString identifier;
-    gfx::Size intrinsic_size;
+    IntSize intrinsic_size;
     AtomicString id;
     Member<Element> element;
   };
@@ -120,8 +121,6 @@ class CORE_EXPORT ImageElementTiming final
 
     base::TimeTicks load_time_;
     bool is_painted_ = false;
-
-    DISALLOW_NEW();
   };
   typedef std::pair<const LayoutObject*, const ImageResourceContent*> RecordId;
   // Hashmap of pairs of elements, LayoutObjects (for the elements) and

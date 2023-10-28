@@ -122,9 +122,4 @@ LayoutState::~LayoutState() {
   }
 }
 
-void LayoutState::Trace(Visitor* visitor) const {
-  visitor->Trace(flow_thread_);
-  visitor->Trace(layout_object_);
-}
-
 }  // namespace blink

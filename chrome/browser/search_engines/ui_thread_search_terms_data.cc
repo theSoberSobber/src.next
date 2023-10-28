@@ -1,4 +1,4 @@
-// Copyright 2014 The Chromium Authors
+// Copyright 2014 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -47,7 +47,7 @@ std::string UIThreadSearchTermsData::GetApplicationLocale() const {
 }
 
 // Android implementations are in ui_thread_search_terms_data_android.cc.
-#if !BUILDFLAG(IS_ANDROID)
+#if !defined(OS_ANDROID)
 std::u16string UIThreadSearchTermsData::GetRlzParameterValue(
     bool from_app_list) const {
   DCHECK(!BrowserThread::IsThreadInitialized(BrowserThread::UI) ||
@@ -80,29 +80,24 @@ std::string UIThreadSearchTermsData::GetSearchClient() const {
 }
 #endif
 
-std::string UIThreadSearchTermsData::GetSuggestClient(
-    bool non_searchbox_ntp) const {
+std::string UIThreadSearchTermsData::GetSuggestClient() const {
   DCHECK(!BrowserThread::IsThreadInitialized(BrowserThread::UI) ||
       BrowserThread::CurrentlyOn(BrowserThread::UI));
-#if BUILDFLAG(IS_ANDROID)
-  if (ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_PHONE) {
-    return non_searchbox_ntp ? "chrome-android-search-resumption-module"
-                             : "chrome";
-  }
-  return "chrome-omni";
+#if defined(OS_ANDROID)
+  // Android does not send non-searchbox suggest requests from NTP at this time.
+  return ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_PHONE ?
+      "chrome" : "chrome-omni";
 #else
   return "chrome-omni";
 #endif
 }
 
-std::string UIThreadSearchTermsData::GetSuggestRequestIdentifier(
-    bool non_searchbox_ntp) const {
+std::string UIThreadSearchTermsData::GetSuggestRequestIdentifier() const {
   DCHECK(!BrowserThread::IsThreadInitialized(BrowserThread::UI) ||
       BrowserThread::CurrentlyOn(BrowserThread::UI));
-#if BUILDFLAG(IS_ANDROID)
-  if (ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_PHONE) {
-    return non_searchbox_ntp ? std::string() : "chrome-mobile-ext-ansg";
-  }
+#if defined(OS_ANDROID)
+  if (ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_PHONE)
+    return "chrome-mobile-ext-ansg";
 #endif
   return "chrome-ext-ansg";
 }

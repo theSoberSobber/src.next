@@ -1,4 +1,4 @@
-// Copyright 2014 The Chromium Authors
+// Copyright 2014 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -8,16 +8,15 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
-#include <unordered_set>
 #include <vector>
 
-#include "base/memory/raw_ptr.h"
+#include "base/macros.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/singleton.h"
 #include "base/observer_list.h"
 #include "base/values.h"
 #include "chrome/browser/extensions/forced_extensions/install_stage_tracker.h"
-#include "chrome/browser/profiles/profile_keyed_service_factory.h"
+#include "components/keyed_service/content/browser_context_keyed_service_factory.h"
 #include "components/keyed_service/core/keyed_service.h"
 #include "components/prefs/pref_change_registrar.h"
 #include "extensions/browser/management_policy.h"
@@ -89,10 +88,6 @@ class ExtensionManagement : public KeyedService {
   };
 
   explicit ExtensionManagement(Profile* profile);
-
-  ExtensionManagement(const ExtensionManagement&) = delete;
-  ExtensionManagement& operator=(const ExtensionManagement&) = delete;
-
   ~ExtensionManagement() override;
 
   // KeyedService implementations:
@@ -112,12 +107,12 @@ class ExtensionManagement : public KeyedService {
   bool BlocklistedByDefault() const;
 
   // Returns installation mode for an extension.
-  InstallationMode GetInstallationMode(const Extension* extension);
+  InstallationMode GetInstallationMode(const Extension* extension) const;
 
   // Returns installation mode for an extension with id |extension_id| and
   // updated with |update_url|.
   InstallationMode GetInstallationMode(const ExtensionId& extension_id,
-                                       const std::string& update_url);
+                                       const std::string& update_url) const;
 
   // Returns the force install list, in format specified by
   // ExternalPolicyLoader::AddExtension().
@@ -129,26 +124,26 @@ class ExtensionManagement : public KeyedService {
   // Returns |true| if there is at least one extension with
   // |INSTALLATION_ALLOWED| as installation mode. This excludes force installed
   // extensions.
-  bool HasAllowlistedExtension();
+  bool HasAllowlistedExtension() const;
 
   // Returns if an extension with |id| is force installed and the update URL is
   // overridden by policy.
-  bool IsUpdateUrlOverridden(const ExtensionId& id);
+  bool IsUpdateUrlOverridden(const ExtensionId& id) const;
 
   // Get the effective update URL for the extension. Normally this URL comes
   // from the extension manifest, but may be overridden by policies.
-  GURL GetEffectiveUpdateURL(const Extension& extension);
+  GURL GetEffectiveUpdateURL(const Extension& extension) const;
 
   // Returns true if this extension's update URL is from webstore.
-  bool UpdatesFromWebstore(const Extension& extension);
+  bool UpdatesFromWebstore(const Extension& extension) const;
 
   // Returns if an extension with id |id| is explicitly allowed by enterprise
   // policy or not.
-  bool IsInstallationExplicitlyAllowed(const ExtensionId& id);
+  bool IsInstallationExplicitlyAllowed(const ExtensionId& id) const;
 
   // Returns if an extension with id |id| is explicitly blocked by enterprise
   // policy or not.
-  bool IsInstallationExplicitlyBlocked(const ExtensionId& id);
+  bool IsInstallationExplicitlyBlocked(const ExtensionId& id) const;
 
   // Returns true if an extension download should be allowed to proceed.
   bool IsOffstoreInstallAllowed(const GURL& url,
@@ -160,19 +155,20 @@ class ExtensionManagement : public KeyedService {
                              const std::string& extension_id) const;
 
   // Returns the list of blocked API permissions for |extension|.
-  APIPermissionSet GetBlockedAPIPermissions(const Extension* extension);
+  APIPermissionSet GetBlockedAPIPermissions(const Extension* extension) const;
 
   // Returns the list of blocked API permissions for an extension with id
   // |extension_id| and updated with |update_url|.
-  APIPermissionSet GetBlockedAPIPermissions(const ExtensionId& extension_id,
-                                            const std::string& update_url);
+  APIPermissionSet GetBlockedAPIPermissions(
+      const ExtensionId& extension_id,
+      const std::string& update_url) const;
 
   // Returns the list of hosts blocked by policy for |extension|.
-  const URLPatternSet& GetPolicyBlockedHosts(const Extension* extension);
+  const URLPatternSet& GetPolicyBlockedHosts(const Extension* extension) const;
 
   // Returns the hosts exempted by policy from the PolicyBlockedHosts for
   // |extension|.
-  const URLPatternSet& GetPolicyAllowedHosts(const Extension* extension);
+  const URLPatternSet& GetPolicyAllowedHosts(const Extension* extension) const;
 
   // Returns the list of hosts blocked by policy for Default scope. This can be
   // overridden by an individual scope which is queried via
@@ -189,41 +185,40 @@ class ExtensionManagement : public KeyedService {
   // runtime_allowed_hosts defined in the individual scope of the
   // ExtensionSettings policy.
   // Returns false if an individual scoped setting isn't defined.
-  bool UsesDefaultPolicyHostRestrictions(const Extension* extension);
+  bool UsesDefaultPolicyHostRestrictions(const Extension* extension) const;
 
   // Checks if a URL is on the blocked host permissions list for a specific
   // extension.
-  bool IsPolicyBlockedHost(const Extension* extension, const GURL& url);
+  bool IsPolicyBlockedHost(const Extension* extension, const GURL& url) const;
 
   // Returns blocked permission set for |extension|.
   std::unique_ptr<const PermissionSet> GetBlockedPermissions(
-      const Extension* extension);
+      const Extension* extension) const;
 
   // If the extension is blocked from install and a custom error message
   // was defined returns it. Otherwise returns an empty string. The maximum
   // string length is 1000 characters.
-  const std::string BlockedInstallMessage(const ExtensionId& id);
+  const std::string BlockedInstallMessage(const ExtensionId& id) const;
 
   // Returns true if every permission in |perms| is allowed for |extension|.
   bool IsPermissionSetAllowed(const Extension* extension,
-                              const PermissionSet& perms);
+                              const PermissionSet& perms) const;
 
   // Returns true if every permission in |perms| is allowed for an extension
   // with id |extension_id| and updated with |update_url|.
   bool IsPermissionSetAllowed(const ExtensionId& extension_id,
                               const std::string& update_url,
-                              const PermissionSet& perms);
+                              const PermissionSet& perms) const;
 
   // Returns true if |extension| meets the minimum required version set for it.
   // If there is no such requirement set for it, returns true as well.
   // If false is returned and |required_version| is not null, the minimum
   // required version is returned.
   bool CheckMinimumVersion(const Extension* extension,
-                           std::string* required_version);
+                           std::string* required_version) const;
 
   // Returns the list of extensions with "force_pinned" mode for the
-  // "toolbar_pin" setting. This only considers policies that are loaded (e.g.
-  // aren't deferred).
+  // "toolbar_pin" setting.
   ExtensionIdSet GetForcePinnedList() const;
 
   // Returns whether the profile associated with this instance is supervised.
@@ -241,21 +236,6 @@ class ExtensionManagement : public KeyedService {
   // Load all extension management preferences from |pref_service|, and
   // refresh the settings.
   void Refresh();
-
-  // Tries to parse the individual setting in |settings_by_id_| for
-  // |extension_id|. Returns true if it succeeds, otherwise returns false and
-  // removes the entry from |settings_by_id_|.
-  bool ParseById(const std::string& extension_id,
-                 const base::DictionaryValue* subdict);
-
-  // Returns the individual settings for |extension_id| if it exists, otherwise
-  // returns nullptr. This method will also lazy load the settings if they're
-  // not loaded yet.
-  internal::IndividualSettings* GetSettingsForId(
-      const std::string& extension_id);
-
-  // Loads the deferred settings information for |extension_id|.
-  void LoadDeferredExtensionSetting(const std::string& extension_id);
 
   // Load preference with name |pref_name| and expected type |expected_type|.
   // If |force_managed| is true, only loading from the managed preference store
@@ -298,11 +278,6 @@ class ExtensionManagement : public KeyedService {
   // map.
   SettingsIdMap settings_by_id_;
 
-  // A set of extension IDs whose parsing of settings and insertion into
-  // |settings_by_id_| has been deferred until needed. We keep track of this to
-  // avoid scanning the prefs repeatedly for entries that don't have a setting.
-  std::unordered_set<std::string> deferred_ids_;
-
   // Similar to |settings_by_id_|, but contains the settings for a group of
   // extensions with same update URL. The update url itself is used as index
   // key for the map.
@@ -319,22 +294,20 @@ class ExtensionManagement : public KeyedService {
   // Extension settings applicable to all extensions.
   std::unique_ptr<internal::GlobalSettings> global_settings_;
 
-  const raw_ptr<Profile> profile_ = nullptr;
-  raw_ptr<PrefService> pref_service_ = nullptr;
+  Profile* const profile_ = nullptr;
+  PrefService* pref_service_ = nullptr;
   bool is_signin_profile_ = false;
   bool is_child_ = false;
 
   base::ObserverList<Observer, true>::Unchecked observer_list_;
   PrefChangeRegistrar pref_change_registrar_;
   std::vector<std::unique_ptr<ManagementPolicy::Provider>> providers_;
+
+  DISALLOW_COPY_AND_ASSIGN(ExtensionManagement);
 };
 
-class ExtensionManagementFactory : public ProfileKeyedServiceFactory {
+class ExtensionManagementFactory : public BrowserContextKeyedServiceFactory {
  public:
-  ExtensionManagementFactory(const ExtensionManagementFactory&) = delete;
-  ExtensionManagementFactory& operator=(const ExtensionManagementFactory&) =
-      delete;
-
   static ExtensionManagement* GetForBrowserContext(
       content::BrowserContext* context);
   static ExtensionManagementFactory* GetInstance();
@@ -348,8 +321,12 @@ class ExtensionManagementFactory : public ProfileKeyedServiceFactory {
   // BrowserContextKeyedServiceExtensionManagementFactory:
   KeyedService* BuildServiceInstanceFor(
       content::BrowserContext* context) const override;
+  content::BrowserContext* GetBrowserContextToUse(
+      content::BrowserContext* context) const override;
   void RegisterProfilePrefs(
       user_prefs::PrefRegistrySyncable* registry) override;
+
+  DISALLOW_COPY_AND_ASSIGN(ExtensionManagementFactory);
 };
 
 }  // namespace extensions

@@ -1,4 +1,4 @@
-// Copyright 2017 The Chromium Authors
+// Copyright 2017 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -9,14 +9,14 @@
 
 #include "base/feature_list.h"
 #include "base/files/file_path.h"
-#include "base/memory/raw_ptr.h"
 #include "base/memory/singleton.h"
-#include "base/task/sequenced_task_runner.h"
-#include "base/task/single_thread_task_runner.h"
+#include "base/sequenced_task_runner.h"
+#include "base/single_thread_task_runner.h"
 #include "base/task/task_traits.h"
 #include "base/task/thread_pool.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
+#include "chrome/browser/ash/plugin_vm/plugin_vm_image_download_client.h"
 #include "chrome/browser/download/deferred_client_wrapper.h"
 #include "chrome/browser/download/download_manager_utils.h"
 #include "chrome/browser/download/simple_download_manager_coordinator_factory.h"
@@ -47,12 +47,8 @@
 #include "content/public/browser/network_service_instance.h"
 #include "content/public/browser/storage_partition.h"
 
-#if BUILDFLAG(IS_ANDROID)
+#if defined(OS_ANDROID)
 #include "chrome/browser/download/android/service/download_task_scheduler.h"
-#endif
-
-#if BUILDFLAG(IS_CHROMEOS_ASH)
-#include "chrome/browser/ash/plugin_vm/plugin_vm_image_download_client.h"
 #endif
 
 #if BUILDFLAG(ENABLE_OFFLINE_PAGES)
@@ -94,12 +90,6 @@ class DownloadBlobContextGetterFactory
   explicit DownloadBlobContextGetterFactory(SimpleFactoryKey* key) : key_(key) {
     DCHECK(key_);
   }
-
-  DownloadBlobContextGetterFactory(const DownloadBlobContextGetterFactory&) =
-      delete;
-  DownloadBlobContextGetterFactory& operator=(
-      const DownloadBlobContextGetterFactory&) = delete;
-
   ~DownloadBlobContextGetterFactory() override = default;
 
  private:
@@ -110,7 +100,8 @@ class DownloadBlobContextGetterFactory
         key_, base::BindOnce(&DownloadOnProfileCreated, std::move(callback)));
   }
 
-  raw_ptr<SimpleFactoryKey> key_;
+  SimpleFactoryKey* key_;
+  DISALLOW_COPY_AND_ASSIGN(DownloadBlobContextGetterFactory);
 };
 
 }  // namespace
@@ -201,7 +192,7 @@ BackgroundDownloadServiceFactory::BuildServiceInstanceFor(
             {base::MayBlock(), base::TaskPriority::BEST_EFFORT});
 
     std::unique_ptr<download::TaskScheduler> task_scheduler;
-#if BUILDFLAG(IS_ANDROID)
+#if defined(OS_ANDROID)
     task_scheduler =
         std::make_unique<download::android::DownloadTaskScheduler>();
 #else

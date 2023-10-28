@@ -1,4 +1,4 @@
-// Copyright 2013 The Chromium Authors
+// Copyright (c) 2013 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -26,7 +26,7 @@ void BrowserProcessPlatformPartBase::StartTearDown() {
 void BrowserProcessPlatformPartBase::AttemptExit(bool try_to_quit_application) {
 // chrome::CloseAllBrowsers() doesn't link on OS_ANDROID, but it overrides this
 // method already.
-#if BUILDFLAG(IS_ANDROID)
+#if defined(OS_ANDROID)
   NOTREACHED();
 #else
   // On most platforms, closing all windows causes the application to exit.

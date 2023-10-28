@@ -1,4 +1,4 @@
-// Copyright 2013 The Chromium Authors
+// Copyright 2013 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -23,6 +23,7 @@
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/common/content_constants.h"
 #include "content/public/renderer/render_frame.h"
+#include "content/public/renderer/render_view.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/mock_render_thread.h"
@@ -166,7 +167,7 @@ class ChromeContentRendererClientBrowserTest :
 IN_PROC_BROWSER_TEST_P(ChromeContentRendererClientBrowserTest,
                        RewriteYouTubeFlashEmbed) {
   GURL url(https_server()->GetURL("/flash_embeds.html"));
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
+  ui_test_utils::NavigateToURL(browser(), url);
   content::WebContents* web_contents =
       browser()->tab_strip_model()->GetActiveWebContents();
 
@@ -180,7 +181,7 @@ IN_PROC_BROWSER_TEST_P(ChromeContentRendererClientBrowserTest,
 IN_PROC_BROWSER_TEST_P(ChromeContentRendererClientBrowserTest,
                        RewriteYouTubeFlashEmbedObject) {
   GURL url(https_server()->GetURL("/flash_embeds.html"));
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
+  ui_test_utils::NavigateToURL(browser(), url);
   content::WebContents* web_contents =
      browser()->tab_strip_model()->GetActiveWebContents();
 

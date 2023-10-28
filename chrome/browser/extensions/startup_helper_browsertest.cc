@@ -1,4 +1,4 @@
-// Copyright 2013 The Chromium Authors
+// Copyright (c) 2013 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -18,10 +18,6 @@
 class StartupHelperBrowserTest : public InProcessBrowserTest {
  public:
   StartupHelperBrowserTest() {}
-
-  StartupHelperBrowserTest(const StartupHelperBrowserTest&) = delete;
-  StartupHelperBrowserTest& operator=(const StartupHelperBrowserTest&) = delete;
-
   ~StartupHelperBrowserTest() override {}
 
   void SetUpCommandLine(base::CommandLine* command_line) override {
@@ -33,6 +29,8 @@ class StartupHelperBrowserTest : public InProcessBrowserTest {
 
  protected:
   base::FilePath test_data_dir_;
+
+  DISALLOW_COPY_AND_ASSIGN(StartupHelperBrowserTest);
 };
 
 IN_PROC_BROWSER_TEST_F(StartupHelperBrowserTest, ValidateCrx) {

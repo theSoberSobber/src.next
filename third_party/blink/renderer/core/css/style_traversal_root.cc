@@ -31,7 +31,6 @@ void StyleTraversalRoot::Update(ContainerNode* common_ancestor,
              (!root_node_ && root_type_ == RootType::kSingleRoot));
     }
     root_node_ = dirty_node;
-    AssertRootNodeInvariants();
     return;
   }
 

@@ -1,4 +1,4 @@
-// Copyright 2016 The Chromium Authors
+// Copyright 2016 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -71,7 +71,7 @@ using TestPopularSectionVector = std::vector<TestPopularSection>;
 }
 
 size_t GetNumberOfDefaultPopularSitesForPlatform() {
-#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
+#if defined(OS_ANDROID) || defined(OS_IOS)
   return 8ul;
 #else
   return 0ul;
@@ -112,22 +112,22 @@ class PopularSitesTest : public ::testing::Test {
     prefs_->SetString(prefs::kPopularSitesOverrideVersion, version);
   }
 
-  base::Value::List CreateListFromTestSites(
+  std::unique_ptr<base::ListValue> CreateListFromTestSites(
       const TestPopularSiteVector& sites) {
-    base::Value::List sites_value;
+    auto sites_value = std::make_unique<base::ListValue>();
     for (const TestPopularSite& site : sites) {
-      base::Value::Dict site_value;
+      auto site_value = std::make_unique<base::DictionaryValue>();
       for (const std::pair<const std::string, std::string>& kv : site) {
         if (kv.first == kTitleSource) {
           int source;
           bool convert_success = base::StringToInt(kv.second, &source);
           DCHECK(convert_success);
-          site_value.Set(kv.first, source);
+          site_value->SetInteger(kv.first, source);
           continue;
         }
-        site_value.Set(kv.first, kv.second);
+        site_value->SetString(kv.first, kv.second);
       }
-      sites_value.Append(std::move(site_value));
+      sites_value->Append(std::move(site_value));
     }
     return sites_value;
   }
@@ -135,18 +135,17 @@ class PopularSitesTest : public ::testing::Test {
   void RespondWithV5JSON(const std::string& url,
                          const TestPopularSiteVector& sites) {
     std::string sites_string;
-    base::JSONWriter::Write(CreateListFromTestSites(sites), &sites_string);
+    base::JSONWriter::Write(*CreateListFromTestSites(sites), &sites_string);
     test_url_loader_factory_.AddResponse(url, sites_string);
   }
 
   void RespondWithV6JSON(const std::string& url,
                          const TestPopularSectionVector& sections) {
-    base::Value::List sections_value;
-    sections_value.reserve(sections.size());
+    base::ListValue sections_value;
     for (const TestPopularSection& section : sections) {
-      base::Value::Dict section_value;
-      section_value.Set(kSection, static_cast<int>(section.first));
-      section_value.Set(kSites, CreateListFromTestSites(section.second));
+      auto section_value = std::make_unique<base::DictionaryValue>();
+      section_value->SetInteger(kSection, static_cast<int>(section.first));
+      section_value->SetList(kSites, CreateListFromTestSites(section.second));
       sections_value.Append(std::move(section_value));
     }
     std::string sites_string;
@@ -300,7 +299,7 @@ TEST_F(PopularSitesTest, PopulatesWithDefaultResoucesOnFailure) {
   EXPECT_THAT(sites.size(), Eq(GetNumberOfDefaultPopularSitesForPlatform()));
 }
 
-#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
+#if defined(OS_ANDROID) || defined(OS_IOS)
 TEST_F(PopularSitesTest, AddsIconResourcesToDefaultPages) {
   std::unique_ptr<PopularSites> popular_sites = CreatePopularSites();
 

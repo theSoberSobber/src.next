@@ -6,7 +6,6 @@
 #define THIRD_PARTY_BLINK_RENDERER_CORE_PAINT_TEXT_ELEMENT_TIMING_H_
 
 #include "base/memory/weak_ptr.h"
-#include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/dom/element.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/layout/layout_object.h"
@@ -14,13 +13,9 @@
 #include "third_party/blink/renderer/platform/supplementable.h"
 #include "third_party/blink/renderer/platform/wtf/deque.h"
 
-namespace gfx {
-class Rect;
-class RectF;
-}  // namespace gfx
-
 namespace blink {
 
+class IntRect;
 class LocalFrameView;
 class PropertyTreeStateOrAlias;
 class TextRecord;
@@ -45,9 +40,9 @@ class CORE_EXPORT TextElementTiming final
            element->FastHasAttribute(html_names::kElementtimingAttr);
   }
 
-  static gfx::RectF ComputeIntersectionRect(
+  static FloatRect ComputeIntersectionRect(
       const LayoutObject&,
-      const gfx::Rect& aggregated_visual_rect,
+      const IntRect& aggregated_visual_rect,
       const PropertyTreeStateOrAlias&,
       const LocalFrameView*);
 

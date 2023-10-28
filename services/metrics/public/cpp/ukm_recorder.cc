@@ -1,4 +1,4 @@
-// Copyright 2017 The Chromium Authors
+// Copyright 2017 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -34,50 +34,35 @@ ukm::SourceId UkmRecorder::GetNewSourceID() {
 
 // static
 ukm::SourceId UkmRecorder::GetSourceIdForPaymentAppFromScope(
-    base::PassKey<content::PaymentAppProviderUtil>,
     const GURL& service_worker_scope) {
-  return UkmRecorder::GetSourceIdFromScopeImpl(service_worker_scope,
-                                               SourceIdType::PAYMENT_APP_ID);
+  ukm::SourceId source_id = ukm::SourceIdObj::FromOtherId(
+                                GetNewSourceID(), SourceIdType::PAYMENT_APP_ID)
+                                .ToInt64();
+  ukm::UkmRecorder::Get()->UpdateSourceURL(source_id, service_worker_scope);
+  return source_id;
 }
 
 // static
 ukm::SourceId UkmRecorder::GetSourceIdForWebApkManifestUrl(
-    base::PassKey<WebApkUkmRecorder>,
     const GURL& manifest_url) {
-  return UkmRecorder::GetSourceIdFromScopeImpl(manifest_url,
-                                               SourceIdType::WEBAPK_ID);
+  ukm::SourceId source_id =
+      ukm::SourceIdObj::FromOtherId(GetNewSourceID(), SourceIdType::WEBAPK_ID)
+          .ToInt64();
+  ukm::UkmRecorder* ukm_recorder = ukm::UkmRecorder::Get();
+  ukm_recorder->UpdateSourceURL(source_id, manifest_url);
+  return source_id;
 }
 
 // static
 ukm::SourceId UkmRecorder::GetSourceIdForDesktopWebAppStartUrl(
-    base::PassKey<web_app::DesktopWebAppUkmRecorder>,
     const GURL& start_url) {
-  return UkmRecorder::GetSourceIdFromScopeImpl(
-      start_url, SourceIdType::DESKTOP_WEB_APP_ID);
-}
-
-// static
-ukm::SourceId UkmRecorder::GetSourceIdForWebsiteUrl(
-    base::PassKey<apps::WebsiteMetrics>,
-    const GURL& start_url) {
-  return UkmRecorder::GetSourceIdFromScopeImpl(
-      start_url, SourceIdType::DESKTOP_WEB_APP_ID);
-}
-
-// static
-ukm::SourceId UkmRecorder::GetSourceIdForWebIdentityFromScope(
-    base::PassKey<content::FedCmMetrics>,
-    const GURL& provider_url) {
-  return UkmRecorder::GetSourceIdFromScopeImpl(provider_url,
-                                               SourceIdType::WEB_IDENTITY_ID);
-}
-
-// static
-ukm::SourceId UkmRecorder::GetSourceIdForRedirectUrl(
-    base::PassKey<DIPSBounceDetector>,
-    const GURL& redirect_url) {
-  return UkmRecorder::GetSourceIdFromScopeImpl(redirect_url,
-                                               SourceIdType::REDIRECT_ID);
+  ukm::SourceId source_id =
+      ukm::SourceIdObj::FromOtherId(GetNewSourceID(),
+                                    SourceIdType::DESKTOP_WEB_APP_ID)
+          .ToInt64();
+  ukm::UkmRecorder* ukm_recorder = ukm::UkmRecorder::Get();
+  ukm_recorder->UpdateSourceURL(source_id, start_url);
+  return source_id;
 }
 
 void UkmRecorder::RecordOtherURL(ukm::SourceIdObj source_id, const GURL& url) {
@@ -88,15 +73,6 @@ void UkmRecorder::RecordAppURL(ukm::SourceIdObj source_id,
                                const GURL& url,
                                const AppType app_type) {
   UpdateAppURL(source_id.ToInt64(), url, app_type);
-}
-
-// static
-ukm::SourceId UkmRecorder::GetSourceIdFromScopeImpl(const GURL& scope_url,
-                                                    SourceIdType type) {
-  SourceId source_id =
-      SourceIdObj::FromOtherId(GetNewSourceID(), type).ToInt64();
-  UkmRecorder::Get()->UpdateSourceURL(source_id, scope_url);
-  return source_id;
 }
 
 }  // namespace ukm

@@ -1,4 +1,4 @@
-// Copyright 2021 The Chromium Authors
+// Copyright 2021 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -13,15 +13,12 @@
 namespace extensions {
 
 ExtensionFrameHost::ExtensionFrameHost(content::WebContents* web_contents)
-    : web_contents_(web_contents), receivers_(web_contents, this) {}
+    : web_contents_(web_contents),
+      receivers_(web_contents,
+                 this,
+                 content::WebContentsFrameReceiverSetPassKey()) {}
 
 ExtensionFrameHost::~ExtensionFrameHost() = default;
-
-void ExtensionFrameHost::BindLocalFrameHost(
-    mojo::PendingAssociatedReceiver<mojom::LocalFrameHost> receiver,
-    content::RenderFrameHost* rfh) {
-  receivers_.Bind(rfh, std::move(receiver));
-}
 
 void ExtensionFrameHost::RequestScriptInjectionPermission(
     const std::string& extension_id,
@@ -43,7 +40,8 @@ void ExtensionFrameHost::Request(mojom::RequestParamsPtr params,
       receivers_.GetCurrentTargetFrame();
   ExtensionWebContentsObserver::GetForWebContents(web_contents_)
       ->dispatcher()
-      ->Dispatch(std::move(params), *render_frame_host, std::move(callback));
+      ->Dispatch(std::move(params), render_frame_host,
+                 render_frame_host->GetProcess()->GetID(), std::move(callback));
 }
 
 void ExtensionFrameHost::WatchedPageChange(

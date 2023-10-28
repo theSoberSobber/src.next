@@ -1,4 +1,4 @@
-// Copyright 2020 The Chromium Authors
+// Copyright 2020 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,9 +7,7 @@
 
 #include <stddef.h>
 
-#include "base/check.h"
 #include "base/check_op.h"
-#include "base/memory/raw_ptr.h"
 
 namespace base {
 
@@ -61,14 +59,14 @@ class ScopedObservation {
     //     has been fully retired.
     CHECK_EQ(source_, nullptr);
     source_ = source;
-    (source_.get()->*AddObsFn)(observer_);
+    (source_->*AddObsFn)(observer_);
   }
 
   // Remove the object passed to the constructor as an observer from |source_|
   // if currently observing. Does nothing otherwise.
   void Reset() {
     if (source_) {
-      (source_.get()->*RemoveObsFn)(observer_);
+      (source_->*RemoveObsFn)(observer_);
       source_ = nullptr;
     }
   }
@@ -83,10 +81,10 @@ class ScopedObservation {
   }
 
  private:
-  const raw_ptr<Observer> observer_;
+  Observer* const observer_;
 
   // The observed source, if any.
-  raw_ptr<Source> source_ = nullptr;
+  Source* source_ = nullptr;
 };
 
 }  // namespace base

@@ -38,8 +38,6 @@ class GraphicsContextStateSaver;
 class LayoutThemeDefault;
 
 class ThemePainterDefault final : public ThemePainter {
-  DISALLOW_NEW();
-
  public:
   explicit ThemePainterDefault(LayoutThemeDefault&);
 
@@ -48,70 +46,70 @@ class ThemePainterDefault final : public ThemePainter {
                      const Document&,
                      const ComputedStyle&,
                      const PaintInfo&,
-                     const gfx::Rect&) override;
+                     const IntRect&) override;
   bool PaintRadio(const Element&,
                   const Document&,
                   const ComputedStyle&,
                   const PaintInfo&,
-                  const gfx::Rect&) override;
+                  const IntRect&) override;
   bool PaintButton(const Element&,
                    const Document&,
                    const ComputedStyle&,
                    const PaintInfo&,
-                   const gfx::Rect&) override;
+                   const IntRect&) override;
   bool PaintTextField(const Element&,
                       const ComputedStyle&,
                       const PaintInfo&,
-                      const gfx::Rect&) override;
+                      const IntRect&) override;
   bool PaintMenuList(const Element&,
                      const Document&,
                      const ComputedStyle&,
                      const PaintInfo&,
-                     const gfx::Rect&) override;
+                     const IntRect&) override;
   bool PaintMenuListButton(const Element&,
                            const Document&,
                            const ComputedStyle&,
                            const PaintInfo&,
-                           const gfx::Rect&) override;
+                           const IntRect&) override;
   bool PaintSliderTrack(const Element& element,
                         const LayoutObject&,
                         const PaintInfo&,
-                        const gfx::Rect&,
+                        const IntRect&,
                         const ComputedStyle&) override;
   bool PaintSliderThumb(const Element&,
                         const ComputedStyle&,
                         const PaintInfo&,
-                        const gfx::Rect&) override;
+                        const IntRect&) override;
   bool PaintInnerSpinButton(const Element&,
                             const ComputedStyle&,
                             const PaintInfo&,
-                            const gfx::Rect&) override;
+                            const IntRect&) override;
   bool PaintProgressBar(const Element& element,
                         const LayoutObject&,
                         const PaintInfo&,
-                        const gfx::Rect&,
+                        const IntRect&,
                         const ComputedStyle&) override;
   bool PaintTextArea(const Element&,
                      const ComputedStyle&,
                      const PaintInfo&,
-                     const gfx::Rect&) override;
+                     const IntRect&) override;
   bool PaintSearchField(const Element&,
                         const ComputedStyle&,
                         const PaintInfo&,
-                        const gfx::Rect&) override;
+                        const IntRect&) override;
   bool PaintSearchFieldCancelButton(const LayoutObject&,
                                     const PaintInfo&,
-                                    const gfx::Rect&) override;
+                                    const IntRect&) override;
 
   void SetupMenuListArrow(const Document&,
                           const ComputedStyle&,
-                          const gfx::Rect&,
+                          const IntRect&,
                           WebThemeEngine::ExtraParams&);
 
-  gfx::Rect ApplyZoomToRect(const gfx::Rect&,
-                            const PaintInfo&,
-                            GraphicsContextStateSaver&,
-                            float zoom_level);
+  IntRect ApplyZoomToRect(const IntRect&,
+                          const PaintInfo&,
+                          GraphicsContextStateSaver&,
+                          float zoom_level);
 
   // ThemePaintDefault is a part object of m_theme.
   LayoutThemeDefault& theme_;

@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -8,7 +8,6 @@
 #include <memory>
 
 #include "net/base/network_change_notifier.h"
-#include "net/base/network_handle.h"
 
 namespace net {
 
@@ -36,21 +35,21 @@ class MockNetworkChangeNotifier : public NetworkChangeNotifier {
   void GetCurrentConnectedNetworks(NetworkList* network_list) const override;
 
   // Delivers a MADE_DEFAULT notification to observers.
-  void NotifyNetworkMadeDefault(handles::NetworkHandle network);
+  void NotifyNetworkMadeDefault(NetworkChangeNotifier::NetworkHandle network);
 
   // Queues a MADE_DEFAULT notification to be delivered to observers
   // but does not spin the message loop to actually deliver it.
-  void QueueNetworkMadeDefault(handles::NetworkHandle network);
+  void QueueNetworkMadeDefault(NetworkChangeNotifier::NetworkHandle network);
 
   // Delivers a DISCONNECTED notification to observers.
-  void NotifyNetworkDisconnected(handles::NetworkHandle network);
+  void NotifyNetworkDisconnected(NetworkChangeNotifier::NetworkHandle network);
 
   // Queues a DISCONNECTED notification to be delivered to observers
   // but does not spin the message loop to actually deliver it.
-  void QueueNetworkDisconnected(handles::NetworkHandle network);
+  void QueueNetworkDisconnected(NetworkChangeNotifier::NetworkHandle network);
 
   // Delivers a CONNECTED notification to observers.
-  void NotifyNetworkConnected(handles::NetworkHandle network);
+  void NotifyNetworkConnected(NetworkChangeNotifier::NetworkHandle network);
 
   void SetConnectionTypeAndNotifyObservers(ConnectionType connection_type);
 
@@ -80,12 +79,12 @@ class MockNetworkChangeNotifier : public NetworkChangeNotifier {
 
  private:
   // Create using MockNetworkChangeNotifier::Create().
-  explicit MockNetworkChangeNotifier(
+  MockNetworkChangeNotifier(
       std::unique_ptr<SystemDnsConfigChangeNotifier> dns_config_notifier);
 
-  bool force_network_handles_supported_ = false;
-  ConnectionType connection_type_ = CONNECTION_UNKNOWN;
-  ConnectionCost connection_cost_ = CONNECTION_COST_UNKNOWN;
+  bool force_network_handles_supported_;
+  ConnectionType connection_type_;
+  ConnectionCost connection_cost_;
   bool use_default_connection_cost_implementation_ = false;
   NetworkChangeNotifier::NetworkList connected_networks_;
   std::unique_ptr<SystemDnsConfigChangeNotifier> dns_config_notifier_;

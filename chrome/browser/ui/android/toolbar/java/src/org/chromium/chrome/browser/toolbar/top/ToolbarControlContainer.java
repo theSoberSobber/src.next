@@ -1,4 +1,4 @@
-// Copyright 2015 The Chromium Authors
+// Copyright 2015 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -9,31 +9,18 @@ import android.graphics.Canvas;
 import android.graphics.PorterDuff;
 import android.graphics.Rect;
 import android.graphics.Region;
-import android.graphics.drawable.Drawable;
 import android.os.Build;
 import android.util.AttributeSet;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewStub;
 
-import androidx.annotation.Nullable;
-import androidx.annotation.VisibleForTesting;
-import androidx.appcompat.content.res.AppCompatResources;
-
-import org.chromium.base.FeatureList;
 import org.chromium.base.TraceEvent;
-import org.chromium.base.metrics.RecordHistogram;
-import org.chromium.base.supplier.ObservableSupplier;
-import org.chromium.base.supplier.Supplier;
+import org.chromium.chrome.browser.flags.CachedFeatureFlags;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
-import org.chromium.chrome.browser.tab.Tab;
-import org.chromium.chrome.browser.toolbar.ConstraintsChecker;
 import org.chromium.chrome.browser.toolbar.ControlContainer;
 import org.chromium.chrome.browser.toolbar.R;
-import org.chromium.chrome.browser.toolbar.ToolbarCaptureType;
 import org.chromium.chrome.browser.toolbar.ToolbarProgressBar;
-import org.chromium.chrome.browser.toolbar.top.CaptureReadinessResult.TopToolbarBlockCaptureReason;
-import org.chromium.components.browser_ui.styles.ChromeColors;
 import org.chromium.components.browser_ui.widget.ClipDrawableProgressBar.DrawingInfo;
 import org.chromium.components.browser_ui.widget.ViewResourceFrameLayout;
 import org.chromium.components.browser_ui.widget.gesture.SwipeGestureListener;
@@ -110,15 +97,10 @@ public class ToolbarControlContainer extends OptimizedFrameLayout implements Con
     /**
      * @param toolbar The toolbar contained inside this control container. Should be called
      *                after inflation is complete.
-     * @param isIncognito Whether the toolbar should be initialized with incognito colors.
-     * @param constraintsSupplier Used to access current constraints of the browser controls.
-     * @param tabSupplier Used to access the current tab state.
      */
-    public void setPostInitializationDependencies(Toolbar toolbar, boolean isIncognito,
-            ObservableSupplier<Integer> constraintsSupplier, Supplier<Tab> tabSupplier) {
+    public void setToolbar(Toolbar toolbar) {
         mToolbar = toolbar;
-        mToolbarContainer.setPostInitializationDependencies(
-                mToolbar, constraintsSupplier, tabSupplier);
+        mToolbarContainer.setToolbar(mToolbar);
 
         View toolbarView = findViewById(R.id.toolbar);
         assert toolbarView != null;
@@ -127,19 +109,11 @@ public class ToolbarControlContainer extends OptimizedFrameLayout implements Con
             // On tablet, draw a fake tab strip and toolbar until the compositor is
             // ready to draw the real tab strip. (On phone, the toolbar is made entirely
             // of Android views, which are already initialized.)
-            final Drawable backgroundDrawable =
-                    AppCompatResources.getDrawable(getContext(), R.drawable.toolbar_background)
-                            .mutate();
-            backgroundDrawable.setTint(
-                    ChromeColors.getDefaultThemeColor(getContext(), isIncognito));
-            backgroundDrawable.setTintMode(PorterDuff.Mode.MULTIPLY);
-            setBackground(backgroundDrawable);
+            setBackgroundResource(R.drawable.toolbar_background);
         }
     }
 
     @Override
-    // TODO(crbug.com/1231201): work out why this is causing a lint error
-    @SuppressWarnings("Override")
     public boolean gatherTransparentRegion(Region region) {
         // Reset the translation on the control container before attempting to compute the
         // transparent region.
@@ -183,16 +157,14 @@ public class ToolbarControlContainer extends OptimizedFrameLayout implements Con
         protected ViewResourceAdapter createResourceAdapter() {
             boolean useHardwareBitmapDraw = false;
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                useHardwareBitmapDraw = ChromeFeatureList.sToolbarUseHardwareBitmapDraw.isEnabled();
+                useHardwareBitmapDraw = CachedFeatureFlags.isEnabled(
+                        ChromeFeatureList.TOOLBAR_USE_HARDWARE_BITMAP_DRAW);
             }
             return new ToolbarViewResourceAdapter(this, useHardwareBitmapDraw);
         }
 
-        public void setPostInitializationDependencies(Toolbar toolbar,
-                ObservableSupplier<Integer> constraintsSupplier, Supplier<Tab> tabSupplier) {
-            ToolbarViewResourceAdapter adapter =
-                    ((ToolbarViewResourceAdapter) getResourceAdapter());
-            adapter.setPostInitializationDependencies(toolbar, constraintsSupplier, tabSupplier);
+        public void setToolbar(Toolbar toolbar) {
+            ((ToolbarViewResourceAdapter) getResourceAdapter()).setToolbar(toolbar);
         }
 
         @Override
@@ -201,20 +173,14 @@ public class ToolbarControlContainer extends OptimizedFrameLayout implements Con
         }
     }
 
-    @VisibleForTesting
-    protected static class ToolbarViewResourceAdapter extends ViewResourceAdapter {
+    private static class ToolbarViewResourceAdapter extends ViewResourceAdapter {
         private final int[] mTempPosition = new int[2];
         private final Rect mLocationBarRect = new Rect();
         private final Rect mToolbarRect = new Rect();
         private final View mToolbarContainer;
 
-        @Nullable
         private Toolbar mToolbar;
         private int mTabStripHeightPx;
-        @Nullable
-        private ConstraintsChecker mConstraintsObserver;
-        @Nullable
-        private Supplier<Tab> mTabSupplier;
 
         /** Builds the resource adapter for the toolbar. */
         public ToolbarViewResourceAdapter(View toolbarContainer, boolean useHardwareBitmapDraw) {
@@ -225,23 +191,10 @@ public class ToolbarControlContainer extends OptimizedFrameLayout implements Con
         /**
          * Set the toolbar after it has been dynamically inflated.
          * @param toolbar The browser's toolbar.
-         * @param constraintsSupplier Used to access current constraints of the browser controls.
-         * @param tabSupplier Used to access the current tab state.
          */
-        public void setPostInitializationDependencies(Toolbar toolbar,
-                @Nullable ObservableSupplier<Integer> constraintsSupplier,
-                @Nullable Supplier<Tab> tabSupplier) {
-            assert mToolbar == null;
+        public void setToolbar(Toolbar toolbar) {
             mToolbar = toolbar;
             mTabStripHeightPx = mToolbar.getTabStripHeight();
-
-            assert mConstraintsObserver == null;
-            if (constraintsSupplier != null) {
-                mConstraintsObserver = new ConstraintsChecker(this, constraintsSupplier);
-            }
-
-            assert mTabSupplier == null;
-            mTabSupplier = tabSupplier;
         }
 
         /**
@@ -254,41 +207,11 @@ public class ToolbarControlContainer extends OptimizedFrameLayout implements Con
 
         @Override
         public boolean isDirty() {
-            if (!super.isDirty()) {
-                CaptureReadinessResult.logCaptureReasonFromResult(CaptureReadinessResult.notReady(
-                        TopToolbarBlockCaptureReason.VIEW_NOT_DIRTY));
-                return false;
-            }
-
-            if (FeatureList.isInitialized()
-                    && ChromeFeatureList.isEnabled(ChromeFeatureList.SUPPRESS_TOOLBAR_CAPTURES)
-                    && mConstraintsObserver != null && mTabSupplier != null) {
-                Tab tab = mTabSupplier.get();
-
-                // TODO(https://crbug.com/1355516): Understand and fix this for native pages. It
-                // seems capturing is required for some part of theme observers to work correctly,
-                // but it shouldn't be.
-                boolean isNativePage = tab == null || tab.isNativePage();
-                if (!isNativePage && mConstraintsObserver.areControlsLocked()) {
-                    mConstraintsObserver.scheduleRequestResourceOnUnlock();
-                    CaptureReadinessResult.logCaptureReasonFromResult(
-                            CaptureReadinessResult.notReady(
-                                    TopToolbarBlockCaptureReason.BROWSER_CONTROLS_LOCKED));
-                    return false;
-                }
-            }
-
-            CaptureReadinessResult isReadyResult =
-                    mToolbar == null ? null : mToolbar.isReadyForTextureCapture();
-            CaptureReadinessResult.logCaptureReasonFromResult(isReadyResult);
-            return isReadyResult == null ? false : isReadyResult.isReady;
+            return mToolbar != null && mToolbar.isReadyForTextureCapture() && super.isDirty();
         }
 
         @Override
-        public void onCaptureStart(Canvas canvas, Rect dirtyRect) {
-            RecordHistogram.recordEnumeratedHistogram("Android.Toolbar.BitmapCapture",
-                    ToolbarCaptureType.TOP, ToolbarCaptureType.NUM_ENTRIES);
-
+        protected void onCaptureStart(Canvas canvas, Rect dirtyRect) {
             // Erase the canvas because assets drawn are not fully opaque and therefore painting
             // twice would be bad.
             canvas.save();
@@ -303,7 +226,7 @@ public class ToolbarControlContainer extends OptimizedFrameLayout implements Con
         }
 
         @Override
-        public void onCaptureEnd() {
+        protected void onCaptureEnd() {
             mToolbar.setTextureCaptureMode(false);
             // Forcing a texture capture should only be done for one draw. Turn off forced
             // texture capture.

@@ -20,7 +20,6 @@ CanvasResourceHost::ReplaceResourceProvider(
   resource_provider_ = std::move(new_resource_provider);
   UpdateMemoryUsage();
   if (resource_provider_) {
-    resource_provider_->SetCanvasResourceHost(this);
     resource_provider_->Canvas()->restoreToCount(1);
     InitializeForRecording(resource_provider_->Canvas());
     // Using unretained here since CanvasResourceHost owns |resource_provider_|
@@ -29,7 +28,6 @@ CanvasResourceHost::ReplaceResourceProvider(
         &CanvasResourceHost::InitializeForRecording, base::Unretained(this)));
   }
   if (old_resource_provider) {
-    old_resource_provider->SetCanvasResourceHost(nullptr);
     old_resource_provider->SetRestoreClipStackCallback(
         CanvasResourceProvider::RestoreMatrixClipStackCb());
   }
@@ -46,8 +44,7 @@ void CanvasResourceHost::InitializeForRecording(cc::PaintCanvas* canvas) {
   RestoreCanvasMatrixClipStack(canvas);
 }
 
-void CanvasResourceHost::SetFilterQuality(
-    cc::PaintFlags::FilterQuality filter_quality) {
+void CanvasResourceHost::SetFilterQuality(SkFilterQuality filter_quality) {
   filter_quality_ = filter_quality;
 }
 

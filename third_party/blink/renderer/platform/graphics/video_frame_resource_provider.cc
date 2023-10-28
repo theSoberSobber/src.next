@@ -14,7 +14,6 @@
 #include "components/viz/common/quads/solid_color_draw_quad.h"
 #include "components/viz/common/quads/texture_draw_quad.h"
 #include "components/viz/common/quads/yuv_video_draw_quad.h"
-#include "media/base/limits.h"
 #include "media/base/video_frame.h"
 #include "media/renderers/video_resource_updater.h"
 #include "third_party/blink/public/platform/web_vector.h"
@@ -44,7 +43,8 @@ void VideoFrameResourceProvider::Initialize(
     max_texture_size =
         context_provider_->ContextCapabilities().max_texture_size;
   } else {
-    max_texture_size = media::limits::kMaxDimension;
+    // Pick an arbitrary limit here similar to what hardware might.
+    max_texture_size = 16 * 1024;
   }
 
   resource_updater_ = std::make_unique<media::VideoResourceUpdater>(

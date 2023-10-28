@@ -27,6 +27,7 @@ class CORE_EXPORT Scheduling : public ScriptWrappable,
   explicit Scheduling(Navigator&);
 
   bool isInputPending(const IsInputPendingOptions* options) const;
+  bool isFramePending() const;
 
   void Trace(Visitor*) const override;
 };

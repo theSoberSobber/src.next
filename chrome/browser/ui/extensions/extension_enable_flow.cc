@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -131,8 +131,7 @@ void ExtensionEnableFlow::CheckPermissionAndMaybePromptUser() {
 
   if (profiles::IsProfileLocked(profile_->GetPath())) {
 #if !BUILDFLAG(IS_CHROMEOS_ASH)
-    ProfilePicker::Show(ProfilePicker::Params::FromEntryPoint(
-        ProfilePicker::EntryPoint::kProfileLocked));
+    ProfilePicker::Show(ProfilePicker::EntryPoint::kProfileLocked);
 
 #endif  // !BUILDFLAG(IS_CHROMEOS_ASH)
     return;

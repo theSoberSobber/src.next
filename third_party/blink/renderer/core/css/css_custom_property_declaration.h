@@ -6,7 +6,6 @@
 #define THIRD_PARTY_BLINK_RENDERER_CORE_CSS_CSS_CUSTOM_PROPERTY_DECLARATION_H_
 
 #include "base/memory/scoped_refptr.h"
-#include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/css/css_value.h"
 #include "third_party/blink/renderer/core/css/css_variable_data.h"
 #include "third_party/blink/renderer/core/css/properties/css_parsing_utils.h"
@@ -18,18 +17,22 @@ namespace blink {
 
 class CORE_EXPORT CSSCustomPropertyDeclaration : public CSSValue {
  public:
-  explicit CSSCustomPropertyDeclaration(CSSValueID id)
+  CSSCustomPropertyDeclaration(const AtomicString& name, CSSValueID id)
       : CSSValue(kCustomPropertyDeclarationClass),
+        name_(name),
         value_(nullptr),
         value_id_(id) {
     DCHECK(css_parsing_utils::IsCSSWideKeyword(id));
   }
 
-  explicit CSSCustomPropertyDeclaration(scoped_refptr<CSSVariableData> value)
+  CSSCustomPropertyDeclaration(const AtomicString& name,
+                               scoped_refptr<CSSVariableData> value)
       : CSSValue(kCustomPropertyDeclarationClass),
+        name_(name),
         value_(std::move(value)),
         value_id_(CSSValueID::kInvalid) {}
 
+  const AtomicString& GetName() const { return name_; }
   CSSVariableData* Value() const { return value_.get(); }
 
   bool IsInherit(bool is_inherited_property) const {
@@ -41,7 +44,6 @@ class CORE_EXPORT CSSCustomPropertyDeclaration : public CSSValue {
            (!is_inherited_property && value_id_ == CSSValueID::kUnset);
   }
   bool IsRevert() const { return value_id_ == CSSValueID::kRevert; }
-  bool IsRevertLayer() const { return value_id_ == CSSValueID::kRevertLayer; }
 
   String CustomCSSText() const;
 
@@ -52,6 +54,7 @@ class CORE_EXPORT CSSCustomPropertyDeclaration : public CSSValue {
   void TraceAfterDispatch(blink::Visitor*) const;
 
  private:
+  const AtomicString name_;
   scoped_refptr<CSSVariableData> value_;
   CSSValueID value_id_;
 };

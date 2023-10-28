@@ -1,4 +1,4 @@
-// Copyright 2013 The Chromium Authors
+// Copyright (c) 2013 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,6 +7,7 @@
 
 #include <string>
 
+#include "base/macros.h"
 #include "extensions/common/api/incognito.h"
 #include "extensions/common/extension.h"
 #include "extensions/common/manifest_handler.h"
@@ -31,10 +32,6 @@ struct IncognitoInfo : public Extension::ManifestData {
 class IncognitoHandler : public ManifestHandler {
  public:
   IncognitoHandler();
-
-  IncognitoHandler(const IncognitoHandler&) = delete;
-  IncognitoHandler& operator=(const IncognitoHandler&) = delete;
-
   ~IncognitoHandler() override;
 
   bool Parse(Extension* extension, std::u16string* error) override;
@@ -42,6 +39,8 @@ class IncognitoHandler : public ManifestHandler {
 
  private:
   base::span<const char* const> Keys() const override;
+
+  DISALLOW_COPY_AND_ASSIGN(IncognitoHandler);
 };
 
 }  // namespace extensions

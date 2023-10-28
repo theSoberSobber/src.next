@@ -6,7 +6,7 @@
 
 #include <memory>
 
-#include "base/types/optional_util.h"
+#include "base/stl_util.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
 #include "third_party/blink/renderer/core/editing/editor.h"
 #include "third_party/blink/renderer/core/editing/markers/document_marker_controller.h"
@@ -21,7 +21,6 @@
 #include "third_party/blink/renderer/core/layout/svg/svg_resources.h"
 #include "third_party/blink/renderer/core/paint/highlight_painting_utils.h"
 #include "third_party/blink/renderer/core/paint/inline_text_box_painter.h"
-#include "third_party/blink/renderer/core/paint/paint_auto_dark_mode.h"
 #include "third_party/blink/renderer/core/paint/paint_info.h"
 #include "third_party/blink/renderer/core/paint/paint_timing.h"
 #include "third_party/blink/renderer/core/paint/paint_timing_detector.h"
@@ -136,7 +135,7 @@ void SVGInlineTextBoxPainter::Paint(const PaintInfo& paint_info,
           paint_info.context, svg_inline_text_box_, paint_info.phase)) {
     DrawingRecorder recorder(
         paint_info.context, svg_inline_text_box_, paint_info.phase,
-        gfx::ToEnclosingRect(
+        EnclosingIntRect(
             parent_layout_object.VisualRectInLocalSVGCoordinates()));
     InlineTextBoxPainter text_painter(svg_inline_text_box_);
     const DocumentMarkerVector& markers_to_paint =
@@ -165,7 +164,8 @@ void SVGInlineTextBoxPainter::PaintTextFragments(
   const ComputedStyle* selection_style = &style;
   bool should_paint_selection = ShouldPaintSelection(paint_info);
   if (should_paint_selection) {
-    selection_style = parent_layout_object.GetSelectionStyle();
+    selection_style =
+        parent_layout_object.GetCachedPseudoElementStyle(kPseudoIdSelection);
     if (selection_style) {
       if (!has_fill)
         has_fill = selection_style->HasFill();
@@ -198,10 +198,10 @@ void SVGInlineTextBoxPainter::PaintTextFragments(
     const Vector<AppliedTextDecoration>& decorations =
         style.AppliedTextDecorations();
     for (const AppliedTextDecoration& decoration : decorations) {
-      if (EnumHasFlags(decoration.Lines(), TextDecorationLine::kUnderline))
-        PaintDecoration(paint_info, TextDecorationLine::kUnderline, fragment);
-      if (EnumHasFlags(decoration.Lines(), TextDecorationLine::kOverline))
-        PaintDecoration(paint_info, TextDecorationLine::kOverline, fragment);
+      if (EnumHasFlags(decoration.Lines(), TextDecoration::kUnderline))
+        PaintDecoration(paint_info, TextDecoration::kUnderline, fragment);
+      if (EnumHasFlags(decoration.Lines(), TextDecoration::kOverline))
+        PaintDecoration(paint_info, TextDecoration::kOverline, fragment);
     }
 
     for (int i = 0; i < 3; i++) {
@@ -210,14 +210,14 @@ void SVGInlineTextBoxPainter::PaintTextFragments(
           if (has_fill) {
             PaintText(paint_info, style, *selection_style, fragment,
                       kApplyToFillMode, should_paint_selection,
-                      base::OptionalToPtr(shader_transform));
+                      base::OptionalOrNullptr(shader_transform));
           }
           break;
         case PT_STROKE:
           if (has_visible_stroke) {
             PaintText(paint_info, style, *selection_style, fragment,
                       kApplyToStrokeMode, should_paint_selection,
-                      base::OptionalToPtr(shader_transform));
+                      base::OptionalOrNullptr(shader_transform));
           }
           break;
         case PT_MARKERS:
@@ -232,8 +232,8 @@ void SVGInlineTextBoxPainter::PaintTextFragments(
     // Spec: Line-through should be drawn after the text is filled and stroked;
     // thus, the line-through is rendered on top of the text.
     for (const AppliedTextDecoration& decoration : decorations) {
-      if (EnumHasFlags(decoration.Lines(), TextDecorationLine::kLineThrough))
-        PaintDecoration(paint_info, TextDecorationLine::kLineThrough, fragment);
+      if (EnumHasFlags(decoration.Lines(), TextDecoration::kLineThrough))
+        PaintDecoration(paint_info, TextDecoration::kLineThrough, fragment);
     }
   }
 }
@@ -252,7 +252,7 @@ void SVGInlineTextBoxPainter::PaintSelectionBackground(
 
   Color background_color = HighlightPaintingUtils::HighlightBackgroundColor(
       layout_item.GetDocument(), layout_item.StyleRef(), layout_item.GetNode(),
-      absl::nullopt, kPseudoIdSelection);
+      kPseudoIdSelection);
   if (!background_color.Alpha())
     return;
 
@@ -280,8 +280,7 @@ void SVGInlineTextBoxPainter::PaintSelectionBackground(
         svg_inline_text_box_.SelectionRectForTextFragment(
             fragment, fragment_with_range.start_position,
             fragment_with_range.end_position, style),
-        background_color,
-        PaintAutoDarkMode(style, DarkModeFilter::ElementRole::kSVG));
+        background_color);
   }
 }
 
@@ -295,8 +294,7 @@ static inline LayoutObject* FindLayoutObjectDefininingTextDecoration(
         LineLayoutAPIShim::LayoutObjectFrom(parent_box->GetLineLayoutItem());
 
     if (layout_object->Style() &&
-        layout_object->StyleRef().GetTextDecorationLine() !=
-            TextDecorationLine::kNone)
+        layout_object->StyleRef().GetTextDecoration() != TextDecoration::kNone)
       break;
 
     parent_box = parent_box->Parent();
@@ -308,25 +306,24 @@ static inline LayoutObject* FindLayoutObjectDefininingTextDecoration(
 
 // Offset from the baseline for |decoration|. Positive offsets are above the
 // baseline.
-static inline float BaselineOffsetForDecoration(TextDecorationLine decoration,
+static inline float BaselineOffsetForDecoration(TextDecoration decoration,
                                                 const FontMetrics& font_metrics,
                                                 float thickness) {
   // FIXME: For SVG Fonts we need to use the attributes defined in the
   // <font-face> if specified.
   // Compatible with Batik/Presto.
-  if (decoration == TextDecorationLine::kUnderline)
+  if (decoration == TextDecoration::kUnderline)
     return -thickness * 1.5f;
-  if (decoration == TextDecorationLine::kOverline)
+  if (decoration == TextDecoration::kOverline)
     return font_metrics.FloatAscent() - thickness;
-  if (decoration == TextDecorationLine::kLineThrough)
+  if (decoration == TextDecoration::kLineThrough)
     return font_metrics.FloatAscent() * 3 / 8.0f;
 
   NOTREACHED();
   return 0.0f;
 }
 
-static inline float ThicknessForDecoration(TextDecorationLine,
-                                           const Font& font) {
+static inline float ThicknessForDecoration(TextDecoration, const Font& font) {
   // FIXME: For SVG Fonts we need to use the attributes defined in the
   // <font-face> if specified.
   // Compatible with Batik/Presto
@@ -334,11 +331,11 @@ static inline float ThicknessForDecoration(TextDecorationLine,
 }
 
 void SVGInlineTextBoxPainter::PaintDecoration(const PaintInfo& paint_info,
-                                              TextDecorationLine decoration,
+                                              TextDecoration decoration,
                                               const SVGTextFragment& fragment) {
   if (svg_inline_text_box_.GetLineLayoutItem()
           .StyleRef()
-          .TextDecorationsInEffect() == TextDecorationLine::kNone)
+          .TextDecorationsInEffect() == TextDecoration::kNone)
     return;
 
   if (fragment.width <= 0)
@@ -370,22 +367,19 @@ void SVGInlineTextBoxPainter::PaintDecoration(const PaintInfo& paint_info,
 
   float decoration_offset = BaselineOffsetForDecoration(
       decoration, font_data->GetFontMetrics(), thickness);
-  gfx::PointF decoration_origin(
-      fragment.x, fragment.y - decoration_offset / scaling_factor);
+  FloatPoint decoration_origin(fragment.x,
+                               fragment.y - decoration_offset / scaling_factor);
 
   Path path;
   path.AddRect(
-      gfx::RectF(decoration_origin,
-                 gfx::SizeF(fragment.width, thickness / scaling_factor)));
-
-  AutoDarkMode auto_dark_mode(
-      PaintAutoDarkMode(decoration_style, DarkModeFilter::ElementRole::kSVG));
+      FloatRect(decoration_origin,
+                FloatSize(fragment.width, thickness / scaling_factor)));
 
   for (int i = 0; i < 3; i++) {
     switch (decoration_style.PaintOrderType(i)) {
       case PT_FILL:
         if (decoration_style.HasFill()) {
-          cc::PaintFlags fill_flags;
+          PaintFlags fill_flags;
           if (!SVGObjectPainter(*decoration_layout_object)
                    .PreparePaint(paint_info.context,
                                  paint_info.IsRenderingClipPathAsMaskImage(),
@@ -394,13 +388,12 @@ void SVGInlineTextBoxPainter::PaintDecoration(const PaintInfo& paint_info,
             break;
           }
           fill_flags.setAntiAlias(true);
-          paint_info.context.DrawPath(path.GetSkPath(), fill_flags,
-                                      auto_dark_mode);
+          paint_info.context.DrawPath(path.GetSkPath(), fill_flags);
         }
         break;
       case PT_STROKE:
         if (decoration_style.HasVisibleStroke()) {
-          cc::PaintFlags stroke_flags;
+          PaintFlags stroke_flags;
           if (!SVGObjectPainter(*decoration_layout_object)
                    .PreparePaint(paint_info.context,
                                  paint_info.IsRenderingClipPathAsMaskImage(),
@@ -421,8 +414,7 @@ void SVGInlineTextBoxPainter::PaintDecoration(const PaintInfo& paint_info,
             stroke_data.SetThickness(stroke_data.Thickness() *
                                      stroke_scale_factor);
           stroke_data.SetupPaint(&stroke_flags);
-          paint_info.context.DrawPath(path.GetSkPath(), stroke_flags,
-                                      auto_dark_mode);
+          paint_info.context.DrawPath(path.GetSkPath(), stroke_flags);
         }
         break;
       case PT_MARKERS:
@@ -437,7 +429,7 @@ bool SVGInlineTextBoxPainter::SetupTextPaint(
     const PaintInfo& paint_info,
     const ComputedStyle& style,
     LayoutSVGResourceMode resource_mode,
-    cc::PaintFlags& flags,
+    PaintFlags& flags,
     const AffineTransform* shader_transform) {
   LayoutSVGInlineText& text_layout_object = InlineText();
 
@@ -460,7 +452,7 @@ bool SVGInlineTextBoxPainter::SetupTextPaint(
            .PreparePaint(paint_info.context,
                          paint_info.IsRenderingClipPathAsMaskImage(), style,
                          resource_mode, flags,
-                         base::OptionalToPtr(paint_server_transform))) {
+                         base::OptionalOrNullptr(paint_server_transform))) {
     return false;
   }
 
@@ -496,14 +488,14 @@ void SVGInlineTextBoxPainter::PaintText(const PaintInfo& paint_info,
                                         const SVGTextFragment& fragment,
                                         int start_position,
                                         int end_position,
-                                        const cc::PaintFlags& flags) {
+                                        const PaintFlags& flags) {
   LayoutSVGInlineText& text_layout_object = InlineText();
   const Font& scaled_font = text_layout_object.ScaledFont();
 
   float scaling_factor = text_layout_object.ScalingFactor();
   DCHECK(scaling_factor);
 
-  gfx::PointF text_origin(fragment.x, fragment.y);
+  FloatPoint text_origin(fragment.x, fragment.y);
 
   GraphicsContext& context = paint_info.context;
   GraphicsContextStateSaver state_saver(context, false);
@@ -518,9 +510,7 @@ void SVGInlineTextBoxPainter::PaintText(const PaintInfo& paint_info,
   text_run_paint_info.to = end_position;
 
   context.DrawText(scaled_font, text_run_paint_info, text_origin, flags,
-                   text_layout_object.EnsureNodeId(),
-                   PaintAutoDarkMode(text_layout_object.StyleRef(),
-                                     DarkModeFilter::ElementRole::kSVG));
+                   text_layout_object.EnsureNodeId());
   // TODO(npm): Check that there are non-whitespace characters. See
   // crbug.com/788444.
   context.GetPaintController().SetTextPainted();
@@ -528,7 +518,7 @@ void SVGInlineTextBoxPainter::PaintText(const PaintInfo& paint_info,
   if (!scaled_font.ShouldSkipDrawing()) {
     PaintTiming& timing = PaintTiming::From(text_layout_object.GetDocument());
     timing.MarkFirstContentfulPaint();
-    PaintTimingDetector::NotifyTextPaint(gfx::ToEnclosingRect(
+    PaintTimingDetector::NotifyTextPaint(EnclosingIntRect(
         InlineLayoutObject().VisualRectInLocalSVGCoordinates()));
   }
 }
@@ -596,7 +586,7 @@ void SVGInlineTextBoxPainter::PaintText(
   // the regular style.
   TextRun text_run = svg_inline_text_box_.ConstructTextRun(style, fragment);
   if (!should_paint_selection || start_position >= end_position) {
-    cc::PaintFlags flags;
+    PaintFlags flags;
     if (SetupTextPaint(paint_info, style, resource_mode, flags,
                        shader_transform))
       PaintText(paint_info, text_run, fragment, 0, fragment.length, flags);
@@ -608,7 +598,7 @@ void SVGInlineTextBoxPainter::PaintText(
   bool paint_selected_text_only =
       paint_info.phase == PaintPhase::kSelectionDragImage;
   if (start_position > 0 && !paint_selected_text_only) {
-    cc::PaintFlags flags;
+    PaintFlags flags;
     if (SetupTextPaint(paint_info, style, resource_mode, flags,
                        shader_transform))
       PaintText(paint_info, text_run, fragment, 0, start_position, flags);
@@ -619,7 +609,7 @@ void SVGInlineTextBoxPainter::PaintText(
   {
     SelectionStyleScope scope(ParentInlineLayoutObject(), style,
                               selection_style);
-    cc::PaintFlags flags;
+    PaintFlags flags;
     if (SetupTextPaint(paint_info, selection_style, resource_mode, flags,
                        shader_transform)) {
       PaintText(paint_info, text_run, fragment, start_position, end_position,
@@ -631,7 +621,7 @@ void SVGInlineTextBoxPainter::PaintText(
   // selection to the end of the current chunk part.
   if (end_position < static_cast<int>(fragment.length) &&
       !paint_selected_text_only) {
-    cc::PaintFlags flags;
+    PaintFlags flags;
     if (SetupTextPaint(paint_info, style, resource_mode, flags,
                        shader_transform)) {
       PaintText(paint_info, text_run, fragment, end_position, fragment.length,
@@ -645,12 +635,13 @@ Vector<SVGTextFragmentWithRange> SVGInlineTextBoxPainter::CollectTextMatches(
   const Vector<SVGTextFragmentWithRange> empty_text_match_list;
 
   // SVG does not support grammar or spellcheck markers, so skip anything but
-  // TextFragmentMarker and TextMatchMarker types.
+  // TextMarkerBase types.
   if (marker.GetType() != DocumentMarker::kTextMatch &&
       marker.GetType() != DocumentMarker::kTextFragment)
     return empty_text_match_list;
 
-  if (!InlineLayoutObject()
+  if (marker.GetType() == DocumentMarker::kTextMatch &&
+      !InlineLayoutObject()
            .GetFrame()
            ->GetEditor()
            .MarkedTextMatchesAreHighlighted())
@@ -689,7 +680,7 @@ SVGInlineTextBoxPainter::CollectFragmentsInRange(int start_position,
 void SVGInlineTextBoxPainter::PaintTextMarkerForeground(
     const PaintInfo& paint_info,
     const PhysicalOffset& point,
-    const DocumentMarker& marker,
+    const TextMarkerBase& marker,
     const ComputedStyle& style,
     const Font& font) {
   const Vector<SVGTextFragmentWithRange> text_match_info_list =
@@ -698,16 +689,13 @@ void SVGInlineTextBoxPainter::PaintTextMarkerForeground(
     return;
 
   Color text_color = LayoutTheme::GetTheme().PlatformTextSearchColor(
-      marker.GetType() == DocumentMarker::kTextMatch
-          ? To<TextMatchMarker>(marker).IsActiveMatch()
-          : false,
-      style.UsedColorScheme());
+      marker.IsActiveMatch(), style.UsedColorScheme());
 
-  cc::PaintFlags fill_flags;
+  PaintFlags fill_flags;
   fill_flags.setColor(text_color.Rgb());
   fill_flags.setAntiAlias(true);
 
-  cc::PaintFlags stroke_flags;
+  PaintFlags stroke_flags;
   bool should_paint_stroke = false;
   if (SetupTextPaint(paint_info, style, kApplyToStrokeMode, stroke_flags,
                      nullptr)) {
@@ -735,7 +723,7 @@ void SVGInlineTextBoxPainter::PaintTextMarkerForeground(
 void SVGInlineTextBoxPainter::PaintTextMarkerBackground(
     const PaintInfo& paint_info,
     const PhysicalOffset& point,
-    const DocumentMarker& marker,
+    const TextMarkerBase& marker,
     const ComputedStyle& style,
     const Font& font) {
   const Vector<SVGTextFragmentWithRange> text_match_info_list =
@@ -744,10 +732,7 @@ void SVGInlineTextBoxPainter::PaintTextMarkerBackground(
     return;
 
   Color color = LayoutTheme::GetTheme().PlatformTextSearchHighlightColor(
-      marker.GetType() == DocumentMarker::kTextMatch
-          ? To<TextMatchMarker>(marker).IsActiveMatch()
-          : false,
-      style.UsedColorScheme());
+      marker.IsActiveMatch(), style.UsedColorScheme());
   for (const SVGTextFragmentWithRange& text_match_info : text_match_info_list) {
     const SVGTextFragment& fragment = text_match_info.fragment;
 
@@ -756,14 +741,11 @@ void SVGInlineTextBoxPainter::PaintTextMarkerBackground(
       state_saver.Save();
       paint_info.context.ConcatCTM(fragment.BuildFragmentTransform());
     }
-    gfx::RectF fragment_rect =
-        svg_inline_text_box_.SelectionRectForTextFragment(
-            fragment, text_match_info.start_position,
-            text_match_info.end_position, style);
+    FloatRect fragment_rect = svg_inline_text_box_.SelectionRectForTextFragment(
+        fragment, text_match_info.start_position, text_match_info.end_position,
+        style);
     paint_info.context.SetFillColor(color);
-    paint_info.context.FillRect(
-        fragment_rect,
-        PaintAutoDarkMode(style, DarkModeFilter::ElementRole::kSVG));
+    paint_info.context.FillRect(fragment_rect);
   }
 }
 

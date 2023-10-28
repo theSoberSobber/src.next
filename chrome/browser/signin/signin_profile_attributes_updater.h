@@ -1,4 +1,4 @@
-// Copyright 2018 The Chromium Authors
+// Copyright 2018 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -6,7 +6,7 @@
 #define CHROME_BROWSER_SIGNIN_SIGNIN_PROFILE_ATTRIBUTES_UPDATER_H_
 
 #include "base/files/file_path.h"
-#include "base/memory/raw_ptr.h"
+#include "base/macros.h"
 #include "base/scoped_observation.h"
 #include "components/keyed_service/core/keyed_service.h"
 #include "components/prefs/pref_service.h"
@@ -26,11 +26,6 @@ class SigninProfileAttributesUpdater
       const base::FilePath& profile_path,
       PrefService* prefs);
 
-  SigninProfileAttributesUpdater(const SigninProfileAttributesUpdater&) =
-      delete;
-  SigninProfileAttributesUpdater& operator=(
-      const SigninProfileAttributesUpdater&) = delete;
-
   ~SigninProfileAttributesUpdater() override;
 
  private:
@@ -44,13 +39,15 @@ class SigninProfileAttributesUpdater
   void OnPrimaryAccountChanged(
       const signin::PrimaryAccountChangeEvent& event) override;
 
-  raw_ptr<signin::IdentityManager> identity_manager_;
-  raw_ptr<ProfileAttributesStorage> profile_attributes_storage_;
+  signin::IdentityManager* identity_manager_;
+  ProfileAttributesStorage* profile_attributes_storage_;
   const base::FilePath profile_path_;
-  raw_ptr<PrefService> prefs_;
+  PrefService* prefs_;
   base::ScopedObservation<signin::IdentityManager,
                           signin::IdentityManager::Observer>
       identity_manager_observation_{this};
+
+  DISALLOW_COPY_AND_ASSIGN(SigninProfileAttributesUpdater);
 };
 
 #endif  // CHROME_BROWSER_SIGNIN_SIGNIN_PROFILE_ATTRIBUTES_UPDATER_H_

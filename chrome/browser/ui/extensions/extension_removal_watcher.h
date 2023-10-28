@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium Authors
+// Copyright 2019 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -6,7 +6,6 @@
 #define CHROME_BROWSER_UI_EXTENSIONS_EXTENSION_REMOVAL_WATCHER_H_
 
 #include "base/callback.h"
-#include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
 #include "chrome/browser/ui/browser_list_observer.h"
@@ -34,7 +33,7 @@ class ExtensionRemovalWatcher : public BrowserListObserver,
   // BrowserListObserver:
   void OnBrowserClosing(Browser* browser) override;
 
-  raw_ptr<const Browser> browser_;
+  const Browser* browser_;
   const scoped_refptr<const extensions::Extension> extension_;
   base::OnceClosure callback_;
 

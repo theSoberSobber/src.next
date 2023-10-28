@@ -7,25 +7,22 @@
 
 #include <memory>
 
-#include "base/memory/scoped_refptr.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/platform/graphics/compositor_element_id.h"
-#include "third_party/blink/renderer/platform/heap/garbage_collected.h"
-#include "third_party/blink/renderer/platform/heap/member.h"
+#include "third_party/blink/renderer/platform/heap/handle.h"
 
 namespace cc {
 class AnimationHost;
-class AnimationTimeline;
 }
 
 namespace blink {
+class CompositorAnimationTimeline;
 class GraphicsContext;
 class LinkHighlightImpl;
 class LayoutObject;
 class LocalFrame;
 class Node;
 class Page;
-class PaintArtifactCompositor;
 
 class CORE_EXPORT LinkHighlight final : public GarbageCollected<LinkHighlight> {
  public:
@@ -38,7 +35,7 @@ class CORE_EXPORT LinkHighlight final : public GarbageCollected<LinkHighlight> {
 
   void SetTapHighlight(Node*);
 
-  void UpdateOpacityAndRequestAnimation();
+  void StartHighlightAnimationIfNeeded();
 
   void AnimationHostInitialized(cc::AnimationHost&);
   void WillCloseAnimationHost();
@@ -50,7 +47,6 @@ class CORE_EXPORT LinkHighlight final : public GarbageCollected<LinkHighlight> {
   void UpdateBeforePrePaint();
   void UpdateAfterPrePaint();
   void Paint(GraphicsContext&) const;
-  void UpdateAfterPaint(const PaintArtifactCompositor*);
 
  private:
   friend class LinkHighlightImplTest;
@@ -69,7 +65,7 @@ class CORE_EXPORT LinkHighlight final : public GarbageCollected<LinkHighlight> {
   Member<Page> page_;
   std::unique_ptr<LinkHighlightImpl> impl_;
   cc::AnimationHost* animation_host_ = nullptr;
-  scoped_refptr<cc::AnimationTimeline> timeline_;
+  std::unique_ptr<CompositorAnimationTimeline> timeline_;
 };
 
 }  // namespace blink

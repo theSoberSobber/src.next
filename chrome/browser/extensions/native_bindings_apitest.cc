@@ -1,4 +1,4 @@
-// Copyright 2016 The Chromium Authors
+// Copyright 2016 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,9 +7,9 @@
 #include "base/command_line.h"
 #include "base/run_loop.h"
 #include "base/strings/stringprintf.h"
-#include "base/test/metrics/histogram_tester.h"
-#include "base/test/scoped_feature_list.h"
+#include "chrome/browser/extensions/api/extension_action/extension_action_api.h"
 #include "chrome/browser/extensions/extension_apitest.h"
+#include "chrome/browser/extensions/lazy_background_page_test_util.h"
 #include "chrome/browser/renderer_context_menu/render_view_context_menu_test_util.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
@@ -21,13 +21,7 @@
 #include "extensions/browser/event_router.h"
 #include "extensions/browser/extension_action.h"
 #include "extensions/browser/extension_action_manager.h"
-#include "extensions/browser/extension_function_histogram_value.h"
-#include "extensions/browser/extension_host_test_helper.h"
-#include "extensions/browser/extension_util.h"
 #include "extensions/browser/process_manager.h"
-#include "extensions/common/extension_features.h"
-#include "extensions/common/features/feature_developer_mode_only.h"
-#include "extensions/common/mojom/view_type.mojom.h"
 #include "extensions/common/switches.h"
 #include "extensions/test/extension_test_message_listener.h"
 #include "extensions/test/result_catcher.h"
@@ -40,10 +34,6 @@ namespace extensions {
 class NativeBindingsApiTest : public ExtensionApiTest {
  public:
   NativeBindingsApiTest() {}
-
-  NativeBindingsApiTest(const NativeBindingsApiTest&) = delete;
-  NativeBindingsApiTest& operator=(const NativeBindingsApiTest&) = delete;
-
   ~NativeBindingsApiTest() override {}
 
   void SetUpCommandLine(base::CommandLine* command_line) override {
@@ -58,27 +48,9 @@ class NativeBindingsApiTest : public ExtensionApiTest {
     ExtensionApiTest::SetUpOnMainThread();
     host_resolver()->AddRule("*", "127.0.0.1");
   }
-};
-
-// And end-to-end test for extension APIs restricted to developer mode using
-// native bindings.
-class NativeBindingsRestrictedToDeveloperModeApiTest
-    : public NativeBindingsApiTest {
- public:
-  NativeBindingsRestrictedToDeveloperModeApiTest() {
-    scoped_feature_list_.InitAndEnableFeature(
-        extensions_features::kRestrictDeveloperModeAPIs);
-  }
-
-  NativeBindingsRestrictedToDeveloperModeApiTest(
-      const NativeBindingsRestrictedToDeveloperModeApiTest&) = delete;
-  NativeBindingsRestrictedToDeveloperModeApiTest& operator=(
-      const NativeBindingsRestrictedToDeveloperModeApiTest&) = delete;
-
-  ~NativeBindingsRestrictedToDeveloperModeApiTest() override = default;
 
  private:
-  base::test::ScopedFeatureList scoped_feature_list_;
+  DISALLOW_COPY_AND_ASSIGN(NativeBindingsApiTest);
 };
 
 IN_PROC_BROWSER_TEST_F(NativeBindingsApiTest, SimpleEndToEndTest) {
@@ -89,8 +61,7 @@ IN_PROC_BROWSER_TEST_F(NativeBindingsApiTest, SimpleEndToEndTest) {
 
 // A simplistic app test for app-specific APIs.
 IN_PROC_BROWSER_TEST_F(NativeBindingsApiTest, SimpleAppTest) {
-  ExtensionTestMessageListener ready_listener("ready",
-                                              ReplyBehavior::kWillReply);
+  ExtensionTestMessageListener ready_listener("ready", true);
   ASSERT_TRUE(RunExtensionTest("native_bindings/platform_app",
                                {.launch_as_platform_app = true}))
       << message_;
@@ -98,7 +69,7 @@ IN_PROC_BROWSER_TEST_F(NativeBindingsApiTest, SimpleAppTest) {
 
   // On reply, the extension will try to close the app window and send a
   // message.
-  ExtensionTestMessageListener close_listener;
+  ExtensionTestMessageListener close_listener(false);
   ready_listener.Reply(std::string());
   ASSERT_TRUE(close_listener.WaitUntilSatisfied());
   EXPECT_EQ("success", close_listener.message());
@@ -112,7 +83,7 @@ IN_PROC_BROWSER_TEST_F(NativeBindingsApiTest, DeclarativeEvents) {
   // using chrome.test.runTests() and b) set up rules for declarative events for
   // a browser-driven test. Wait for both the tests to finish and the extension
   // to be ready.
-  ExtensionTestMessageListener listener("ready");
+  ExtensionTestMessageListener listener("ready", false);
   ResultCatcher catcher;
   const Extension* extension = LoadExtension(
       test_data_dir_.AppendASCII("native_bindings/declarative_content"));
@@ -130,15 +101,15 @@ IN_PROC_BROWSER_TEST_F(NativeBindingsApiTest, DeclarativeEvents) {
   EXPECT_TRUE(action->GetDeclarativeIcon(tab_id).IsEmpty());
 
   // Navigating to example.com should show the page action.
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(
+  ui_test_utils::NavigateToURL(
       browser(), embedded_test_server()->GetURL(
-                     "example.com", "/native_bindings/simple.html")));
+                     "example.com", "/native_bindings/simple.html"));
   base::RunLoop().RunUntilIdle();
   EXPECT_TRUE(action->GetIsVisible(tab_id));
   EXPECT_FALSE(action->GetDeclarativeIcon(tab_id).IsEmpty());
 
   // And the extension should be notified of the click.
-  ExtensionTestMessageListener clicked_listener("clicked and removed");
+  ExtensionTestMessageListener clicked_listener("clicked and removed", false);
   ExtensionActionAPI::Get(profile())->DispatchExtensionActionClicked(
       *action, web_contents, extension);
   ASSERT_TRUE(clicked_listener.WaitUntilSatisfied());
@@ -148,15 +119,11 @@ IN_PROC_BROWSER_TEST_F(NativeBindingsApiTest, LazyListeners) {
   ProcessManager::SetEventPageIdleTimeForTesting(1);
   ProcessManager::SetEventPageSuspendingTimeForTesting(1);
 
-  ExtensionHostTestHelper background_page_done(profile());
-  background_page_done.RestrictToType(
-      mojom::ViewType::kExtensionBackgroundPage);
+  LazyBackgroundObserver background_page_done;
   const Extension* extension = LoadExtension(
       test_data_dir_.AppendASCII("native_bindings/lazy_listeners"));
   ASSERT_TRUE(extension);
-  // Wait for the event page to cycle.
-  background_page_done.WaitForDocumentElementAvailable();
-  background_page_done.WaitForHostDestroyed();
+  background_page_done.Wait();
 
   EventRouter* event_router = EventRouter::Get(profile());
   EXPECT_TRUE(event_router->ExtensionHasEventListener(extension->id(),
@@ -190,9 +157,9 @@ IN_PROC_BROWSER_TEST_F(NativeBindingsApiTest, WebRequest) {
   ASSERT_TRUE(extension);
   ASSERT_TRUE(catcher.GetNextResult()) << catcher.message();
 
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(
+  ui_test_utils::NavigateToURL(
       browser(), embedded_test_server()->GetURL(
-                     "example.com", "/native_bindings/simple.html")));
+                     "example.com", "/native_bindings/simple.html"));
 
   GURL expected_url = embedded_test_server()->GetURL(
       "example.com", "/native_bindings/simple2.html");
@@ -227,7 +194,7 @@ IN_PROC_BROWSER_TEST_F(NativeBindingsApiTest, ContextMenusTest) {
 
   const Extension* extension = nullptr;
   {
-    ExtensionTestMessageListener listener("registered");
+    ExtensionTestMessageListener listener("registered", false);
     extension = LoadExtension(test_dir.UnpackedPath());
     ASSERT_TRUE(extension);
     EXPECT_TRUE(listener.WaitUntilSatisfied());
@@ -239,7 +206,7 @@ IN_PROC_BROWSER_TEST_F(NativeBindingsApiTest, ContextMenusTest) {
       TestRenderViewContextMenu::Create(
           web_contents, GURL("https://www.example.com"), GURL(), GURL()));
 
-  ExtensionTestMessageListener listener("clicked");
+  ExtensionTestMessageListener listener("clicked", false);
   int command_id = ContextMenuMatcher::ConvertToExtensionsCustomCommandId(0);
   EXPECT_TRUE(menu->IsCommandIdEnabled(command_id));
   menu->ExecuteCommand(command_id, 0);
@@ -279,19 +246,18 @@ IN_PROC_BROWSER_TEST_F(NativeBindingsApiTest, ErrorsInCallbackTest) {
            });
          });)");
 
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(
+  ui_test_utils::NavigateToURL(
       browser(), embedded_test_server()->GetURL(
-                     "example.com", "/native_bindings/simple.html")));
+                     "example.com", "/native_bindings/simple.html"));
 
-  ExtensionTestMessageListener listener("callback");
+  ExtensionTestMessageListener listener("callback", false);
   ASSERT_TRUE(LoadExtension(test_dir.UnpackedPath()));
   EXPECT_TRUE(listener.WaitUntilSatisfied());
 }
 
 // Tests that bindings are available in WebUI pages.
 IN_PROC_BROWSER_TEST_F(NativeBindingsApiTest, WebUIBindings) {
-  ASSERT_TRUE(
-      ui_test_utils::NavigateToURL(browser(), GURL("chrome://extensions")));
+  ui_test_utils::NavigateToURL(browser(), GURL("chrome://extensions"));
   content::WebContents* web_contents =
       browser()->tab_strip_model()->GetActiveWebContents();
   auto api_exists = [web_contents](const std::string& api_name) {
@@ -325,7 +291,6 @@ IN_PROC_BROWSER_TEST_F(NativeBindingsApiTest, APICreationFromNewContext) {
 // End-to-end test for promise support on bindings for MV3 extensions, using a
 // few tabs APIs. Also ensures callbacks still work for the API as expected.
 IN_PROC_BROWSER_TEST_F(NativeBindingsApiTest, PromiseBasedAPI) {
-  base::HistogramTester histogram_tester;
   ASSERT_TRUE(StartEmbeddedTestServer());
 
   TestExtensionDir test_dir;
@@ -337,7 +302,7 @@ IN_PROC_BROWSER_TEST_F(NativeBindingsApiTest, PromiseBasedAPI) {
            "background": {
              "service_worker": "background.js"
            },
-           "permissions": ["tabs", "storage", "contentSettings", "privacy"]
+           "permissions": ["tabs"]
          })");
   constexpr char kBackgroundJs[] =
       R"(let tabIdExample;
@@ -372,182 +337,7 @@ IN_PROC_BROWSER_TEST_F(NativeBindingsApiTest, PromiseBasedAPI) {
                  chrome.test.succeed();
                });
              },
-             async function storageAreaCustomTypeWithPromises() {
-               await chrome.storage.local.set({foo: 'bar', alpha: 'beta'});
-               {
-                 const {foo} = await chrome.storage.local.get('foo');
-                 chrome.test.assertEq('bar', foo);
-               }
-               await chrome.storage.local.remove('foo');
-               {
-                 const {foo} = await chrome.storage.local.get('foo');
-                 chrome.test.assertEq(undefined, foo);
-               }
-               let allValues = await chrome.storage.local.get(null);
-               chrome.test.assertEq({alpha: 'beta'}, allValues);
-               await chrome.storage.local.clear();
-               allValues = await chrome.storage.local.get(null);
-               chrome.test.assertEq({}, allValues);
-               chrome.test.succeed();
-             },
-             async function contentSettingsCustomTypesWithPromises() {
-               await chrome.contentSettings.cookies.set({
-                   primaryPattern: '<all_urls>', setting: 'block'});
-               {
-                 const {setting} = await chrome.contentSettings.cookies.get({
-                     primaryUrl: exampleUrl});
-                 chrome.test.assertEq('block', setting);
-               }
-               await chrome.contentSettings.cookies.clear({});
-               {
-                 const {setting} = await chrome.contentSettings.cookies.get({
-                     primaryUrl: exampleUrl});
-                 // 'allow' is the default value for the setting.
-                 chrome.test.assertEq('allow', setting);
-               }
-               chrome.test.succeed();
-             },
-             async function chromeSettingCustomTypesWithPromises() {
-               // Short alias for ease of calling.
-               let doNotTrack = chrome.privacy.websites.doNotTrackEnabled;
-               await doNotTrack.set({value: true});
-               {
-                 const {value} = await doNotTrack.get({});
-                 chrome.test.assertEq(true, value);
-               }
-               await doNotTrack.clear({});
-               {
-                 const {value} = await doNotTrack.get({});
-                 // false is the default value for the setting.
-                 chrome.test.assertEq(false, value);
-               }
-               chrome.test.succeed();
-             },
 
-
-             function createNewTabCallback() {
-               chrome.tabs.create({url: googleUrl}, (tab) => {
-                 let url = tab.pendingUrl;
-                 chrome.test.assertEq(googleUrl, url);
-                 tabIdGoogle = tab.id;
-                 chrome.test.assertNoLastError();
-                 chrome.test.succeed();
-               });
-             },
-             function queryTabCallback() {
-               chrome.tabs.query({url: googleUrl}, (tabs) => {
-                 chrome.test.assertTrue(tabs instanceof Array);
-                 chrome.test.assertEq(1, tabs.length);
-                 chrome.test.assertEq(tabIdGoogle, tabs[0].id);
-                 chrome.test.assertNoLastError();
-                 chrome.test.succeed();
-               });
-             },
-             function storageAreaCustomTypeWithCallbacks() {
-               // Lots of stuff would probably fail if the callback version of
-               // storage failed, so this is mostly just a rough sanity check.
-               chrome.storage.local.set({gamma: 'delta'}, () => {
-                 chrome.storage.local.get('gamma', ({gamma}) => {
-                   chrome.test.assertEq('delta', gamma);
-                   chrome.storage.local.clear(() => {
-                     chrome.storage.local.get(null, (allValues) => {
-                       chrome.test.assertEq({}, allValues);
-                       chrome.test.succeed();
-                     });
-                   });
-                 });
-               });
-             },
-           ]);
-         });)";
-  test_dir.WriteFile(FILE_PATH_LITERAL("background.js"), kBackgroundJs);
-  ResultCatcher catcher;
-  ASSERT_TRUE(LoadExtension(test_dir.UnpackedPath()));
-  ASSERT_TRUE(catcher.GetNextResult()) << catcher.message();
-
-  // The above test makes 2 calls to chrome.tabs.create, so check that those
-  // have been logged in the histograms we expect them to be.
-  EXPECT_EQ(2, histogram_tester.GetBucketCount(
-                   "Extensions.Functions.ExtensionCalls",
-                   functions::HistogramValue::TABS_CREATE));
-  EXPECT_EQ(2, histogram_tester.GetBucketCount(
-                   "Extensions.Functions.ExtensionServiceWorkerCalls",
-                   functions::HistogramValue::TABS_CREATE));
-  EXPECT_EQ(2, histogram_tester.GetBucketCount(
-                   "Extensions.Functions.ExtensionMV3Calls",
-                   functions::HistogramValue::TABS_CREATE));
-}
-
-// Tests that calling an API which supports promises using an MV2 extension does
-// not get a promise based return and still needs to use callbacks when
-// required.
-IN_PROC_BROWSER_TEST_F(NativeBindingsApiTest, MV2PromisesNotSupported) {
-  base::HistogramTester histogram_tester;
-  ASSERT_TRUE(StartEmbeddedTestServer());
-
-  TestExtensionDir test_dir;
-  test_dir.WriteManifest(
-      R"({
-           "name": "Promises",
-           "manifest_version": 2,
-           "version": "0.1",
-           "background": {
-             "scripts": ["background.js"]
-           },
-           "permissions": ["tabs", "storage", "contentSettings", "privacy"]
-         })");
-  constexpr char kBackgroundJs[] =
-      R"(let tabIdGooge;
-
-         chrome.test.getConfig((config) => {
-           let exampleUrl = `https://example.com:${config.testServer.port}/`;
-           let googleUrl = `https://google.com:${config.testServer.port}/`
-
-           chrome.test.runTests([
-             function createNewTabPromise() {
-               let result = chrome.tabs.create({url: exampleUrl});
-               chrome.test.assertEq(undefined, result);
-               chrome.test.assertNoLastError();
-               chrome.test.succeed();
-             },
-             function queryTabPromise() {
-               let expectedError = 'Error in invocation of tabs.query(object ' +
-                   'queryInfo, function callback): No matching signature.';
-               chrome.test.assertThrows(chrome.tabs.query,
-                                        [{url: exampleUrl}],
-                                        expectedError);
-               chrome.test.succeed();
-             },
-             function storageAreaPromise() {
-               let expectedError = 'Error in invocation of storage.get(' +
-                   'optional [string|array|object] keys, function callback): ' +
-                   'No matching signature.';
-               chrome.test.assertThrows(chrome.storage.local.get,
-                                        chrome.storage.local,
-                                        ['foo'], expectedError);
-               chrome.test.succeed();
-             },
-             function contentSettingPromise() {
-               let expectedError = 'Error in invocation of contentSettings' +
-                   '.ContentSetting.get(object details, function callback): ' +
-                   'No matching signature.';
-               chrome.test.assertThrows(chrome.contentSettings.cookies.get,
-                                        chrome.contentSettings.cookies,
-                                        [{primaryUrl: exampleUrl}],
-                                        expectedError);
-               chrome.test.succeed();
-             },
-             function chromeSettingPromise() {
-               let expectedError = 'Error in invocation of types' +
-                   '.ChromeSetting.get(object details, function callback): ' +
-                   'No matching signature.';
-               chrome.test.assertThrows(
-                   chrome.privacy.websites.doNotTrackEnabled.get,
-                   chrome.privacy.websites.doNotTrackEnabled,
-                   [{}],
-                   expectedError);
-               chrome.test.succeed();
-             },
              function createNewTabCallback() {
                chrome.tabs.create({url: googleUrl}, (tab) => {
                  let url = tab.pendingUrl;
@@ -572,61 +362,72 @@ IN_PROC_BROWSER_TEST_F(NativeBindingsApiTest, MV2PromisesNotSupported) {
   ResultCatcher catcher;
   ASSERT_TRUE(LoadExtension(test_dir.UnpackedPath()));
   ASSERT_TRUE(catcher.GetNextResult()) << catcher.message();
-
-  // The above test makes 2 calls to chrome.tabs.create, so check that those
-  // have been logged in the histograms we expect, but not to the histograms
-  // specifcally tracking service worker and MV3 calls.
-  EXPECT_EQ(2, histogram_tester.GetBucketCount(
-                   "Extensions.Functions.ExtensionCalls",
-                   functions::HistogramValue::TABS_CREATE));
-  EXPECT_EQ(0, histogram_tester.GetBucketCount(
-                   "Extensions.Functions.ExtensionServiceWorkerCalls",
-                   functions::HistogramValue::TABS_CREATE));
-  EXPECT_EQ(0, histogram_tester.GetBucketCount(
-                   "Extensions.Functions.ExtensionMV3Calls",
-                   functions::HistogramValue::TABS_CREATE));
 }
 
-IN_PROC_BROWSER_TEST_F(
-    NativeBindingsRestrictedToDeveloperModeApiTest,
-    DeveloperModeOnlyWithAPIPermissionUserIsNotInDeveloperMode) {
-  // With kDeveloperModeRestriction enabled, developer mode-only APIs
-  // should not be available if the user is not in developer mode.
-  SetCustomArg("not_in_developer_mode");
-  SetCurrentDeveloperMode(util::GetBrowserContextId(profile()), false);
-  ASSERT_TRUE(RunExtensionTest(
-      "native_bindings/developer_mode_only_with_api_permission"))
-      << message_;
-}
+// Tests that calling an API which supports promises using an MV2 extension does
+// not get a promise based return and still needs to use callbacks when
+// required.
+IN_PROC_BROWSER_TEST_F(NativeBindingsApiTest, MV2PromisesNotSupported) {
+  ASSERT_TRUE(StartEmbeddedTestServer());
 
-IN_PROC_BROWSER_TEST_F(
-    NativeBindingsRestrictedToDeveloperModeApiTest,
-    DeveloperModeOnlyWithAPIPermissionUserIsInDeveloperMode) {
-  // With kDeveloperModeRestriction enabled, developer mode-only APIs
-  // should be available if the user is in developer mode.
-  SetCustomArg("in_developer_mode");
-  SetCurrentDeveloperMode(util::GetBrowserContextId(profile()), true);
-  ASSERT_TRUE(RunExtensionTest(
-      "native_bindings/developer_mode_only_with_api_permission"))
-      << message_;
-}
+  TestExtensionDir test_dir;
+  test_dir.WriteManifest(
+      R"({
+           "name": "Promises",
+           "manifest_version": 2,
+           "version": "0.1",
+           "background": {
+             "scripts": ["background.js"]
+           },
+           "permissions": ["tabs"]
+         })");
+  constexpr char kBackgroundJs[] =
+      R"(let tabIdGooge;
 
-IN_PROC_BROWSER_TEST_F(
-    NativeBindingsRestrictedToDeveloperModeApiTest,
-    DeveloperModeOnlyWithoutAPIPermissionUserIsNotInDeveloperMode) {
-  SetCurrentDeveloperMode(util::GetBrowserContextId(profile()), false);
-  ASSERT_TRUE(RunExtensionTest(
-      "native_bindings/developer_mode_only_without_api_permission"))
-      << message_;
-}
+         chrome.test.getConfig((config) => {
+           let exampleUrl = `https://example.com:${config.testServer.port}/`;
+           let googleUrl = `https://google.com:${config.testServer.port}/`
 
-IN_PROC_BROWSER_TEST_F(
-    NativeBindingsRestrictedToDeveloperModeApiTest,
-    DeveloperModeOnlyWithoutAPIPermissionUserIsInDeveloperMode) {
-  SetCurrentDeveloperMode(util::GetBrowserContextId(profile()), true);
-  ASSERT_TRUE(RunExtensionTest(
-      "native_bindings/developer_mode_only_without_api_permission"))
-      << message_;
+           chrome.test.runTests([
+             function createNewTabPromise() {
+               let result = chrome.tabs.create({url: exampleUrl});
+               chrome.test.assertEq(undefined, result);
+               chrome.test.assertNoLastError();
+               chrome.test.succeed();
+             },
+             function queryTabPromise() {
+               let expectedError = 'Error in invocation of tabs.query(object ' +
+                   'queryInfo, function callback): No matching signature.';
+               chrome.test.assertThrows(chrome.tabs.query,
+                                        [{url: exampleUrl}],
+                                        expectedError);
+               chrome.test.succeed();
+             },
+
+             function createNewTabCallback() {
+               chrome.tabs.create({url: googleUrl}, (tab) => {
+                 let url = tab.pendingUrl;
+                 chrome.test.assertEq(googleUrl, url);
+                 tabIdGoogle = tab.id;
+                 chrome.test.assertNoLastError();
+                 chrome.test.succeed();
+               });
+             },
+             function queryTabCallback() {
+               chrome.tabs.query({url: googleUrl}, (tabs) => {
+                 chrome.test.assertTrue(tabs instanceof Array);
+                 chrome.test.assertEq(1, tabs.length);
+                 chrome.test.assertEq(tabIdGoogle, tabs[0].id);
+                 chrome.test.assertNoLastError();
+                 chrome.test.succeed();
+               });
+             }
+           ]);
+         });)";
+  test_dir.WriteFile(FILE_PATH_LITERAL("background.js"), kBackgroundJs);
+  ResultCatcher catcher;
+  ASSERT_TRUE(LoadExtension(test_dir.UnpackedPath()));
+  ASSERT_TRUE(catcher.GetNextResult()) << catcher.message();
 }
 
 }  // namespace extensions

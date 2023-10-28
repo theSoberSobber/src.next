@@ -1,14 +1,15 @@
-// Copyright 2020 The Chromium Authors
+// Copyright 2020 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include "ui/webui/untrusted_web_ui_controller_factory.h"
 
+#include "base/no_destructor.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui.h"
 #include "content/public/browser/web_ui_controller.h"
-#include "content/public/browser/webui_config.h"
 #include "content/public/common/url_constants.h"
+#include "ui/webui/webui_config.h"
 #include "url/gurl.h"
 
 namespace ui {
@@ -45,7 +46,7 @@ UntrustedWebUIControllerFactory::CreateWebUIControllerForURL(
   return config->CreateWebUIController(web_ui);
 }
 
-content::WebUIConfig* UntrustedWebUIControllerFactory::GetConfigIfWebUIEnabled(
+ui::WebUIConfig* UntrustedWebUIControllerFactory::GetConfigIfWebUIEnabled(
     content::BrowserContext* browser_context,
     const GURL& url) {
   // This factory doesn't support non chrome-untrusted:// WebUIs.

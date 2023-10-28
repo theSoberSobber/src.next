@@ -1,4 +1,4 @@
-// Copyright 2018 The Chromium Authors
+// Copyright 2018 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -10,7 +10,6 @@ import android.view.View.OnClickListener;
 import org.chromium.chrome.browser.theme.ThemeColorProvider;
 import org.chromium.chrome.browser.theme.ThemeColorProvider.TintObserver;
 import org.chromium.chrome.browser.toolbar.TabCountProvider.TabCountObserver;
-import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.modelutil.PropertyModelChangeProcessor;
 
@@ -54,8 +53,7 @@ public class TabSwitcherButtonCoordinator {
         mThemeColorProvider = themeColorProvider;
         mTintObserver = new TintObserver() {
             @Override
-            public void onTintChanged(
-                    ColorStateList tint, @BrandedColorScheme int brandedColorScheme) {
+            public void onTintChanged(ColorStateList tint, boolean useLight) {
                 mTabSwitcherButtonModel.set(TabSwitcherButtonProperties.TINT, tint);
             }
         };
@@ -66,11 +64,12 @@ public class TabSwitcherButtonCoordinator {
 
     public void setTabCountProvider(TabCountProvider tabCountProvider) {
         mTabCountProvider = tabCountProvider;
-        mTabSwitcherButtonModel.set(TabSwitcherButtonProperties.IS_ENABLED, true);
+        updateButtonState();
         mTabCountObserver = new TabCountObserver() {
             @Override
             public void onTabCountChanged(int tabCount, boolean isIncognito) {
                 mTabSwitcherButtonModel.set(TabSwitcherButtonProperties.NUMBER_OF_TABS, tabCount);
+                updateButtonState();
             }
         };
         mTabCountProvider.addObserverAndTrigger(mTabCountObserver);
@@ -85,5 +84,11 @@ public class TabSwitcherButtonCoordinator {
             mTabCountProvider.removeObserver(mTabCountObserver);
             mTabCountProvider = null;
         }
+    }
+
+    private void updateButtonState() {
+        boolean shouldEnable =
+                mTabSwitcherButtonModel.get(TabSwitcherButtonProperties.NUMBER_OF_TABS) >= 1;
+        mTabSwitcherButtonModel.set(TabSwitcherButtonProperties.IS_ENABLED, shouldEnable);
     }
 }

@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium Authors
+// Copyright 2019 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -20,11 +20,11 @@
 #include "ui/base/ui_base_features.h"
 #include "ui/base/ui_base_switches.h"
 
-#if BUILDFLAG(IS_ANDROID)
+#if defined(OS_ANDROID)
 #include "base/android/build_info.h"
 #endif
 
-#if BUILDFLAG(IS_WIN)
+#if defined(OS_WIN)
 #include "base/win/windows_version.h"
 #endif
 
@@ -66,23 +66,19 @@ class FormControlsBrowserTest : public ContentBrowserTest {
     base::ScopedAllowBlockingForTesting allow_blocking;
 
     std::string platform_suffix;
-#if BUILDFLAG(IS_MAC)
+#if defined(OS_MAC)
     platform_suffix = "_mac";
-#elif BUILDFLAG(IS_WIN)
+#elif defined(OS_WIN)
     platform_suffix = "_win";
-#elif BUILDFLAG(IS_LINUX)
-    platform_suffix = "_linux";
-#elif BUILDFLAG(IS_CHROMEOS)
+#elif BUILDFLAG(IS_CHROMEOS_ASH) || BUILDFLAG(IS_CHROMEOS_LACROS)
     platform_suffix = "_chromeos";
-#elif BUILDFLAG(IS_ANDROID)
+#elif defined(OS_ANDROID)
     int sdk_int = base::android::BuildInfo::GetInstance()->sdk_int();
     if (sdk_int == base::android::SDK_VERSION_KITKAT) {
       platform_suffix = "_android_kitkat";
     } else {
       platform_suffix = "_android";
     }
-#elif BUILDFLAG(IS_FUCHSIA)
-    platform_suffix = "_fuchsia";
 #endif
 
     base::FilePath dir_test_data;
@@ -101,7 +97,7 @@ class FormControlsBrowserTest : public ContentBrowserTest {
         NavigateToURL(shell()->web_contents(),
                       GURL("data:text/html,<!DOCTYPE html>" + body_html)));
 
-#if BUILDFLAG(IS_MAC)
+#if defined(OS_MAC)
     // This fuzzy pixel comparator handles several mac behaviors:
     // - Different font rendering after 10.14
     // - 10.12 subpixel rendering differences: crbug.com/1037971
@@ -113,8 +109,7 @@ class FormControlsBrowserTest : public ContentBrowserTest {
         /* avg_abs_error_limit */ 20.f,
         /* max_abs_error_limit */ 120.f,
         /* small_error_threshold */ 0);
-#elif BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_WIN) || (OS_LINUX) || \
-    BUILDFLAG(IS_FUCHSIA)
+#elif defined(OS_ANDROID) || defined(OS_WIN)
     // Different versions of android may have slight differences in rendering.
     // Some versions have more significant differences than others, which are
     // tracked separately in separate baseline image files. The less significant
@@ -137,7 +132,7 @@ class FormControlsBrowserTest : public ContentBrowserTest {
 
   // Check if the test can run on the current system.
   bool SkipTestForOldAndroidVersions() const {
-#if BUILDFLAG(IS_ANDROID)
+#if defined(OS_ANDROID)
     // Lower versions of android running on older devices, ex Nexus 5, render
     // form controls with a too large of a difference -- >20% error -- to
     // pixel compare.
@@ -145,29 +140,22 @@ class FormControlsBrowserTest : public ContentBrowserTest {
         base::android::SDK_VERSION_OREO) {
       return true;
     }
-#endif  // BUILDFLAG(IS_ANDROID)
+#endif  // defined(OS_ANDROID)
     return false;
   }
 
   bool SkipTestForOldWinVersion() const {
-#if BUILDFLAG(IS_WIN)
+#if defined(OS_WIN)
     // Win7 font rendering causes too large of rendering diff for pixel
     // comparison.
     if (base::win::GetVersion() <= base::win::Version::WIN7)
       return true;
-#endif  // BUILDFLAG(IS_WIN)
+#endif  // defined(OS_WIN)
     return false;
   }
 };
 
-// Checkbox renders differently on Android x86. crbug.com/1238283
-#if BUILDFLAG(IS_ANDROID) && defined(ARCH_CPU_X86)
-#define MAYBE_Checkbox DISABLED_Checkbox
-#else
-#define MAYBE_Checkbox Checkbox
-#endif
-
-IN_PROC_BROWSER_TEST_F(FormControlsBrowserTest, MAYBE_Checkbox) {
+IN_PROC_BROWSER_TEST_F(FormControlsBrowserTest, Checkbox) {
   if (SkipTestForOldAndroidVersions())
     return;
 
@@ -202,7 +190,7 @@ IN_PROC_BROWSER_TEST_F(FormControlsBrowserTest, Radio) {
 }
 
 IN_PROC_BROWSER_TEST_F(FormControlsBrowserTest, DarkModeTextSelection) {
-#if BUILDFLAG(IS_MAC)
+#if defined(OS_MAC)
   if (!MacOSVersionSupportsDarkMode())
     return;
 #endif
@@ -298,7 +286,7 @@ IN_PROC_BROWSER_TEST_F(FormControlsBrowserTest, Button) {
 // TODO(crbug.com/1160104/#25) This test creates large average_error_rate on
 // Android FYI SkiaRenderer Vulkan. Disable it until a resolution for is
 // found.
-#if BUILDFLAG(IS_ANDROID)
+#if defined(OS_ANDROID)
 #define MAYBE_ColorInput DISABLED_ColorInput
 #else
 #define MAYBE_ColorInput ColorInput

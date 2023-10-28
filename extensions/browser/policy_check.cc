@@ -1,4 +1,4 @@
-// Copyright 2017 The Chromium Authors
+// Copyright 2017 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -21,7 +21,7 @@ void PolicyCheck::Start(ResultCallback callback) {
   if (!ExtensionSystem::Get(context_)->management_policy()->UserMayInstall(
           extension(), &error_)) {
     DCHECK(!error_.empty());
-    errors.insert(Error::kDisallowedByPolicy);
+    errors.insert(DISALLOWED_BY_POLICY);
   }
   std::move(callback).Run(errors);
 }

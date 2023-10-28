@@ -1,4 +1,4 @@
-// Copyright 2013 The Chromium Authors
+// Copyright 2013 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -11,10 +11,9 @@
 
 #include "base/android/scoped_java_ref.h"
 #include "base/dcheck_is_on.h"
-#include "base/memory/raw_ptr.h"
+#include "base/single_thread_task_runner.h"
 #include "base/task/sequence_manager/sequence_manager.h"
 #include "base/task/sequence_manager/task_queue.h"
-#include "base/task/single_thread_task_runner.h"
 #include "base/threading/thread_task_runner_handle.h"
 
 namespace base {
@@ -33,7 +32,7 @@ class BASE_EXPORT JavaHandlerThread {
   // Create new thread.
   explicit JavaHandlerThread(
       const char* name,
-      base::ThreadType thread_type = base::ThreadType::kDefault);
+      base::ThreadPriority priority = base::ThreadPriority::NORMAL);
   // Wrap and connect to an existing JavaHandlerThread.
   // |obj| is an instance of JavaHandlerThread.
   explicit JavaHandlerThread(
@@ -82,7 +81,7 @@ class BASE_EXPORT JavaHandlerThread {
 
     std::unique_ptr<sequence_manager::SequenceManager> sequence_manager;
     scoped_refptr<sequence_manager::TaskQueue> default_task_queue;
-    raw_ptr<MessagePumpForUI> pump = nullptr;
+    MessagePumpForUI* pump = nullptr;
   };
 
   State* state() const { return state_.get(); }

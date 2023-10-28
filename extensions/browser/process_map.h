@@ -1,4 +1,4 @@
-// Copyright 2013 The Chromium Authors
+// Copyright 2013 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -10,8 +10,8 @@
 #include <set>
 #include <string>
 
+#include "base/macros.h"
 #include "components/keyed_service/core/keyed_service.h"
-#include "content/public/browser/site_instance.h"
 #include "extensions/common/features/feature.h"
 
 namespace content {
@@ -78,10 +78,6 @@ class Extension;
 class ProcessMap : public KeyedService {
  public:
   ProcessMap();
-
-  ProcessMap(const ProcessMap&) = delete;
-  ProcessMap& operator=(const ProcessMap&) = delete;
-
   ~ProcessMap() override;
 
   // Returns the instance for |browser_context|. An instance is shared between
@@ -90,13 +86,11 @@ class ProcessMap : public KeyedService {
 
   size_t size() const { return items_.size(); }
 
-  bool Insert(const std::string& extension_id,
-              int process_id,
-              content::SiteInstanceId site_instance_id);
+  bool Insert(const std::string& extension_id, int process_id,
+              int site_instance_id);
 
-  bool Remove(const std::string& extension_id,
-              int process_id,
-              content::SiteInstanceId site_instance_id);
+  bool Remove(const std::string& extension_id, int process_id,
+              int site_instance_id);
   int RemoveAllFromProcess(int process_id);
 
   bool Contains(const std::string& extension_id, int process_id) const;
@@ -162,6 +156,8 @@ class ProcessMap : public KeyedService {
   // Whether the process map belongs to the browser context used on Chrome OS
   // lock screen.
   bool is_lock_screen_context_ = false;
+
+  DISALLOW_COPY_AND_ASSIGN(ProcessMap);
 };
 
 }  // namespace extensions

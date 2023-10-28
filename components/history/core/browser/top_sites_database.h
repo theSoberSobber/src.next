@@ -1,33 +1,31 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef COMPONENTS_HISTORY_CORE_BROWSER_TOP_SITES_DATABASE_H_
 #define COMPONENTS_HISTORY_CORE_BROWSER_TOP_SITES_DATABASE_H_
 
-#include <memory>
+#include <map>
 
 #include "base/gtest_prod_util.h"
+#include "base/macros.h"
 #include "components/history/core/browser/history_types.h"
 #include "sql/meta_table.h"
+#include "sql/transaction.h"
 
 namespace base {
 class FilePath;
-}  // namespace base
+}
 
 namespace sql {
 class Database;
-}  // namespace sql
+}
 
 namespace history {
 
 class TopSitesDatabase {
  public:
   TopSitesDatabase();
-
-  TopSitesDatabase(const TopSitesDatabase&) = delete;
-  TopSitesDatabase& operator=(const TopSitesDatabase&) = delete;
-
   ~TopSitesDatabase();
 
   // Must be called after creation but before any other methods are called.
@@ -38,7 +36,7 @@ class TopSitesDatabase {
   void ApplyDelta(const TopSitesDelta& delta);
 
   // Returns a list of all URLs currently in the table.
-  // WARNING: clears input argument.
+  // WARNING: clears both input arguments.
   void GetSites(MostVisitedURLList* urls);
 
  private:
@@ -48,10 +46,8 @@ class TopSitesDatabase {
   FRIEND_TEST_ALL_PREFIXES(TopSitesDatabaseTest, Version4);
   FRIEND_TEST_ALL_PREFIXES(TopSitesDatabaseTest, Recovery1);
   FRIEND_TEST_ALL_PREFIXES(TopSitesDatabaseTest, Recovery2);
-  FRIEND_TEST_ALL_PREFIXES(TopSitesDatabaseTest, Recovery3to4_CorruptIndex);
-  FRIEND_TEST_ALL_PREFIXES(TopSitesDatabaseTest, Recovery4_CorruptIndex);
-  FRIEND_TEST_ALL_PREFIXES(TopSitesDatabaseTest,
-                           Recovery4_CorruptIndexAndLostRow);
+  FRIEND_TEST_ALL_PREFIXES(TopSitesDatabaseTest, Recovery3);
+  FRIEND_TEST_ALL_PREFIXES(TopSitesDatabaseTest, Recovery4);
 
   // Rank used to indicate that a URL is not stored in the database.
   static const int kRankOfNonExistingURL;
@@ -94,8 +90,12 @@ class TopSitesDatabase {
   // invoke recovery code.
   bool InitImpl(const base::FilePath& db_name);
 
+  std::unique_ptr<sql::Database> CreateDB(const base::FilePath& db_name);
+
   std::unique_ptr<sql::Database> db_;
   sql::MetaTable meta_table_;
+
+  DISALLOW_COPY_AND_ASSIGN(TopSitesDatabase);
 };
 
 }  // namespace history

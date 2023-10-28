@@ -1,4 +1,4 @@
-// Copyright 2018 The Chromium Authors
+// Copyright 2018 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,7 +7,6 @@
 
 #include <string>
 
-#include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
 
@@ -27,14 +26,12 @@ namespace chrome {
 // users.
 bool ShouldDisplayManagedUi(Profile* profile);
 
-#if !BUILDFLAG(IS_ANDROID)
 // The label for the App Menu item for Managed UI.
 std::u16string GetManagedUiMenuItemLabel(Profile* profile);
 
 // The label for the WebUI footnote for Managed UI indicating that the browser
 // is managed. These strings contain HTML for an <a> element.
 std::u16string GetManagedUiWebUILabel(Profile* profile);
-#endif  // !BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 // The label for the WebUI footnote for Managed UI indicating that the device
@@ -46,17 +43,6 @@ std::u16string GetDeviceManagedUiWebUILabel();
 // representation of the manager identity if available and an empty string if
 // the device is managed but the manager is not known.
 absl::optional<std::string> GetDeviceManagerIdentity();
-
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-// Returns the UTF8-encoded string representation of the the entity that manages
-// the current session or nullopt if unmanaged. Returns the same result as
-// `GetAccountManagerIdentity(primary_profile)` where `primary_profile` is the
-// initial profile in the session. This concept only makes sense on lacros where
-//  - session manager can be different from account manager for a profile in
-//    this session, and also
-//  - session manager can be different from device manager.
-absl::optional<std::string> GetSessionManagerIdentity();
-#endif
 
 // Returns the UTF8-encoded string representation of the the entity that manages
 // `profile` or nullopt if unmanaged. For standard dasher domains, this will be

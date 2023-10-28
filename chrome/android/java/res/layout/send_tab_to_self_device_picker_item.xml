@@ -1,9 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-Copyright 2019 The Chromium Authors
-Use of this source code is governed by a BSD-style license that can be
-found in the LICENSE file.
--->
+<!-- Copyright 2019 The Chromium Authors. All rights reserved.
+     Use of this source code is governed by a BSD-style license that can be
+     found in the LICENSE file. -->
 
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
@@ -12,8 +10,8 @@ found in the LICENSE file.
     android:minHeight="70dp"
     android:gravity="center_vertical"
     android:orientation="horizontal"
-    android:paddingStart="29dp"
-    android:paddingEnd="34dp">
+    android:paddingStart="10dp"
+    android:paddingEnd="10dp">
         <org.chromium.ui.widget.ChromeImageView
             android:id="@+id/device_icon"
             android:layout_width="wrap_content"

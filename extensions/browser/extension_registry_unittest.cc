@@ -1,4 +1,4 @@
-// Copyright 2013 The Chromium Authors
+// Copyright 2013 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -6,6 +6,7 @@
 
 #include <string>
 
+#include "base/macros.h"
 #include "base/memory/ref_counted.h"
 #include "extensions/browser/extension_registry_observer.h"
 #include "extensions/browser/uninstall_reason.h"
@@ -38,9 +39,6 @@ testing::AssertionResult HasSingleExtension(
 class TestObserver : public ExtensionRegistryObserver {
  public:
   TestObserver() {}
-
-  TestObserver(const TestObserver&) = delete;
-  TestObserver& operator=(const TestObserver&) = delete;
 
   void Reset() {
     loaded_.clear();
@@ -85,10 +83,12 @@ class TestObserver : public ExtensionRegistryObserver {
   ExtensionList unloaded_;
   ExtensionList installed_;
   ExtensionList uninstalled_;
+
+  DISALLOW_COPY_AND_ASSIGN(TestObserver);
 };
 
 TEST_F(ExtensionRegistryTest, FillAndClearRegistry) {
-  ExtensionRegistry registry(nullptr);
+  ExtensionRegistry registry(NULL);
   scoped_refptr<const Extension> extension1 = ExtensionBuilder("one").Build();
   scoped_refptr<const Extension> extension2 = ExtensionBuilder("two").Build();
   scoped_refptr<const Extension> extension3 = ExtensionBuilder("three").Build();
@@ -122,7 +122,7 @@ TEST_F(ExtensionRegistryTest, FillAndClearRegistry) {
 
 // A simple test of adding and removing things from sets.
 TEST_F(ExtensionRegistryTest, AddAndRemoveExtensionFromRegistry) {
-  ExtensionRegistry registry(nullptr);
+  ExtensionRegistry registry(NULL);
 
   // Adding an extension works.
   scoped_refptr<const Extension> extension = ExtensionBuilder("Test").Build();
@@ -143,7 +143,7 @@ TEST_F(ExtensionRegistryTest, AddAndRemoveExtensionFromRegistry) {
 }
 
 TEST_F(ExtensionRegistryTest, AddExtensionToRegistryTwice) {
-  ExtensionRegistry registry(nullptr);
+  ExtensionRegistry registry(NULL);
   scoped_refptr<const Extension> extension = ExtensionBuilder("Test").Build();
 
   // An extension can exist in two sets at once. It would be nice to eliminate
@@ -158,7 +158,7 @@ TEST_F(ExtensionRegistryTest, AddExtensionToRegistryTwice) {
 }
 
 TEST_F(ExtensionRegistryTest, GetExtensionById) {
-  ExtensionRegistry registry(nullptr);
+  ExtensionRegistry registry(NULL);
 
   // Trying to get an extension fails cleanly when the sets are empty.
   EXPECT_FALSE(
@@ -170,7 +170,7 @@ TEST_F(ExtensionRegistryTest, GetExtensionById) {
   scoped_refptr<const Extension> terminated =
       ExtensionBuilder("terminated").Build();
   scoped_refptr<const Extension> blocklisted =
-      ExtensionBuilder("blocklisted").Build();
+      ExtensionBuilder("blacklisted").Build();
 
   // Add an extension to each set.
   registry.AddEnabled(enabled);
@@ -238,7 +238,7 @@ TEST_F(ExtensionRegistryTest, GetExtensionById) {
 }
 
 TEST_F(ExtensionRegistryTest, Observer) {
-  ExtensionRegistry registry(nullptr);
+  ExtensionRegistry registry(NULL);
   TestObserver observer;
   registry.AddObserver(&observer);
 

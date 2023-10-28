@@ -1,4 +1,4 @@
-// Copyright 2020 The Chromium Authors
+// Copyright 2020 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -118,14 +118,11 @@ class MojoBinderPolicyApplierTest : public testing::Test,
   }
 
   const MojoBinderPolicyMapImpl policy_map_{
-      {{"content.mojom.TestInterfaceForDefer",
-        MojoBinderNonAssociatedPolicy::kDefer},
-       {"content.mojom.TestInterfaceForGrant",
-        MojoBinderNonAssociatedPolicy::kGrant},
-       {"content.mojom.TestInterfaceForCancel",
-        MojoBinderNonAssociatedPolicy::kCancel},
+      {{"content.mojom.TestInterfaceForDefer", MojoBinderPolicy::kDefer},
+       {"content.mojom.TestInterfaceForGrant", MojoBinderPolicy::kGrant},
+       {"content.mojom.TestInterfaceForCancel", MojoBinderPolicy::kCancel},
        {"content.mojom.TestInterfaceForUnexpected",
-        MojoBinderNonAssociatedPolicy::kUnexpected}}};
+        MojoBinderPolicy::kUnexpected}}};
   TestReceiverCollector collector_{};
   MojoBinderPolicyApplier policy_applier_{
       &policy_map_, base::BindOnce(&TestReceiverCollector::Cancel,
@@ -148,7 +145,7 @@ TEST_F(MojoBinderPolicyApplierTest, GrantInEnforce) {
   const std::string interface_name = grant_receiver.interface_name().value();
   EXPECT_FALSE(collector_.IsCancelled());
   EXPECT_FALSE(collector_.IsGrantReceiverBound());
-  policy_applier_.ApplyPolicyToNonAssociatedBinder(
+  policy_applier_.ApplyPolicyToBinder(
       interface_name,
       base::BindOnce(&TestReceiverCollector::BindGrantInterface,
                      base::Unretained(&collector_),
@@ -168,7 +165,7 @@ TEST_F(MojoBinderPolicyApplierTest, DeferInEnforce) {
   // Delay binding the interface until GrantAll() is called.
   const std::string interface_name = defer_receiver.interface_name().value();
   EXPECT_FALSE(collector_.IsCancelled());
-  policy_applier_.ApplyPolicyToNonAssociatedBinder(
+  policy_applier_.ApplyPolicyToBinder(
       interface_name,
       base::BindOnce(&TestReceiverCollector::BindDeferInterface,
                      base::Unretained(&collector_),
@@ -193,7 +190,7 @@ TEST_F(MojoBinderPolicyApplierTest, CancelInEnforce) {
   const std::string interface_name = cancel_receiver.interface_name().value();
   EXPECT_FALSE(collector_.IsCancelled());
   EXPECT_FALSE(collector_.IsCancelReceiverBound());
-  policy_applier_.ApplyPolicyToNonAssociatedBinder(
+  policy_applier_.ApplyPolicyToBinder(
       interface_name,
       base::BindOnce(&TestReceiverCollector::BindCancelInterface,
                      base::Unretained(&collector_),
@@ -215,7 +212,7 @@ TEST_F(MojoBinderPolicyApplierTest, GrantInPrepareToGrantAll) {
   policy_applier_.PrepareToGrantAll();
   const std::string grant_interface_name =
       grant_receiver.interface_name().value();
-  policy_applier_.ApplyPolicyToNonAssociatedBinder(
+  policy_applier_.ApplyPolicyToBinder(
       grant_interface_name,
       base::BindOnce(&TestReceiverCollector::BindGrantInterface,
                      base::Unretained(&collector_),
@@ -234,7 +231,7 @@ TEST_F(MojoBinderPolicyApplierTest, DeferInPrepareToGrantAll) {
   policy_applier_.PrepareToGrantAll();
   const std::string defer_interface_name =
       defer_receiver.interface_name().value();
-  policy_applier_.ApplyPolicyToNonAssociatedBinder(
+  policy_applier_.ApplyPolicyToBinder(
       defer_interface_name,
       base::BindOnce(&TestReceiverCollector::BindDeferInterface,
                      base::Unretained(&collector_),
@@ -259,7 +256,7 @@ TEST_F(MojoBinderPolicyApplierTest, CancelInPrepareToGrantAll) {
   policy_applier_.PrepareToGrantAll();
   const std::string cancel_interface_name =
       cancel_receiver.interface_name().value();
-  policy_applier_.ApplyPolicyToNonAssociatedBinder(
+  policy_applier_.ApplyPolicyToBinder(
       cancel_interface_name,
       base::BindOnce(&TestReceiverCollector::BindCancelInterface,
                      base::Unretained(&collector_),
@@ -277,7 +274,7 @@ TEST_F(MojoBinderPolicyApplierTest, UnexpectedInPrepareToGrantAll) {
   policy_applier_.PrepareToGrantAll();
   const std::string interface_name =
       unexpected_receiver.interface_name().value();
-  policy_applier_.ApplyPolicyToNonAssociatedBinder(
+  policy_applier_.ApplyPolicyToBinder(
       interface_name,
       base::BindOnce(
           &TestReceiverCollector::BindUnexpectedInterface,
@@ -320,22 +317,22 @@ TEST_F(MojoBinderPolicyApplierTest, BindInterfacesAfterResolving) {
   EXPECT_FALSE(collector_.IsDeferReceiverBound());
   EXPECT_FALSE(collector_.IsCancelReceiverBound());
   EXPECT_FALSE(collector_.IsUnexpectedReceiverBound());
-  policy_applier_.ApplyPolicyToNonAssociatedBinder(
+  policy_applier_.ApplyPolicyToBinder(
       defer_interface_name,
       base::BindOnce(&TestReceiverCollector::BindDeferInterface,
                      base::Unretained(&collector_),
                      defer_receiver.As<mojom::TestInterfaceForDefer>()));
-  policy_applier_.ApplyPolicyToNonAssociatedBinder(
+  policy_applier_.ApplyPolicyToBinder(
       grant_interface_name,
       base::BindOnce(&TestReceiverCollector::BindGrantInterface,
                      base::Unretained(&collector_),
                      grant_receiver.As<mojom::TestInterfaceForGrant>()));
-  policy_applier_.ApplyPolicyToNonAssociatedBinder(
+  policy_applier_.ApplyPolicyToBinder(
       cancel_interface_name,
       base::BindOnce(&TestReceiverCollector::BindCancelInterface,
                      base::Unretained(&collector_),
                      cancel_receiver.As<mojom::TestInterfaceForCancel>()));
-  policy_applier_.ApplyPolicyToNonAssociatedBinder(
+  policy_applier_.ApplyPolicyToBinder(
       unexpected_interface_name,
       base::BindOnce(
           &TestReceiverCollector::BindUnexpectedInterface,
@@ -358,7 +355,7 @@ TEST_F(MojoBinderPolicyApplierTest, DropDeferredBinders) {
 
   const std::string interface_name = defer_receiver.interface_name().value();
   EXPECT_FALSE(collector_.IsCancelled());
-  policy_applier_.ApplyPolicyToNonAssociatedBinder(
+  policy_applier_.ApplyPolicyToBinder(
       interface_name,
       base::BindOnce(&TestReceiverCollector::BindDeferInterface,
                      base::Unretained(&collector_),

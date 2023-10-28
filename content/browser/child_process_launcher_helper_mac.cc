@@ -1,8 +1,9 @@
-// Copyright 2017 The Chromium Authors
+// Copyright 2017 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include "base/command_line.h"
+#include "base/metrics/field_trial.h"
 #include "base/path_service.h"
 #include "base/posix/global_descriptors.h"
 #include "base/strings/stringprintf.h"
@@ -52,6 +53,9 @@ bool ChildProcessLauncherHelper::BeforeLaunchOnLauncherThread(
   options->fds_to_remap = files_to_register.GetMappingWithIDAdjustment(
       base::GlobalDescriptors::kBaseDescriptor);
 
+  base::FieldTrialList::InsertFieldTrialHandleIfNeeded(
+      &options->mach_ports_for_rendezvous);
+
   mojo::PlatformHandle endpoint =
       mojo_channel_->TakeRemoteEndpoint().TakePlatformHandle();
   DCHECK(endpoint.is_valid_mach_receive());
@@ -61,8 +65,6 @@ bool ChildProcessLauncherHelper::BeforeLaunchOnLauncherThread(
   options->environment = delegate_->GetEnvironment();
 
   options->disclaim_responsibility = delegate_->DisclaimResponsibility();
-  options->enable_cpu_security_mitigations =
-      delegate_->EnableCpuSecurityMitigations();
 
   auto sandbox_type =
       sandbox::policy::SandboxTypeFromCommandLine(*command_line_);
@@ -97,11 +99,6 @@ bool ChildProcessLauncherHelper::BeforeLaunchOnLauncherThread(
     // communication FD to the helper executable.
     command_line_->AppendArg(
         base::StringPrintf("%s%d", sandbox::switches::kSeatbeltClient, pipe));
-  }
-
-  for (const auto& remapped_fd : file_data_->additional_remapped_fds) {
-    options->fds_to_remap.emplace_back(remapped_fd.second.get(),
-                                       remapped_fd.first);
   }
 
   return true;

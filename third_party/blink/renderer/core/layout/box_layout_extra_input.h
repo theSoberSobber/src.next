@@ -7,8 +7,6 @@
 
 #include "third_party/abseil-cpp/absl/types/optional.h"
 #include "third_party/blink/renderer/platform/geometry/layout_unit.h"
-#include "third_party/blink/renderer/platform/heap/garbage_collected.h"
-#include "third_party/blink/renderer/platform/wtf/allocator/allocator.h"
 
 namespace blink {
 
@@ -18,17 +16,10 @@ class LayoutBox;
 // associate itself with the specified LayoutBox upon creation, and dissociate
 // itself upon destruction.
 struct BoxLayoutExtraInput {
-  // BoxLayoutExtraInput is always allocated on the stack as it is scoped to
-  // layout, but DISALLOW_NEW is used here since LayoutBox has a raw pointer to
-  // it.
-  DISALLOW_NEW();
-
-  explicit BoxLayoutExtraInput(LayoutBox&);
+  BoxLayoutExtraInput(LayoutBox&);
   ~BoxLayoutExtraInput();
 
-  void Trace(Visitor*) const;
-
-  Member<LayoutBox> box;
+  LayoutBox& box;
 
   // When set, no attempt should be be made to resolve the inline size. Use this
   // one instead.

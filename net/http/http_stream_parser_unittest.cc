@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "base/bind.h"
+#include "base/cxx17_backports.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
@@ -58,8 +59,8 @@ const size_t kMaxPayloadSize =
 std::unique_ptr<StreamSocket> CreateConnectedSocket(SequencedSocketData* data) {
   data->set_connect_data(MockConnect(SYNCHRONOUS, OK));
 
-  auto socket =
-      std::make_unique<MockTCPClientSocket>(net::AddressList(), nullptr, data);
+  std::unique_ptr<MockTCPClientSocket> socket(
+      new MockTCPClientSocket(net::AddressList(), nullptr, data));
 
   TestCompletionCallback callback;
   EXPECT_THAT(socket->Connect(callback.callback()), IsOk());
@@ -73,10 +74,6 @@ class ReadErrorUploadDataStream : public UploadDataStream {
 
   explicit ReadErrorUploadDataStream(FailureMode mode)
       : UploadDataStream(true, 0), async_(mode) {}
-
-  ReadErrorUploadDataStream(const ReadErrorUploadDataStream&) = delete;
-  ReadErrorUploadDataStream& operator=(const ReadErrorUploadDataStream&) =
-      delete;
 
  private:
   void CompleteRead() { UploadDataStream::OnReadCompleted(ERR_FAILED); }
@@ -99,6 +96,8 @@ class ReadErrorUploadDataStream : public UploadDataStream {
   const FailureMode async_;
 
   base::WeakPtrFactory<ReadErrorUploadDataStream> weak_factory_{this};
+
+  DISALLOW_COPY_AND_ASSIGN(ReadErrorUploadDataStream);
 };
 
 TEST(HttpStreamParser, DataReadErrorSynchronous) {
@@ -205,10 +204,6 @@ class InitAsyncUploadDataStream : public ChunkedUploadDataStream {
   explicit InitAsyncUploadDataStream(int64_t identifier)
       : ChunkedUploadDataStream(identifier) {}
 
-  InitAsyncUploadDataStream(const InitAsyncUploadDataStream&) = delete;
-  InitAsyncUploadDataStream& operator=(const InitAsyncUploadDataStream&) =
-      delete;
-
  private:
   void CompleteInit() { UploadDataStream::OnInitCompleted(OK); }
 
@@ -220,6 +215,8 @@ class InitAsyncUploadDataStream : public ChunkedUploadDataStream {
   }
 
   base::WeakPtrFactory<InitAsyncUploadDataStream> weak_factory_{this};
+
+  DISALLOW_COPY_AND_ASSIGN(InitAsyncUploadDataStream);
 };
 
 TEST(HttpStreamParser, InitAsynchronousUploadDataStream) {
@@ -272,7 +269,7 @@ TEST(HttpStreamParser, InitAsynchronousUploadDataStream) {
                                    callback1.callback());
   EXPECT_EQ(ERR_IO_PENDING, result1);
   base::RunLoop().RunUntilIdle();
-  upload_data_stream.AppendData(kChunk, std::size(kChunk) - 1, true);
+  upload_data_stream.AppendData(kChunk, base::size(kChunk) - 1, true);
 
   // Check progress after read completes.
   progress = upload_data_stream.GetUploadProgress();
@@ -363,7 +360,7 @@ TEST(HttpStreamParser, ShouldMergeRequestHeadersAndBody_EmptyBody) {
 
 TEST(HttpStreamParser, ShouldMergeRequestHeadersAndBody_ChunkedBody) {
   const std::string payload = "123";
-  auto body = std::make_unique<ChunkedUploadDataStream>(0);
+  std::unique_ptr<ChunkedUploadDataStream> body(new ChunkedUploadDataStream(0));
   body->AppendData(payload.data(), payload.size(), true);
   ASSERT_THAT(
       body->Init(TestCompletionCallback().callback(), NetLogWithSource()),
@@ -392,8 +389,7 @@ TEST(HttpStreamParser, ShouldMergeRequestHeadersAndBody_FileBody) {
         base::Time()));
 
     std::unique_ptr<UploadDataStream> body(
-        std::make_unique<ElementsUploadDataStream>(std::move(element_readers),
-                                                   0));
+        new ElementsUploadDataStream(std::move(element_readers), 0));
     TestCompletionCallback callback;
     ASSERT_THAT(body->Init(callback.callback(), NetLogWithSource()),
                 IsError(ERR_IO_PENDING));
@@ -414,8 +410,7 @@ TEST(HttpStreamParser, ShouldMergeRequestHeadersAndBody_SmallBodyInMemory) {
       payload.data(), payload.size()));
 
   std::unique_ptr<UploadDataStream> body(
-      std::make_unique<ElementsUploadDataStream>(std::move(element_readers),
-                                                 0));
+      new ElementsUploadDataStream(std::move(element_readers), 0));
   ASSERT_THAT(body->Init(CompletionOnceCallback(), NetLogWithSource()), IsOk());
   // Yes, should be merged if the in-memory body is small here.
   ASSERT_TRUE(HttpStreamParser::ShouldMergeRequestHeadersAndBody(
@@ -429,8 +424,7 @@ TEST(HttpStreamParser, ShouldMergeRequestHeadersAndBody_LargeBodyInMemory) {
       payload.data(), payload.size()));
 
   std::unique_ptr<UploadDataStream> body(
-      std::make_unique<ElementsUploadDataStream>(std::move(element_readers),
-                                                 0));
+      new ElementsUploadDataStream(std::move(element_readers), 0));
   ASSERT_THAT(body->Init(CompletionOnceCallback(), NetLogWithSource()), IsOk());
   // Shouldn't be merged if the in-memory body is large here.
   ASSERT_FALSE(HttpStreamParser::ShouldMergeRequestHeadersAndBody(
@@ -646,11 +640,11 @@ TEST(HttpStreamParser, SentBytesChunkedPostError) {
                                                &response, callback.callback()));
 
   base::RunLoop().RunUntilIdle();
-  upload_data_stream.AppendData(kChunk, std::size(kChunk) - 1, false);
+  upload_data_stream.AppendData(kChunk, base::size(kChunk) - 1, false);
 
   base::RunLoop().RunUntilIdle();
   // This write should fail.
-  upload_data_stream.AppendData(kChunk, std::size(kChunk) - 1, false);
+  upload_data_stream.AppendData(kChunk, base::size(kChunk) - 1, false);
   EXPECT_THAT(callback.WaitForResult(), IsError(ERR_FAILED));
 
   EXPECT_EQ(CountWriteBytes(writes), parser.sent_bytes());
@@ -722,7 +716,7 @@ TEST(HttpStreamParser, AsyncSingleChunkAndAsyncSocket) {
   ASSERT_FALSE(callback.have_result());
 
   // Now append the only chunk and wait for the callback.
-  upload_stream.AppendData(kChunk, std::size(kChunk) - 1, true);
+  upload_stream.AppendData(kChunk, base::size(kChunk) - 1, true);
   ASSERT_THAT(callback.WaitForResult(), IsOk());
 
   // Attempt to read the response status and the response headers.
@@ -774,7 +768,7 @@ TEST(HttpStreamParser, SyncSingleChunkAndAsyncSocket) {
                                  NetLogWithSource()),
               IsOk());
   // Append the only chunk.
-  upload_stream.AppendData(kChunk, std::size(kChunk) - 1, true);
+  upload_stream.AppendData(kChunk, base::size(kChunk) - 1, true);
 
   SequencedSocketData data(reads, writes);
   std::unique_ptr<StreamSocket> stream_socket = CreateConnectedSocket(&data);
@@ -855,7 +849,7 @@ TEST(HttpStreamParser, AsyncChunkAndAsyncSocketWithMultipleChunks) {
   };
 
   ChunkedUploadDataStream upload_stream(0);
-  upload_stream.AppendData(kChunk1, std::size(kChunk1) - 1, false);
+  upload_stream.AppendData(kChunk1, base::size(kChunk1) - 1, false);
   ASSERT_THAT(upload_stream.Init(TestCompletionCallback().callback(),
                                  NetLogWithSource()),
               IsOk());
@@ -891,12 +885,12 @@ TEST(HttpStreamParser, AsyncChunkAndAsyncSocketWithMultipleChunks) {
   ASSERT_FALSE(callback.have_result());
 
   // Now append another chunk.
-  upload_stream.AppendData(kChunk2, std::size(kChunk2) - 1, false);
+  upload_stream.AppendData(kChunk2, base::size(kChunk2) - 1, false);
   ASSERT_FALSE(callback.have_result());
 
   // Add the final chunk, while the write for the second is still pending,
   // which should not confuse the state machine.
-  upload_stream.AppendData(kChunk3, std::size(kChunk3) - 1, true);
+  upload_stream.AppendData(kChunk3, base::size(kChunk3) - 1, true);
   ASSERT_FALSE(callback.have_result());
 
   // Wait for writes to complete.
@@ -1125,7 +1119,7 @@ TEST(HttpStreamParser, TruncatedHeaders) {
   for (size_t protocol = 0; protocol < NUM_PROTOCOLS; protocol++) {
     SCOPED_TRACE(protocol);
 
-    for (size_t i = 0; i < std::size(reads); i++) {
+    for (size_t i = 0; i < base::size(reads); i++) {
       SCOPED_TRACE(i);
       SequencedSocketData data(reads[i], writes);
       std::unique_ptr<StreamSocket> stream_socket(CreateConnectedSocket(&data));
@@ -1154,7 +1148,7 @@ TEST(HttpStreamParser, TruncatedHeaders) {
 
       int rv = parser.ReadResponseHeaders(callback.callback());
       EXPECT_EQ(CountWriteBytes(writes), parser.sent_bytes());
-      if (i == std::size(reads) - 1) {
+      if (i == base::size(reads) - 1) {
         EXPECT_THAT(rv, IsOk());
         EXPECT_TRUE(response_info.headers.get());
         EXPECT_EQ(CountReadBytes(reads[i]), parser.received_bytes());
@@ -1230,9 +1224,10 @@ class SimpleGetRunner {
  public:
   SimpleGetRunner()
       : url_("http://localhost"),
-        read_buffer_(base::MakeRefCounted<GrowableIOBuffer>()) {
-    writes_.emplace_back(
-        MockWrite(SYNCHRONOUS, sequence_number_++, "GET / HTTP/1.1\r\n\r\n"));
+        read_buffer_(base::MakeRefCounted<GrowableIOBuffer>()),
+        sequence_number_(0) {
+    writes_.push_back(MockWrite(
+        SYNCHRONOUS, sequence_number_++, "GET / HTTP/1.1\r\n\r\n"));
   }
 
   void set_url(const GURL& url) { url_ = url; }
@@ -1252,12 +1247,12 @@ class SimpleGetRunner {
   // The data used to back |string_piece| must stay alive until all mock data
   // has been read.
   void AddRead(base::StringPiece string_piece) {
-    reads_.emplace_back(SYNCHRONOUS, string_piece.data(), string_piece.length(),
-                        sequence_number_++);
+    reads_.push_back(MockRead(SYNCHRONOUS, string_piece.data(),
+                              string_piece.length(), sequence_number_++));
   }
 
   void SetupParserAndSendRequest() {
-    reads_.emplace_back(SYNCHRONOUS, 0, sequence_number_++);  // EOF
+    reads_.push_back(MockRead(SYNCHRONOUS, 0, sequence_number_++));  // EOF
 
     data_ = std::make_unique<SequencedSocketData>(reads_, writes_);
     stream_socket_ = CreateConnectedSocket(data_.get());
@@ -1315,7 +1310,7 @@ class SimpleGetRunner {
   std::unique_ptr<StreamSocket> stream_socket_;
   std::unique_ptr<SequencedSocketData> data_;
   std::unique_ptr<HttpStreamParser> parser_;
-  int sequence_number_ = 0;
+  int sequence_number_;
 };
 
 // Test that HTTP/0.9 works as expected, only on ports where it should be
@@ -1400,25 +1395,6 @@ TEST(HttpStreamParser, Http09PortTests) {
   }
 }
 
-TEST(HttpStreamParser, ContinueWithBody) {
-  const std::string kResponse =
-      "HTTP/1.1 100 Continue\r\n\r\nhello\r\nworld\r\n";
-
-  SimpleGetRunner get_runner;
-  get_runner.set_url(GURL("http://foo.com/"));
-  get_runner.AddRead(kResponse);
-  get_runner.SetupParserAndSendRequest();
-
-  get_runner.ReadHeadersExpectingError(OK);
-  ASSERT_TRUE(get_runner.response_info()->headers);
-  EXPECT_EQ("HTTP/1.1 100 Continue",
-            get_runner.response_info()->headers->GetStatusLine());
-
-  // We ignore informational responses and start reading the next response in
-  // the stream. This simulates the behavior.
-  get_runner.ReadHeadersExpectingError(ERR_INVALID_HTTP_RESPONSE);
-}
-
 TEST(HttpStreamParser, NullFails) {
   const char kTestHeaders[] =
       "HTTP/1.1 200 OK\r\n"
@@ -1431,7 +1407,7 @@ TEST(HttpStreamParser, NullFails) {
   // Need to start at 4 because HttpStreamParser will treat the response as
   // HTTP/0.9 if it doesn't see "HTTP", and need to end at -1 because "\r\n\r"
   // is currently treated as a valid end of header marker.
-  for (size_t i = 4; i < std::size(kTestHeaders) - 1; ++i) {
+  for (size_t i = 4; i < base::size(kTestHeaders) - 1; ++i) {
     std::string read_data(kTestHeaders);
     read_data.insert(i, 1, '\0');
     read_data.append("body");
@@ -1666,8 +1642,8 @@ TEST(HttpStreamParser, ReceivedBytesMultipleReads) {
   }
 
   SimpleGetRunner get_runner;
-  for (const auto& block : blocks)
-    get_runner.AddRead(block);
+  for (std::vector<std::string>::size_type i = 0; i < blocks.size(); ++i)
+    get_runner.AddRead(blocks[i]);
   get_runner.SetupParserAndSendRequest();
   get_runner.ReadHeaders();
   int64_t headers_size = headers.size();
@@ -1724,13 +1700,13 @@ TEST(HttpStreamParser, NonInformationalResponseStart) {
 
   EXPECT_THAT(parser.ReadResponseHeaders(callback.callback()),
               IsError(ERR_IO_PENDING));
-  task_environment.AdvanceClock(base::Seconds(1));
+  task_environment.AdvanceClock(base::TimeDelta::FromSeconds(1));
 
   // [seq=1 --> seq=2] The parser reads the first fragment of the response
   // headers and then pauses to advance the mock clock.
   base::TimeTicks first_response_start_time = task_environment.NowTicks();
   sequenced_socket_data.RunUntilPaused();
-  task_environment.AdvanceClock(base::Seconds(1));
+  task_environment.AdvanceClock(base::TimeDelta::FromSeconds(1));
 
   // [seq=3] The parser reads the second fragment of the response headers.
   sequenced_socket_data.Resume();
@@ -1821,7 +1797,7 @@ TEST(HttpStreamParser, ReceivedBytesIncludesContinueHeader) {
   // response headers and then pauses to advance the mock clock.
   base::TimeTicks first_response_start_time = task_environment.NowTicks();
   sequenced_socket_data.RunUntilPaused();
-  task_environment.AdvanceClock(base::Seconds(1));
+  task_environment.AdvanceClock(base::TimeDelta::FromSeconds(1));
 
   // [seq=3] The parser reads the second fragment of the informational response
   // headers.
@@ -1837,7 +1813,7 @@ TEST(HttpStreamParser, ReceivedBytesIncludesContinueHeader) {
 
   // [seq=4] The parser pauses to advance the clock.
   sequenced_socket_data.RunUntilPaused();
-  task_environment.AdvanceClock(base::Seconds(1));
+  task_environment.AdvanceClock(base::TimeDelta::FromSeconds(1));
 
   // [seq=5 --> seq=6] The parser reads the first fragment of the
   // non-informational response headers and then pauses to advance the mock
@@ -1846,13 +1822,13 @@ TEST(HttpStreamParser, ReceivedBytesIncludesContinueHeader) {
       task_environment.NowTicks();
   sequenced_socket_data.Resume();
   sequenced_socket_data.RunUntilPaused();
-  task_environment.AdvanceClock(base::Seconds(1));
+  task_environment.AdvanceClock(base::TimeDelta::FromSeconds(1));
 
   // [seq=7] The parser reads the second fragment of the non-informational
   // response headers.
   sequenced_socket_data.Resume();
   EXPECT_THAT(callback.WaitForResult(), IsOk());
-  task_environment.AdvanceClock(base::Seconds(1));
+  task_environment.AdvanceClock(base::TimeDelta::FromSeconds(1));
 
   // Check the received headers.
   EXPECT_EQ(200, response.headers->response_code());
@@ -1954,13 +1930,13 @@ TEST(HttpStreamParser, EarlyHints) {
   // response headers and then pauses to advance the mock clock.
   base::TimeTicks first_response_start_time = task_environment.NowTicks();
   sequenced_socket_data.RunUntilPaused();
-  task_environment.AdvanceClock(base::Seconds(1));
+  task_environment.AdvanceClock(base::TimeDelta::FromSeconds(1));
 
   // [seq=3 --> seq=4] The parser reads the second fragment of the informational
   // response headers and then pauses to advance the mock clock.
   sequenced_socket_data.Resume();
   sequenced_socket_data.RunUntilPaused();
-  task_environment.AdvanceClock(base::Seconds(1));
+  task_environment.AdvanceClock(base::TimeDelta::FromSeconds(1));
 
   // [seq=5] The parser reads the third fragment of the informational response
   // headers.
@@ -1976,7 +1952,7 @@ TEST(HttpStreamParser, EarlyHints) {
 
   // [seq=6] The parser pauses to advance the clock.
   sequenced_socket_data.RunUntilPaused();
-  task_environment.AdvanceClock(base::Seconds(1));
+  task_environment.AdvanceClock(base::TimeDelta::FromSeconds(1));
 
   // [seq=7 --> seq=8] The parser reads the first fragment of the
   // non-informational response headers and then pauses to advance the mock
@@ -1985,13 +1961,13 @@ TEST(HttpStreamParser, EarlyHints) {
       task_environment.NowTicks();
   sequenced_socket_data.Resume();
   sequenced_socket_data.RunUntilPaused();
-  task_environment.AdvanceClock(base::Seconds(1));
+  task_environment.AdvanceClock(base::TimeDelta::FromSeconds(1));
 
   // [seq=9] The parser reads the second fragment of the non-informational
   // response headers.
   sequenced_socket_data.Resume();
   EXPECT_THAT(callback.WaitForResult(), IsOk());
-  task_environment.AdvanceClock(base::Seconds(1));
+  task_environment.AdvanceClock(base::TimeDelta::FromSeconds(1));
 
   // Check the received headers.
   EXPECT_EQ(200, response.headers->response_code());
@@ -2085,7 +2061,7 @@ TEST(HttpStreamParser, MixedResponseHeaders) {
   // response headers and then pauses to advance the mock clock.
   base::TimeTicks first_response_start_time = task_environment.NowTicks();
   sequenced_socket_data.RunUntilPaused();
-  task_environment.AdvanceClock(base::Seconds(1));
+  task_environment.AdvanceClock(base::TimeDelta::FromSeconds(1));
 
   // [seq=3] The parser reads the second fragment of the informational response
   // headers.
@@ -2105,7 +2081,7 @@ TEST(HttpStreamParser, MixedResponseHeaders) {
   base::TimeTicks non_informational_response_start_time =
       task_environment.NowTicks();
   sequenced_socket_data.RunUntilPaused();
-  task_environment.AdvanceClock(base::Seconds(1));
+  task_environment.AdvanceClock(base::TimeDelta::FromSeconds(1));
 
   // [seq=5] The parser reads the second fragment of the non-informational
   // response headers.
@@ -2161,7 +2137,7 @@ TEST(HttpStreamParser, ReadAfterUnownedObjectsDestroyed) {
   SequencedSocketData data(reads, writes);
   std::unique_ptr<StreamSocket> stream_socket = CreateConnectedSocket(&data);
 
-  auto request_info = std::make_unique<HttpRequestInfo>();
+  std::unique_ptr<HttpRequestInfo> request_info(new HttpRequestInfo());
   request_info->method = "GET";
   request_info->url = GURL("http://somewhere/foo.html");
 
@@ -2171,8 +2147,8 @@ TEST(HttpStreamParser, ReadAfterUnownedObjectsDestroyed) {
                           request_info.get(), read_buffer.get(),
                           NetLogWithSource());
 
-  auto request_headers = std::make_unique<HttpRequestHeaders>();
-  auto response_info = std::make_unique<HttpResponseInfo>();
+  std::unique_ptr<HttpRequestHeaders> request_headers(new HttpRequestHeaders());
+  std::unique_ptr<HttpResponseInfo> response_info(new HttpResponseInfo());
   TestCompletionCallback callback;
   ASSERT_EQ(
       OK, parser.SendRequest("GET /foo.html HTTP/1.1\r\n", *request_headers,

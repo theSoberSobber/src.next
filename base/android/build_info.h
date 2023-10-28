@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "base/base_export.h"
+#include "base/macros.h"
 #include "base/memory/singleton.h"
 
 namespace base {
@@ -34,7 +35,6 @@ enum SdkVersion {
   SDK_VERSION_P = 28,
   SDK_VERSION_Q = 29,
   SDK_VERSION_R = 30,
-  SDK_VERSION_S = 31,
 };
 
 // BuildInfo is a singleton class that stores android build and device
@@ -42,8 +42,6 @@ enum SdkVersion {
 // primarily in crash reporting.
 class BASE_EXPORT BuildInfo {
  public:
-  BuildInfo(const BuildInfo&) = delete;
-  BuildInfo& operator=(const BuildInfo&) = delete;
 
   ~BuildInfo() {}
 
@@ -52,6 +50,10 @@ class BASE_EXPORT BuildInfo {
   // question isn't actually freed until shutdown. This is ok because there
   // should only be one instance of BuildInfo ever created.
   static BuildInfo* GetInstance();
+
+  // Checks if the device is running on a pre-release version of Android S or a
+  // release version of Android S or newer.
+  bool IsAtLeastS();
 
   // Const char* is used instead of std::strings because these values must be
   // available even if the process is in a crash state. Sadly
@@ -138,12 +140,6 @@ class BASE_EXPORT BuildInfo {
 
   const char* version_incremental() const { return version_incremental_; }
 
-  const char* hardware() const { return hardware_; }
-
-  bool is_at_least_t() const { return is_at_least_t_; }
-
-  bool is_automotive() const { return is_automotive_; }
-
  private:
   friend struct BuildInfoSingletonTraits;
 
@@ -179,9 +175,8 @@ class BASE_EXPORT BuildInfo {
   const bool is_debug_android_;
   const bool is_tv_;
   const char* const version_incremental_;
-  const char* const hardware_;
-  const bool is_at_least_t_;
-  const bool is_automotive_;
+
+  DISALLOW_COPY_AND_ASSIGN(BuildInfo);
 };
 
 }  // namespace android

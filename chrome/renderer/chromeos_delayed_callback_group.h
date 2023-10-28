@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium Authors
+// Copyright 2019 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -10,6 +10,7 @@
 #include <queue>
 
 #include "base/cancelable_callback.h"
+#include "base/macros.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/sequence_checker.h"
 #include "base/synchronization/lock.h"
@@ -40,9 +41,6 @@ class DelayedCallbackGroup
   DelayedCallbackGroup(
       base::TimeDelta expiration_delay,
       scoped_refptr<base::SequencedTaskRunner> expiration_task_runner);
-
-  DelayedCallbackGroup(const DelayedCallbackGroup&) = delete;
-  DelayedCallbackGroup& operator=(const DelayedCallbackGroup&) = delete;
 
   // Add a |callback| to the queue to be called at a later time on the calling
   // sequence task runner. |callback| will either be called when RunAll() is
@@ -92,6 +90,8 @@ class DelayedCallbackGroup
 
   scoped_refptr<base::SequencedTaskRunner> expiration_task_runner_;
   SEQUENCE_CHECKER(sequence_checker_);
+
+  DISALLOW_COPY_AND_ASSIGN(DelayedCallbackGroup);
 };
 
 #endif  // CHROME_RENDERER_CHROMEOS_DELAYED_CALLBACK_GROUP_H_

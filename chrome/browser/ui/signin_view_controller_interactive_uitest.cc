@@ -1,18 +1,16 @@
-// Copyright 2018 The Chromium Authors
+// Copyright 2018 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include <utility>
 
 #include "base/callback.h"
-#include "base/memory/raw_ptr.h"
 #include "base/run_loop.h"
-#include "base/scoped_observation.h"
 #include "base/test/bind.h"
 #include "build/build_config.h"
-#include "build/chromeos_buildflags.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/signin/reauth_result.h"
+#include "chrome/browser/signin/reauth_util.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/signin_view_controller.h"
@@ -25,8 +23,8 @@
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/interactive_test_utils.h"
 #include "chrome/test/base/ui_test_utils.h"
-#include "components/signin/public/base/consent_level.h"
 #include "components/signin/public/base/signin_metrics.h"
+#include "components/signin/public/identity_manager/consent_level.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/signin/public/identity_manager/identity_test_utils.h"
 #include "content/public/test/browser_test.h"
@@ -43,13 +41,6 @@ namespace {
 // Synchronously waits for the Sync confirmation to be closed.
 class SyncConfirmationClosedObserver : public LoginUIService::Observer {
  public:
-  explicit SyncConfirmationClosedObserver(Browser* browser)
-      : browser_(browser) {
-    DCHECK(browser_);
-    login_ui_service_observation_.Observe(
-        LoginUIServiceFactory::GetForProfile(browser_->profile()));
-  }
-
   LoginUIService::SyncConfirmationUIClosedResult WaitForConfirmationClosed() {
     run_loop_.Run();
     return *result_;
@@ -59,17 +50,40 @@ class SyncConfirmationClosedObserver : public LoginUIService::Observer {
   // LoginUIService::Observer:
   void OnSyncConfirmationUIClosed(
       LoginUIService::SyncConfirmationUIClosedResult result) override {
-    login_ui_service_observation_.Reset();
-    result_ = result;
-    browser_->signin_view_controller()->CloseModalSignin();
     run_loop_.Quit();
+    result_ = result;
   }
 
-  const raw_ptr<Browser> browser_;
   base::RunLoop run_loop_;
-  base::ScopedObservation<LoginUIService, LoginUIService::Observer>
-      login_ui_service_observation_{this};
   absl::optional<LoginUIService::SyncConfirmationUIClosedResult> result_;
+};
+
+class SigninDialogClosedObserver
+    : public SigninViewControllerDelegate::Observer {
+ public:
+  explicit SigninDialogClosedObserver(SigninViewControllerDelegate* delegate)
+      : delegate_(delegate) {
+    delegate_->AddObserver(this);
+  }
+
+  ~SigninDialogClosedObserver() override {
+    if (delegate_) {
+      delegate_->RemoveObserver(this);
+    }
+  }
+
+  void WaitForDialogClosed() { dialog_closed_run_loop_.Run(); }
+
+ private:
+  // SigninViewControllerDelegate::Observer:
+  void OnModalSigninClosed() override {
+    delegate_->RemoveObserver(this);
+    delegate_ = nullptr;
+    dialog_closed_run_loop_.Quit();
+  }
+
+  base::RunLoop dialog_closed_run_loop_;
+  SigninViewControllerDelegate* delegate_;
 };
 
 }  // namespace
@@ -90,8 +104,6 @@ class SignInViewControllerBrowserTest : public InProcessBrowserTest {
   }
 };
 
-#if !BUILDFLAG(IS_CHROMEOS_LACROS)
-// DICE sign-in flow isn't applicable on Lacros.
 IN_PROC_BROWSER_TEST_F(SignInViewControllerBrowserTest, Accelerators) {
   ASSERT_EQ(1, browser()->tab_strip_model()->count());
   browser()->signin_view_controller()->ShowSignin(
@@ -100,7 +112,7 @@ IN_PROC_BROWSER_TEST_F(SignInViewControllerBrowserTest, Accelerators) {
 
   ui_test_utils::TabAddedWaiter wait_for_new_tab(browser());
 // Press Ctrl/Cmd+T, which will open a new tab.
-#if BUILDFLAG(IS_MAC)
+#if defined(OS_MAC)
   ASSERT_TRUE(ui_test_utils::SendKeyPressSync(
       browser(), ui::VKEY_T, /*control=*/false, /*shift=*/false, /*alt=*/false,
       /*command=*/true));
@@ -114,7 +126,6 @@ IN_PROC_BROWSER_TEST_F(SignInViewControllerBrowserTest, Accelerators) {
 
   EXPECT_EQ(2, browser()->tab_strip_model()->count());
 }
-#endif  // !BUILDFLAG(IS_CHROMEOS_LACROS)
 
 // Tests that the confirm button is focused by default in the sync confirmation
 // dialog.
@@ -129,7 +140,9 @@ IN_PROC_BROWSER_TEST_F(SignInViewControllerBrowserTest,
   EXPECT_TRUE(browser()->signin_view_controller()->ShowsModalDialog());
   content_observer.Wait();
 
-  SyncConfirmationClosedObserver sync_confirmation_observer(browser());
+  SyncConfirmationClosedObserver sync_confirmation_observer;
+  LoginUIServiceFactory::GetForProfile(browser()->profile())
+      ->AddObserver(&sync_confirmation_observer);
   ASSERT_TRUE(ui_test_utils::SendKeyPressSync(browser(), ui::VKEY_RETURN,
                                               /*control=*/false,
                                               /*shift=*/false, /*alt=*/false,
@@ -143,15 +156,8 @@ IN_PROC_BROWSER_TEST_F(SignInViewControllerBrowserTest,
 
 // Tests that the confirm button is focused by default in the signin email
 // confirmation dialog.
-// TODO(http://crbug.com/1286855): Flaky on MacOS.
-#if BUILDFLAG(IS_MAC)
-#define MAYBE_EmailConfirmationDefaultFocus \
-  DISABLED_EmailConfirmationDefaultFocus
-#else
-#define MAYBE_EmailConfirmationDefaultFocus EmailConfirmationDefaultFocus
-#endif
 IN_PROC_BROWSER_TEST_F(SignInViewControllerBrowserTest,
-                       MAYBE_EmailConfirmationDefaultFocus) {
+                       EmailConfirmationDefaultFocus) {
   content::TestNavigationObserver content_observer(
       GURL("chrome://signin-email-confirmation/"));
   content_observer.StartWatchingNewWebContents();
@@ -187,16 +193,14 @@ IN_PROC_BROWSER_TEST_F(SignInViewControllerBrowserTest,
   EXPECT_TRUE(browser()->signin_view_controller()->ShowsModalDialog());
   content_observer.Wait();
 
-  content::WebContentsDestroyedWatcher dialog_destroyed_watcher(
-      browser()
-          ->signin_view_controller()
-          ->GetModalDialogWebContentsForTesting());
+  SigninDialogClosedObserver dialog_observer(
+      browser()->signin_view_controller()->GetModalDialogDelegateForTesting());
   ASSERT_TRUE(ui_test_utils::SendKeyPressSync(browser(), ui::VKEY_RETURN,
                                               /*control=*/false,
                                               /*shift=*/false, /*alt=*/false,
                                               /*command=*/false));
   // Default action simply closes the dialog.
-  dialog_destroyed_watcher.Wait();
+  dialog_observer.WaitForDialogClosed();
   EXPECT_FALSE(browser()->signin_view_controller()->ShowsModalDialog());
 }
 
@@ -204,35 +208,31 @@ IN_PROC_BROWSER_TEST_F(SignInViewControllerBrowserTest,
 // interception dialog.
 IN_PROC_BROWSER_TEST_F(SignInViewControllerBrowserTest,
                        EnterpriseConfirmationDefaultFocus) {
-  auto account_info = signin::MakePrimaryAccountAvailable(
-      GetIdentityManager(), "alice@gmail.com", signin::ConsentLevel::kSync);
+  signin::MakePrimaryAccountAvailable(GetIdentityManager(), "alice@gmail.com",
+                                      signin::ConsentLevel::kSync);
   content::TestNavigationObserver content_observer(
       GURL("chrome://enterprise-profile-welcome/"));
   content_observer.StartWatchingNewWebContents();
-  signin::SigninChoice result;
+  bool result;
   browser()->signin_view_controller()->ShowModalEnterpriseConfirmationDialog(
-      account_info, /*force_new_profile=*/true, /*show_link_data_option=*/true,
-      SK_ColorWHITE,
+      "domain.com", SK_ColorWHITE,
       base::BindOnce(
-          [](Browser* browser, signin::SigninChoice* result,
-             signin::SigninChoice choice) {
+          [](Browser* browser, bool* result, bool create) {
             browser->signin_view_controller()->CloseModalSignin();
-            *result = choice;
+            *result = create;
           },
           browser(), &result));
   EXPECT_TRUE(browser()->signin_view_controller()->ShowsModalDialog());
   content_observer.Wait();
 
-  content::WebContentsDestroyedWatcher dialog_destroyed_watcher(
-      browser()
-          ->signin_view_controller()
-          ->GetModalDialogWebContentsForTesting());
+  SigninDialogClosedObserver dialog_observer(
+      browser()->signin_view_controller()->GetModalDialogDelegateForTesting());
   ASSERT_TRUE(ui_test_utils::SendKeyPressSync(browser(), ui::VKEY_RETURN,
                                               /*control=*/false,
                                               /*shift=*/false, /*alt=*/false,
                                               /*command=*/false));
 
-  dialog_destroyed_watcher.Wait();
-  EXPECT_EQ(result, signin::SigninChoice::SIGNIN_CHOICE_NEW_PROFILE);
+  dialog_observer.WaitForDialogClosed();
+  EXPECT_TRUE(result);
   EXPECT_FALSE(browser()->signin_view_controller()->ShowsModalDialog());
 }

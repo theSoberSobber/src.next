@@ -1,10 +1,11 @@
-// Copyright 2015 The Chromium Authors
+// Copyright (c) 2015 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include "chrome/browser/ui/browser_finder.h"
 
 #include "ash/public/cpp/multi_user_window_manager.h"
+#include "base/macros.h"
 #include "base/memory/ptr_util.h"
 #include "chrome/browser/ash/login/users/fake_chrome_user_manager.h"
 #include "chrome/browser/ash/profiles/profile_helper.h"
@@ -33,17 +34,13 @@ class BrowserFinderChromeOSTest : public BrowserWithTestWindowTest {
       : fake_user_manager_(new ash::FakeChromeUserManager),
         user_manager_enabler_(base::WrapUnique(fake_user_manager_)) {}
 
-  BrowserFinderChromeOSTest(const BrowserFinderChromeOSTest&) = delete;
-  BrowserFinderChromeOSTest& operator=(const BrowserFinderChromeOSTest&) =
-      delete;
-
   TestingProfile* CreateMultiUserProfile(const AccountId& account_id) {
     TestingProfile* profile =
         profile_manager()->CreateTestingProfile(account_id.GetUserEmail());
     const user_manager::User* user = fake_user_manager_->AddUser(account_id);
-    ash::ProfileHelper::Get()->SetUserToProfileMappingForTesting(
+    chromeos::ProfileHelper::Get()->SetUserToProfileMappingForTesting(
         const_cast<user_manager::User*>(user), profile);
-    ash::ProfileHelper::Get()->SetProfileToUserMappingForTesting(
+    chromeos::ProfileHelper::Get()->SetProfileToUserMappingForTesting(
         const_cast<user_manager::User*>(user));
     // Force creation of MultiProfileSupport.
     GetMultiUserWindowManager();
@@ -82,6 +79,8 @@ class BrowserFinderChromeOSTest : public BrowserWithTestWindowTest {
   // |fake_user_manager_| is owned by |user_manager_enabler_|
   ash::FakeChromeUserManager* fake_user_manager_;
   user_manager::ScopedUserManager user_manager_enabler_;
+
+  DISALLOW_COPY_AND_ASSIGN(BrowserFinderChromeOSTest);
 };
 
 TEST_F(BrowserFinderChromeOSTest, IncognitoBrowserMatchTest) {

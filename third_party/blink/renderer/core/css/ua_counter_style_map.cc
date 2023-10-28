@@ -475,7 +475,7 @@ String GetUACounterStyleRuleText(const AtomicString& name) {
   builder.Append("{");
   builder.Append(GetUACounterStyleRules().at(name));
   builder.Append("}");
-  return builder.ReleaseString();
+  return builder.ToString();
 }
 
 }  // namespace

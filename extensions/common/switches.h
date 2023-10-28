@@ -1,4 +1,4 @@
-// Copyright 2013 The Chromium Authors
+// Copyright 2013 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -16,8 +16,7 @@ namespace switches {
 extern const char kAllowHTTPBackgroundPage[];
 extern const char kAllowLegacyExtensionManifests[];
 extern const char kAllowlistedExtensionID[];
-extern const char kDEPRECATED_AllowlistedExtensionID[];
-extern const char kDisableAppContentVerification[];
+extern const char kDisableDesktopCaptureAudio[];
 extern const char kDisableExtensionsHttpThrottling[];
 extern const char kEmbeddedExtensionOptions[];
 extern const char kEnableExperimentalExtensionApis[];

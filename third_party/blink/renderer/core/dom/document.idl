@@ -24,6 +24,9 @@ enum DocumentReadyState { "loading", "interactive", "complete" };
 // https://w3c.github.io/page-visibility/#visibilitystate-enum
 enum VisibilityState { "hidden", "visible" };
 
+// https://wicg.github.io/cors-rfc1918/#feature-detect
+enum AddressSpace { "local", "private", "public" };
+
 typedef (HTMLScriptElement or SVGScriptElement) HTMLOrSVGScriptElement;
 
 // https://dom.spec.whatwg.org/#interface-document
@@ -45,7 +48,7 @@ typedef (HTMLScriptElement or SVGScriptElement) HTMLOrSVGScriptElement;
     readonly attribute DOMString contentType;
 
     readonly attribute DocumentType? doctype;
-    readonly attribute Element? documentElement;
+    [Affects=Nothing] readonly attribute Element? documentElement;
     [Affects=Nothing] HTMLCollection getElementsByTagName(DOMString localName);
     [Affects=Nothing] HTMLCollection getElementsByTagNameNS(DOMString? namespaceURI, DOMString localName);
     [Affects=Nothing] HTMLCollection getElementsByClassName(DOMString classNames);
@@ -82,10 +85,10 @@ typedef (HTMLScriptElement or SVGScriptElement) HTMLOrSVGScriptElement;
 
     // resource metadata management
 
-    [PutForwards=href, LegacyUnforgeable] readonly attribute Location? location;
-    [RaisesException=Setter] attribute USVString domain;
-    readonly attribute USVString referrer;
-    [RaisesException, RuntimeCallStatsCounter=DocumentCookie] attribute DOMString cookie;
+    [Affects=Nothing, PutForwards=href, LegacyUnforgeable] readonly attribute Location? location;
+    [Affects=Nothing, RaisesException=Setter] attribute USVString domain;
+    [Affects=Nothing] readonly attribute USVString referrer;
+    [Affects=Nothing, RaisesException, RuntimeCallStatsCounter=DocumentCookie] attribute DOMString cookie;
     readonly attribute DOMString lastModified;
     readonly attribute DocumentReadyState readyState;
 
@@ -93,10 +96,10 @@ typedef (HTMLScriptElement or SVGScriptElement) HTMLOrSVGScriptElement;
     // Named getter is implemented without IDL code generation for better
     // performance. See local_window_proxy.cc.
     // getter object (DOMString name);
-    [CEReactions] attribute DOMString title;
+    [Affects=Nothing, CEReactions] attribute DOMString title;
     [CEReactions] attribute DOMString dir;
-    [CEReactions, RaisesException=Setter, PerWorldBindings] attribute HTMLElement? body;
-    readonly attribute HTMLHeadElement? head;
+    [Affects=Nothing, CEReactions, RaisesException=Setter, PerWorldBindings] attribute HTMLElement? body;
+    [Affects=Nothing] readonly attribute HTMLHeadElement? head;
     [SameObject, Measure] readonly attribute HTMLCollection images;
     [SameObject, Measure] readonly attribute HTMLCollection embeds;
     [SameObject, ImplementedAs=embeds, Measure] readonly attribute HTMLCollection plugins;
@@ -114,17 +117,17 @@ typedef (HTMLScriptElement or SVGScriptElement) HTMLOrSVGScriptElement;
     [CallWith=Isolate, CEReactions, RaisesException] void writeln(DOMString... text);
 
     // TrustedTypes variants of the above.
+    // Note: This should be gated on [RuntimeEnabled=TrustedDOMTypes], but
+    // since RuntimeEnabled isn't compatible with overloaded methods, we're
+    // handling these unconditionally.
     [CallWith=Isolate, CEReactions, RaisesException] void write(TrustedHTML text);
     [CallWith=Isolate, CEReactions, RaisesException] void writeln(TrustedHTML text);
 
     // user interaction
-    readonly attribute Window? defaultView;
+    [Affects=Nothing] readonly attribute Window? defaultView;
     [Affects=Nothing] boolean hasFocus();
     [CEReactions, MeasureAs=DocumentDesignMode] attribute DOMString designMode;
-    // Only the execCommand("insertHTML",..) sub-command needs to be Trusted
-    // Types checked. Other sub-commands will string-ify its input. This, we
-    // pass in a type union instead of using a [StringContext=] annotation.
-    [CEReactions, RaisesException] boolean execCommand(DOMString commandId, optional boolean showUI = false, optional (DOMString or TrustedHTML) value = "");
+    [CEReactions, RaisesException] boolean execCommand(DOMString commandId, optional boolean showUI = false, optional DOMString value = "");
     [RaisesException] boolean queryCommandEnabled(DOMString commandId);
     [RaisesException] boolean queryCommandIndeterm(DOMString commandId);
     [RaisesException] boolean queryCommandState(DOMString commandId);
@@ -151,7 +154,7 @@ typedef (HTMLScriptElement or SVGScriptElement) HTMLOrSVGScriptElement;
 
     [SameObject, MeasureAs=DocumentAll] readonly attribute HTMLAllCollection all;
 
-    readonly attribute Element? scrollingElement;
+    [Affects=Nothing] readonly attribute Element? scrollingElement;
 
     // Pointer Lock
     // https://w3c.github.io/pointerlock/#extensions-to-the-document-interface
@@ -171,11 +174,12 @@ typedef (HTMLScriptElement or SVGScriptElement) HTMLOrSVGScriptElement;
     readonly attribute VisibilityState visibilityState;
     readonly attribute boolean wasDiscarded;
 
-    // https://wicg.github.io/nav-speculation/prerendering.html#dom-document-prerendering
-    [RuntimeEnabled=Prerender2RelatedFeatures, Measure] readonly attribute boolean prerendering;
+    // https://jeremyroman.github.io/alternate-loading-modes/#dom-document-prerendering
+    [RuntimeEnabled=Prerender2] readonly attribute boolean prerendering;
 
-    // Non-exposed API, used to evaluate and test soft navigation heuristics
-    [RuntimeEnabled=SoftNavigationHeuristics] readonly attribute unsigned long softNavigations;
+    // CORS and RFC1918
+    // https://wicg.github.io/cors-rfc1918/#feature-detect
+    [CallWith=ScriptState, RuntimeEnabled=AddressSpace, ImplementedAs=addressSpaceForBindings] readonly attribute AddressSpace addressSpace;
 
     // Non-standard APIs
     [MeasureAs=DocumentCaretRangeFromPoint] Range caretRangeFromPoint(optional long x = 0, optional long y = 0);
@@ -183,7 +187,10 @@ typedef (HTMLScriptElement or SVGScriptElement) HTMLOrSVGScriptElement;
     // Storage Access API
     [CallWith=ScriptState, NewObject, RuntimeEnabled=StorageAccessAPI, MeasureAs=StorageAccessAPI_HasStorageAccess_Method] Promise<boolean> hasStorageAccess();
     [CallWith=ScriptState, NewObject, RuntimeEnabled=StorageAccessAPI, MeasureAs=StorageAccessAPI_requestStorageAccess_Method] Promise<void> requestStorageAccess();
-    [CallWith=ScriptState, NewObject, RuntimeEnabled=StorageAccessAPIForSiteExtension, MeasureAs=StorageAccessAPI_requestStorageAccessForSite_Method] Promise<void> requestStorageAccessForSite(USVString site);
+
+    // Interest Cohort API
+    // TODO(yaoxia): Add web tests. http://crbug/1130074.
+    [CallWith=ScriptState, RaisesException, NewObject, SecureContext, RuntimeEnabled=InterestCohortAPI, MeasureAs=InterestCohortAPI_interestCohort_Method] Promise<InterestCohort> interestCohort();
 
     // Text fragment directive API
     // https://wicg.github.io/scroll-to-text-fragment/#feature-detectability
@@ -201,17 +208,15 @@ typedef (HTMLScriptElement or SVGScriptElement) HTMLOrSVGScriptElement;
     // Trust Token API (https://github.com/wicg/trust-token-api)
     [CallWith=ScriptState, Measure, RaisesException, NewObject, SecureContext, RuntimeEnabled=TrustTokens] Promise<boolean> hasTrustToken(USVString issuer);
 
-    // Trust Token API (https://github.com/wicg/trust-token-api)
-    [CallWith=ScriptState, Measure, RaisesException, NewObject, SecureContext, RuntimeEnabled=TrustTokens] Promise<boolean> hasRedemptionRecord(USVString issuer);
-
     // Event handler attributes
     attribute EventHandler onbeforecopy;
     attribute EventHandler onbeforecut;
     attribute EventHandler onbeforepaste;
     attribute EventHandler onfreeze;
-    [RuntimeEnabled=Prerender2RelatedFeatures, Measure] attribute EventHandler onprerenderingchange;
+    [RuntimeEnabled=Prerender2] attribute EventHandler onprerenderingchange;
     attribute EventHandler onresume;
     attribute EventHandler onsearch;
+    attribute EventHandler onsecuritypolicyviolation;
     attribute EventHandler onvisibilitychange;
 };
 

@@ -24,7 +24,6 @@
 
 #include "third_party/blink/renderer/core/dom/node_iterator_base.h"
 
-#include "base/auto_reset.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_node_filter.h"
 #include "third_party/blink/renderer/core/dom/node.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"

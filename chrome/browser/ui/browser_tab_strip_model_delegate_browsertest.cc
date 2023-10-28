@@ -1,10 +1,11 @@
-// Copyright 2019 The Chromium Authors
+// Copyright 2019 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 #include "chrome/browser/ui/browser_tab_strip_model_delegate.h"
 
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_list.h"
+#include "chrome/browser/ui/browser_tab_strip_model_delegate.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/tab_utils.h"
 #include "chrome/test/base/in_process_browser_test.h"
@@ -49,7 +50,7 @@ IN_PROC_BROWSER_TEST_F(BrowserTabStripModelDelegateTest, MoveTabsToNewWindow) {
 
   GURL url1("chrome://version");
   GURL url2("chrome://about");
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url1));
+  ui_test_utils::NavigateToURL(browser(), url1);
 
   // Moving a tab from a single tab window to a new tab window is a no-op.
   // TODO(lgrey): When moving to existing windows is implemented, add a case
@@ -57,7 +58,7 @@ IN_PROC_BROWSER_TEST_F(BrowserTabStripModelDelegateTest, MoveTabsToNewWindow) {
   // single tab window.
   EXPECT_FALSE(delegate->CanMoveTabsToWindow({0}));
 
-  ASSERT_TRUE(AddTabAtIndex(1, url2, ui::PAGE_TRANSITION_LINK));
+  AddTabAtIndex(1, url2, ui::PAGE_TRANSITION_LINK);
 
   EXPECT_TRUE(delegate->CanMoveTabsToWindow({0}));
   EXPECT_TRUE(delegate->CanMoveTabsToWindow({1}));
@@ -99,7 +100,7 @@ IN_PROC_BROWSER_TEST_F(BrowserTabStripModelDelegateTest,
   GURL url1("chrome://version");
   GURL url2("chrome://about");
   GURL url3("chrome://terms");
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url1));
+  ui_test_utils::NavigateToURL(browser(), url1);
 
   // Moving a tab from a single tab window to a new tab window is a no-op.
   // TODO(jugallag): When moving to existing windows is implemented, add a case
@@ -107,8 +108,8 @@ IN_PROC_BROWSER_TEST_F(BrowserTabStripModelDelegateTest,
   // single tab window.
   EXPECT_FALSE(delegate->CanMoveTabsToWindow({0}));
 
-  ASSERT_TRUE(AddTabAtIndex(1, url2, ui::PAGE_TRANSITION_LINK));
-  ASSERT_TRUE(AddTabAtIndex(2, url3, ui::PAGE_TRANSITION_LINK));
+  AddTabAtIndex(1, url2, ui::PAGE_TRANSITION_LINK);
+  AddTabAtIndex(2, url3, ui::PAGE_TRANSITION_LINK);
 
   EXPECT_TRUE(delegate->CanMoveTabsToWindow({0}));
   EXPECT_TRUE(delegate->CanMoveTabsToWindow({1}));
@@ -148,7 +149,7 @@ IN_PROC_BROWSER_TEST_F(BrowserTabStripModelDelegateTest,
 IN_PROC_BROWSER_TEST_F(BrowserTabStripModelDelegateWithEmbeddedServerTest,
                        ToggleMuteInRegularAndThenToggleMuteInIncognito) {
   GURL url = embedded_test_server()->GetURL("/title1.html");
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
+  ui_test_utils::NavigateToURL(browser(), url);
 
   // Mute the site in regular tab.
   ToggleMute(browser());
@@ -156,7 +157,7 @@ IN_PROC_BROWSER_TEST_F(BrowserTabStripModelDelegateWithEmbeddedServerTest,
 
   // Open Incognito tab and check the site is muted there.
   Browser* incognito_browser = CreateIncognitoBrowser(browser()->profile());
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(incognito_browser, url));
+  ui_test_utils::NavigateToURL(incognito_browser, url);
   VerifyMute(incognito_browser, /*isMuted=*/true);
 
   // Unmute in Incognito tab.
@@ -172,7 +173,7 @@ IN_PROC_BROWSER_TEST_F(BrowserTabStripModelDelegateWithEmbeddedServerTest,
 IN_PROC_BROWSER_TEST_F(BrowserTabStripModelDelegateWithEmbeddedServerTest,
                        ToggleMuteInRegularWindowAndCheckInIncognito) {
   GURL url = embedded_test_server()->GetURL("/title1.html");
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
+  ui_test_utils::NavigateToURL(browser(), url);
 
   // Mute the site in regular tab.
   ToggleMute(browser());
@@ -180,7 +181,7 @@ IN_PROC_BROWSER_TEST_F(BrowserTabStripModelDelegateWithEmbeddedServerTest,
 
   // Open Incognito tab and check the site is muted there.
   Browser* incognito_browser = CreateIncognitoBrowser(browser()->profile());
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(incognito_browser, url));
+  ui_test_utils::NavigateToURL(incognito_browser, url);
   VerifyMute(incognito_browser, /*isMuted=*/true);
 
   // Unmute in Regular tab.
@@ -197,7 +198,7 @@ IN_PROC_BROWSER_TEST_F(BrowserTabStripModelDelegateWithEmbeddedServerTest,
 
   // Open tab in Incognito
   Browser* incognito_browser = CreateIncognitoBrowser(browser()->profile());
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(incognito_browser, url));
+  ui_test_utils::NavigateToURL(incognito_browser, url);
 
   // Mute the site in Incognito.
   ToggleMute(incognito_browser);

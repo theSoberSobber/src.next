@@ -1,4 +1,4 @@
-// Copyright 2021 The Chromium Authors
+// Copyright 2021 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -6,19 +6,12 @@
 
 #include "base/containers/contains.h"
 #include "content/public/browser/browser_context.h"
-#include "extensions/browser/api/scripting/scripting_constants.h"
-#include "extensions/browser/api/scripting/scripting_utils.h"
 #include "extensions/browser/extension_registry.h"
-#include "extensions/browser/extension_system.h"
 #include "extensions/browser/extension_util.h"
 #include "extensions/browser/extensions_browser_client.h"
-#include "extensions/browser/state_store.h"
 #include "extensions/browser/user_script_loader.h"
-#include "extensions/common/api/content_scripts.h"
 #include "extensions/common/manifest_handlers/content_scripts_handler.h"
 #include "extensions/common/mojom/host_id.mojom.h"
-#include "extensions/common/mojom/run_location.mojom-shared.h"
-#include "extensions/common/utils/content_script_utils.h"
 
 namespace extensions {
 
@@ -26,11 +19,6 @@ UserScriptManager::UserScriptManager(content::BrowserContext* browser_context)
     : browser_context_(browser_context) {
   extension_registry_observation_.Observe(
       ExtensionRegistry::Get(browser_context_));
-
-  StateStore* store =
-      ExtensionSystem::Get(browser_context_)->dynamic_user_scripts_store();
-  if (store)
-    store->RegisterKey(scripting::kRegisteredScriptsStorageKey);
 }
 
 UserScriptManager::~UserScriptManager() = default;
@@ -65,25 +53,24 @@ WebUIUserScriptLoader* UserScriptManager::GetUserScriptLoaderForWebUI(
                                              : it->second.get();
 }
 
-void UserScriptManager::OnExtensionWillBeInstalled(
-    content::BrowserContext* browser_context,
-    const Extension* extension,
-    bool is_update,
-    const std::string& old_name) {
-  scripting::ClearPersistentScriptURLPatterns(browser_context, extension->id());
-}
-
 void UserScriptManager::OnExtensionLoaded(
     content::BrowserContext* browser_context,
     const Extension* extension) {
   ExtensionUserScriptLoader* loader =
       GetUserScriptLoaderForExtension(extension->id());
 
-  if (loader->AddScriptsForExtensionLoad(
-          *extension,
-          base::BindOnce(&UserScriptManager::OnInitialExtensionLoadComplete,
-                         weak_factory_.GetWeakPtr()))) {
-    pending_initial_extension_loads_.insert(extension->id());
+  std::unique_ptr<UserScriptList> scripts =
+      GetManifestScriptsMetadata(extension);
+
+  // Don't bother adding scripts if this extension has none because adding an
+  // empty set of scripts will not trigger a load. This also prevents redundant
+  // calls to OnInitialExtensionLoadComplete.
+  if (!scripts->empty()) {
+    pending_manifest_load_count_++;
+    loader->AddScripts(
+        std::move(scripts),
+        base::BindOnce(&UserScriptManager::OnInitialExtensionLoadComplete,
+                       weak_factory_.GetWeakPtr()));
   }
 }
 
@@ -95,23 +82,38 @@ void UserScriptManager::OnExtensionUnloaded(
   // when the extension is unloaded. All we need to do here is to remove the
   // unloaded extension's loader.
   extension_script_loaders_.erase(extension->id());
-  RemovePendingExtensionLoadAndSignal(extension->id());
 }
 
 void UserScriptManager::OnInitialExtensionLoadComplete(
     UserScriptLoader* loader,
     const absl::optional<std::string>& error) {
-  RemovePendingExtensionLoadAndSignal(loader->host_id().id);
+  --pending_manifest_load_count_;
+  DCHECK_GE(pending_manifest_load_count_, 0);
+
+  // If there are no more pending manifest script loads, then notify the
+  // UserScriptListener.
+  if (pending_manifest_load_count_ == 0) {
+    DCHECK(ExtensionsBrowserClient::Get());
+    ExtensionsBrowserClient::Get()->SignalContentScriptsLoaded(
+        browser_context_);
+  }
 }
 
-void UserScriptManager::RemovePendingExtensionLoadAndSignal(
-    const ExtensionId& extension_id) {
-  int erased = pending_initial_extension_loads_.erase(extension_id);
-  if (!erased || !pending_initial_extension_loads_.empty())
-    return;  // Not a relevant extension, or still waiting on more.
-
-  // All our extensions are loaded!
-  ExtensionsBrowserClient::Get()->SignalContentScriptsLoaded(browser_context_);
+std::unique_ptr<UserScriptList> UserScriptManager::GetManifestScriptsMetadata(
+    const Extension* extension) {
+  bool incognito_enabled =
+      util::IsIncognitoEnabled(extension->id(), browser_context_);
+  const UserScriptList& script_list =
+      ContentScriptsInfo::GetContentScripts(extension);
+  auto script_vector = std::make_unique<UserScriptList>();
+  script_vector->reserve(script_list.size());
+  for (const auto& script : script_list) {
+    std::unique_ptr<UserScript> script_copy =
+        UserScript::CopyMetadataFrom(*script);
+    script_copy->set_incognito_enabled(incognito_enabled);
+    script_vector->push_back(std::move(script_copy));
+  }
+  return script_vector;
 }
 
 ExtensionUserScriptLoader* UserScriptManager::CreateExtensionUserScriptLoader(
@@ -123,8 +125,6 @@ ExtensionUserScriptLoader* UserScriptManager::CreateExtensionUserScriptLoader(
           .emplace(extension->id(),
                    std::make_unique<ExtensionUserScriptLoader>(
                        browser_context_, *extension,
-                       ExtensionSystem::Get(browser_context_)
-                           ->dynamic_user_scripts_store(),
                        /*listen_for_extension_system_loaded=*/true))
           .first->second.get();
 

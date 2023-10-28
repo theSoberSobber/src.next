@@ -1,4 +1,4 @@
-// Copyright 2014 The Chromium Authors
+// Copyright 2014 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -13,6 +13,7 @@
 #include <sys/stat.h>
 
 #include "base/command_line.h"
+#include "base/cxx17_backports.h"
 #include "base/files/scoped_file.h"
 #include "base/linux_util.h"
 #include "base/logging.h"
@@ -43,7 +44,7 @@ void SandboxIPCHandler::Run() {
   int failed_polls = 0;
   for (;;) {
     const int r =
-        HANDLE_EINTR(poll(pfds, std::size(pfds), -1 /* no timeout */));
+        HANDLE_EINTR(poll(pfds, base::size(pfds), -1 /* no timeout */));
     // '0' is not a possible return value with no timeout.
     DCHECK_NE(0, r);
     if (r < 0) {

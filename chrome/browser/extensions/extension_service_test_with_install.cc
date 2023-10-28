@@ -1,4 +1,4 @@
-// Copyright 2015 The Chromium Authors
+// Copyright 2015 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -51,7 +51,7 @@ ExtensionServiceTestWithInstall::ExtensionServiceTestWithInstall()
 ExtensionServiceTestWithInstall::ExtensionServiceTestWithInstall(
     std::unique_ptr<content::BrowserTaskEnvironment> task_environment)
     : ExtensionServiceTestBase(std::move(task_environment)),
-      installed_extension_(nullptr),
+      installed_(nullptr),
       was_update_(false),
       unloaded_reason_(UnloadedExtensionReason::UNDEFINED),
       expected_extensions_count_(0),
@@ -214,7 +214,7 @@ const Extension* ExtensionServiceTestWithInstall::VerifyCrxInstall(
     if (install_state == INSTALL_NEW || install_state == INSTALL_WITHOUT_LOAD)
       ++expected_extensions_count_;
 
-    EXPECT_TRUE(installed_extension_) << path.value();
+    EXPECT_TRUE(installed_) << path.value();
     // If and only if INSTALL_UPDATED, it should have the is_update flag.
     EXPECT_EQ(install_state == INSTALL_UPDATED, was_update_)
         << path.value();
@@ -224,16 +224,16 @@ const Extension* ExtensionServiceTestWithInstall::VerifyCrxInstall(
     EXPECT_EQ(0u, errors.size()) << path.value();
 
     if (install_state == INSTALL_WITHOUT_LOAD) {
-      EXPECT_EQ(0u, loaded_extensions_.size()) << path.value();
-      extension = installed_extension_;
+      EXPECT_EQ(0u, loaded_.size()) << path.value();
+      extension = installed_;
     } else {
-      EXPECT_EQ(1u, loaded_extensions_.size()) << path.value();
+      EXPECT_EQ(1u, loaded_.size()) << path.value();
       size_t actual_extension_count =
           registry()->enabled_extensions().size() +
           registry()->disabled_extensions().size();
       EXPECT_EQ(expected_extensions_count_, actual_extension_count) <<
           path.value();
-      extension = loaded_extensions_[0].get();
+      extension = loaded_[0].get();
       EXPECT_TRUE(registry()->GetExtensionById(extension->id(),
                                                ExtensionRegistry::ENABLED))
           << path.value();
@@ -243,15 +243,15 @@ const Extension* ExtensionServiceTestWithInstall::VerifyCrxInstall(
       LOG(ERROR) << *err;
     }
   } else {
-    EXPECT_FALSE(installed_extension_) << path.value();
-    EXPECT_EQ(0u, loaded_extensions_.size()) << path.value();
+    EXPECT_FALSE(installed_) << path.value();
+    EXPECT_EQ(0u, loaded_.size()) << path.value();
     EXPECT_EQ(1u, errors.size()) << path.value();
   }
 
-  installed_extension_ = nullptr;
+  installed_ = nullptr;
   was_update_ = false;
   old_name_ = "";
-  ClearLoadedExtensions();
+  loaded_.clear();
   LoadErrorReporter::GetInstance()->ClearErrors();
   return extension;
 }
@@ -370,22 +370,13 @@ void ExtensionServiceTestWithInstall::TerminateExtension(
   service()->TerminateExtension(id);
 }
 
-void ExtensionServiceTestWithInstall::BlockAllExtensions() {
-  service()->BlockAllExtensions();
-}
-
-void ExtensionServiceTestWithInstall::ClearLoadedExtensions() {
-  loaded_extensions_.clear();
-}
-
 void ExtensionServiceTestWithInstall::OnExtensionLoaded(
     content::BrowserContext* browser_context,
     const Extension* extension) {
-  loaded_extensions_.push_back(base::WrapRefCounted(extension));
+  loaded_.push_back(base::WrapRefCounted(extension));
   // The tests rely on the errors being in a certain order, which can vary
   // depending on how filesystem iteration works.
-  std::stable_sort(loaded_extensions_.begin(), loaded_extensions_.end(),
-                   ExtensionsOrder());
+  std::stable_sort(loaded_.begin(), loaded_.end(), ExtensionsOrder());
 }
 
 void ExtensionServiceTestWithInstall::OnExtensionUnloaded(
@@ -394,14 +385,12 @@ void ExtensionServiceTestWithInstall::OnExtensionUnloaded(
     UnloadedExtensionReason reason) {
   unloaded_id_ = extension->id();
   unloaded_reason_ = reason;
-  auto i = std::find(loaded_extensions_.begin(), loaded_extensions_.end(),
-                     extension);
+  auto i = std::find(loaded_.begin(), loaded_.end(), extension);
   // TODO(erikkay) fix so this can be an assert.  Right now the tests
-  // are manually calling `ClearLoadedExtensions` since this method is not
-  // called by reloads, so this isn't doable.
-  if (i == loaded_extensions_.end())
+  // are manually calling clear() on loaded_, so this isn't doable.
+  if (i == loaded_.end())
     return;
-  loaded_extensions_.erase(i);
+  loaded_.erase(i);
 }
 
 void ExtensionServiceTestWithInstall::OnExtensionWillBeInstalled(
@@ -409,7 +398,7 @@ void ExtensionServiceTestWithInstall::OnExtensionWillBeInstalled(
     const Extension* extension,
     bool is_update,
     const std::string& old_name) {
-  installed_extension_ = extension;
+  installed_ = extension;
   was_update_ = is_update;
   old_name_ = old_name;
 }

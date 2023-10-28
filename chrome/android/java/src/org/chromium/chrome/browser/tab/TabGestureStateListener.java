@@ -1,4 +1,4 @@
-// Copyright 2014 The Chromium Authors
+// Copyright 2014 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -46,8 +46,7 @@ public final class TabGestureStateListener extends TabWebContentsUserData {
             private int mLastScrollOffsetY;
 
             @Override
-            public void onFlingStartGesture(
-                    int scrollOffsetY, int scrollExtentY, boolean isDirectionUp) {
+            public void onFlingStartGesture(int scrollOffsetY, int scrollExtentY) {
                 onScrollingStateChanged();
             }
 
@@ -57,8 +56,7 @@ public final class TabGestureStateListener extends TabWebContentsUserData {
             }
 
             @Override
-            public void onScrollStarted(
-                    int scrollOffsetY, int scrollExtentY, boolean isDirectionUp) {
+            public void onScrollStarted(int scrollOffsetY, int scrollExtentY) {
                 onScrollingStateChanged();
                 mLastScrollOffsetY = scrollOffsetY;
             }

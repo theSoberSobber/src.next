@@ -1,4 +1,4 @@
-// Copyright 2011 The Chromium Authors
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,14 +7,14 @@
 
 #include <memory>
 
-#include "base/memory/raw_ptr.h"
+#include "base/macros.h"
 #include "base/memory/ref_counted.h"
 #include "base/timer/timer.h"
 #include "net/base/net_export.h"
+#include "net/http/http_network_session.h"
 
 namespace net {
 
-class HttpNetworkSession;
 class HttpStream;
 class IOBuffer;
 
@@ -28,13 +28,11 @@ class NET_EXPORT_PRIVATE HttpResponseBodyDrainer {
   static const int kTimeoutInSeconds = 5;
 
   explicit HttpResponseBodyDrainer(HttpStream* stream);
-  HttpResponseBodyDrainer(const HttpResponseBodyDrainer&) = delete;
-  HttpResponseBodyDrainer& operator=(const HttpResponseBodyDrainer&) = delete;
   ~HttpResponseBodyDrainer();
 
   // Starts reading the body until completion, or we hit the buffer limit, or we
-  // timeout.  After Start(), |this| will eventually delete itself via
-  // HttpNetworkSession::RemoveResponseDrainer().
+  // timeout.  After Start(), |this| will eventually delete itself.  If it
+  // doesn't complete immediately, it will add itself to |session|.
   void Start(HttpNetworkSession* session);
 
  private:
@@ -55,10 +53,12 @@ class NET_EXPORT_PRIVATE HttpResponseBodyDrainer {
 
   scoped_refptr<IOBuffer> read_buf_;
   const std::unique_ptr<HttpStream> stream_;
-  State next_state_ = STATE_NONE;
-  int total_read_ = 0;
+  State next_state_;
+  int total_read_;
   base::OneShotTimer timer_;
-  raw_ptr<HttpNetworkSession> session_ = nullptr;
+  HttpNetworkSession* session_;
+
+  DISALLOW_COPY_AND_ASSIGN(HttpResponseBodyDrainer);
 };
 
 }  // namespace net

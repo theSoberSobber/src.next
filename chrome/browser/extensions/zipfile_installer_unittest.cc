@@ -1,4 +1,4 @@
-// Copyright 2014 The Chromium Authors
+// Copyright 2014 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -10,7 +10,6 @@
 #include "base/command_line.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
-#include "base/memory/raw_ptr.h"
 #include "base/memory/ref_counted.h"
 #include "base/path_service.h"
 #include "base/run_loop.h"
@@ -59,7 +58,8 @@ struct MockExtensionRegistryObserver : public ExtensionRegistryObserver {
       // TODO(jcivelli): make LoadErrorReporter::Observer report installation
       // failures for packaged extensions so we don't have to poll.
       base::ThreadTaskRunnerHandle::Get()->PostDelayedTask(
-          FROM_HERE, run_loop.QuitClosure(), base::Milliseconds(100));
+          FROM_HERE, run_loop.QuitClosure(),
+          base::TimeDelta::FromMilliseconds(100));
       quit_closure = run_loop.QuitClosure();
       run_loop.Run();
       const std::vector<std::u16string>* errors = error_reporter->GetErrors();
@@ -162,7 +162,7 @@ class ZipFileInstallerTest : public testing::Test {
   scoped_refptr<ZipFileInstaller> zipfile_installer_;
 
   std::unique_ptr<TestingProfile> profile_;
-  raw_ptr<ExtensionService> extension_service_;
+  ExtensionService* extension_service_;
 
   content::BrowserTaskEnvironment task_environment_;
   std::unique_ptr<content::InProcessUtilityThreadHelper>

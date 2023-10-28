@@ -1,4 +1,4 @@
-// Copyright 2017 The Chromium Authors
+// Copyright 2017 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -9,10 +9,11 @@
 #include "base/bind.h"
 #include "base/callback.h"
 #include "base/files/file_path.h"
+#include "base/macros.h"
 #include "base/memory/ref_counted_memory.h"
 #include "base/run_loop.h"
+#include "base/single_thread_task_runner.h"
 #include "base/strings/stringprintf.h"
-#include "base/task/single_thread_task_runner.h"
 #include "base/test/task_environment.h"
 #include "base/time/time.h"
 #include "base/trace_event/memory_dump_manager.h"
@@ -25,7 +26,6 @@
 #include "net/cert/mock_cert_verifier.h"
 #include "net/dns/mapped_host_resolver.h"
 #include "net/dns/mock_host_resolver.h"
-#include "net/http/http_network_session.h"
 #include "net/http/http_status_code.h"
 #include "net/quic/crypto/proof_source_chromium.h"
 #include "net/quic/quic_context.h"
@@ -34,13 +34,11 @@
 #include "net/test/embedded_test_server/http_response.h"
 #include "net/test/gtest_util.h"
 #include "net/test/test_data_directory.h"
-#include "net/third_party/quiche/src/quiche/quic/test_tools/crypto_test_utils.h"
-#include "net/third_party/quiche/src/quiche/quic/tools/quic_memory_cache_backend.h"
+#include "net/third_party/quiche/src/quic/test_tools/crypto_test_utils.h"
+#include "net/third_party/quiche/src/quic/tools/quic_memory_cache_backend.h"
 #include "net/tools/quic/quic_simple_server.h"
 #include "net/traffic_annotation/network_traffic_annotation_test_helper.h"
 #include "net/url_request/url_request.h"
-#include "net/url_request/url_request_context.h"
-#include "net/url_request/url_request_context_builder.h"
 #include "net/url_request/url_request_test_util.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -83,7 +81,8 @@ perf_test::PerfResultReporter SetUpURLRequestQuicReporter(
 
 std::unique_ptr<test_server::HttpResponse> HandleRequest(
     const test_server::HttpRequest& request) {
-  auto http_response = std::make_unique<test_server::BasicHttpResponse>();
+  std::unique_ptr<test_server::BasicHttpResponse> http_response(
+      new test_server::BasicHttpResponse());
   std::string alpn =
       quic::AlpnForVersion(DefaultSupportedQuicVersions().front());
   http_response->AddCustomHeader(
@@ -104,39 +103,40 @@ class URLRequestQuicPerfTest : public ::testing::Test {
     memory_dump_manager_ =
         base::trace_event::MemoryDumpManager::CreateInstanceForTesting();
     base::trace_event::InitializeMemoryDumpManagerForInProcessTesting(
-        /*is_coordinator=*/false);
+        /*is_coordinator_process=*/false);
     memory_dump_manager_->set_dumper_registrations_ignored_for_testing(false);
+    context_ = std::make_unique<TestURLRequestContext>(true);
     memory_dump_manager_->set_dumper_registrations_ignored_for_testing(true);
     StartTcpServer();
     StartQuicServer();
 
     // Host mapping.
-    auto resolver = std::make_unique<MockHostResolver>();
+    std::unique_ptr<MockHostResolver> resolver(new MockHostResolver());
     resolver->rules()->AddRule(kAltSvcHost, "127.0.0.1");
-    auto host_resolver =
-        std::make_unique<MappedHostResolver>(std::move(resolver));
+    host_resolver_ = std::make_unique<MappedHostResolver>(std::move(resolver));
     std::string map_rule = base::StringPrintf("MAP %s 127.0.0.1:%d",
                                               kOriginHost, tcp_server_->port());
-    EXPECT_TRUE(host_resolver->AddRuleFromString(map_rule));
+    EXPECT_TRUE(host_resolver_->AddRuleFromString(map_rule));
 
-    HttpNetworkSessionParams params;
-    params.enable_quic = true;
-    params.enable_user_alternate_protocol_ports = true;
-    auto quic_context = std::make_unique<QuicContext>();
-    quic_context->params()->allow_remote_alt_svc = true;
-    auto context_builder = CreateTestURLRequestContextBuilder();
-    context_builder->set_host_resolver(std::move(host_resolver));
-    context_builder->set_http_network_session_params(params);
-    context_builder->SetCertVerifier(std::make_unique<MockCertVerifier>());
-    context_builder->set_quic_context(std::move(quic_context));
-    context_ = context_builder->Build();
+    net::HttpNetworkSession::Context network_session_context;
+    network_session_context.cert_verifier = &cert_verifier_;
+    std::unique_ptr<HttpNetworkSession::Params> params(
+        new HttpNetworkSession::Params);
+    params->enable_quic = true;
+    params->enable_user_alternate_protocol_ports = true;
+    quic_context_.params()->allow_remote_alt_svc = true;
+    context_->set_host_resolver(host_resolver_.get());
+    context_->set_http_network_session_params(std::move(params));
+    context_->set_cert_verifier(&cert_verifier_);
+    context_->set_quic_context(&quic_context_);
+    context_->Init();
   }
 
   void TearDown() override {
     if (quic_server_) {
       quic_server_->Shutdown();
-      // If possible, deliver the connection close packet to the client before
-      // destruct the URLRequestContext.
+      // If possible, deliver the conncetion close packet to the client before
+      // destruct the TestURLRequestContext.
       base::RunLoop().RunUntilIdle();
     }
     // |tcp_server_| shuts down in EmbeddedTestServer destructor.
@@ -170,8 +170,8 @@ class URLRequestQuicPerfTest : public ::testing::Test {
     verify_result.verified_cert = ImportCertFromFile(
         GetTestCertsDirectory(), "quic-chain.pem");
     verify_result.is_issued_by_known_root = true;
-    cert_verifier().AddResultForCert(verify_result.verified_cert.get(),
-                                     verify_result, OK);
+    cert_verifier_.AddResultForCert(verify_result.verified_cert.get(),
+                                    verify_result, OK);
   }
 
   void StartTcpServer() {
@@ -182,21 +182,19 @@ class URLRequestQuicPerfTest : public ::testing::Test {
 
     CertVerifyResult verify_result;
     verify_result.verified_cert = tcp_server_->GetCertificate();
-    cert_verifier().AddResultForCert(tcp_server_->GetCertificate(),
-                                     verify_result, OK);
-  }
-
-  MockCertVerifier& cert_verifier() {
-    // This cast is safe because we set a MockCertVerifier in the constructor.
-    return *static_cast<MockCertVerifier*>(context_->cert_verifier());
+    cert_verifier_.AddResultForCert(tcp_server_->GetCertificate(),
+                                    verify_result, OK);
   }
 
   std::unique_ptr<base::trace_event::MemoryDumpManager> memory_dump_manager_;
+  std::unique_ptr<MappedHostResolver> host_resolver_;
   std::unique_ptr<EmbeddedTestServer> tcp_server_;
   std::unique_ptr<QuicSimpleServer> quic_server_;
   std::unique_ptr<base::test::SingleThreadTaskEnvironment> task_environment_;
-  std::unique_ptr<URLRequestContext> context_;
+  std::unique_ptr<TestURLRequestContext> context_;
   quic::QuicMemoryCacheBackend memory_cache_backend_;
+  MockCertVerifier cert_verifier_;
+  QuicContext quic_context_;
 };
 
 void CheckScalarInDump(const MemoryAllocatorDump* dump,
@@ -209,13 +207,7 @@ void CheckScalarInDump(const MemoryAllocatorDump* dump,
 
 }  // namespace
 
-#if BUILDFLAG(IS_FUCHSIA)
-// TODO(crbug.com/852937): Fix this test on Fuchsia and re-enable.
-#define MAYBE_TestGetRequest DISABLED_TestGetRequest
-#else
-#define MAYBE_TestGetRequest TestGetRequest
-#endif
-TEST_F(URLRequestQuicPerfTest, MAYBE_TestGetRequest) {
+TEST_F(URLRequestQuicPerfTest, TestGetRequest) {
   bool quic_succeeded = false;
   GURL url(base::StringPrintf("https://%s%s", kOriginHost, kHelloPath));
   base::TimeTicks start = base::TimeTicks::Now();

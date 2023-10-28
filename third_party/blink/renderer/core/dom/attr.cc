@@ -24,12 +24,10 @@
 
 #include "third_party/blink/renderer/core/dom/attr.h"
 
-#include "third_party/blink/renderer/bindings/core/v8/v8_union_string_trustedscript.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/element.h"
 #include "third_party/blink/renderer/core/dom/events/scoped_event_queue.h"
 #include "third_party/blink/renderer/core/dom/text.h"
-#include "third_party/blink/renderer/core/trustedtypes/trusted_script.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/wtf/text/atomic_string.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_builder.h"
@@ -80,23 +78,14 @@ void Attr::setValue(const AtomicString& value,
     standalone_value_or_attached_local_name_ = value;
 }
 
-void Attr::setNodeValue(const String& v, ExceptionState& exception_state) {
+void Attr::setNodeValue(const String& v) {
   // Attr uses AtomicString type for its value to save memory as there
   // is duplication among Elements' attributes values.
   const AtomicString value = v.IsNull() ? g_empty_atom : AtomicString(v);
-  setValue(value, exception_state);
-}
-
-void Attr::setTextContentForBinding(const V8UnionStringOrTrustedScript* value,
-                                    ExceptionState& exception_state) {
-  String string_value;
-  if (value) {
-    if (value->IsString())
-      string_value = value->GetAsString();
-    else if (value->IsTrustedScript())
-      string_value = value->GetAsTrustedScript()->toString();
-  }
-  setNodeValue(string_value, exception_state);
+  if (element_)
+    element_->setAttribute(GetQualifiedName(), value);
+  else
+    standalone_value_or_attached_local_name_ = value;
 }
 
 Node* Attr::Clone(Document& factory, CloneChildrenFlag) const {

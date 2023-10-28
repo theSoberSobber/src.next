@@ -1,10 +1,13 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include "chrome/browser/extensions/extension_apitest.h"
 #include "content/public/test/browser_test.h"
 #include "net/dns/mock_host_resolver.h"
+
+const base::FilePath::CharType kFtpDocRoot[] =
+    FILE_PATH_LITERAL("chrome/test/data");
 
 class CrossOriginXHR : public extensions::ExtensionApiTest {
  public:
@@ -16,10 +19,12 @@ class CrossOriginXHR : public extensions::ExtensionApiTest {
 };
 
 IN_PROC_BROWSER_TEST_F(CrossOriginXHR, BackgroundPage) {
+  ASSERT_TRUE(StartFTPServer(base::FilePath(kFtpDocRoot)));
   ASSERT_TRUE(RunExtensionTest("cross_origin_xhr/background_page")) << message_;
 }
 
 IN_PROC_BROWSER_TEST_F(CrossOriginXHR, ContentScript) {
+  ASSERT_TRUE(StartFTPServer(base::FilePath(kFtpDocRoot)));
   ASSERT_TRUE(RunExtensionTest("cross_origin_xhr/content_script")) << message_;
 }
 

@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -9,8 +9,7 @@
 #include <set>
 
 #include "base/files/file_path.h"
-#include "base/memory/raw_ptr.h"
-#include "base/time/time.h"
+#include "base/macros.h"
 #include "build/build_config.h"
 #include "components/prefs/pref_change_registrar.h"
 #include "components/prefs/pref_member.h"
@@ -49,10 +48,6 @@ class DownloadPrefs {
     MALICIOUS_FILES = 4,
   };
   explicit DownloadPrefs(Profile* profile);
-
-  DownloadPrefs(const DownloadPrefs&) = delete;
-  DownloadPrefs& operator=(const DownloadPrefs&) = delete;
-
   ~DownloadPrefs();
 
   static void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry);
@@ -79,8 +74,6 @@ class DownloadPrefs {
   void SetSaveFilePath(const base::FilePath& path);
   int save_file_type() const { return *save_file_type_; }
   void SetSaveFileType(int type);
-  base::Time GetLastCompleteTime();
-  void SetLastCompleteTime(const base::Time& last_complete_time);
   DownloadRestriction download_restriction() const {
     return static_cast<DownloadRestriction>(*download_restriction_);
   }
@@ -124,8 +117,8 @@ class DownloadPrefs {
   // Disables auto-open based on file extension.
   void DisableAutoOpenByUserBasedOnExtension(const base::FilePath& file_name);
 
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || \
-    BUILDFLAG(IS_MAC)
+#if defined(OS_WIN) || defined(OS_LINUX) || defined(OS_CHROMEOS) || \
+    defined(OS_MAC)
   // Store the user preference to disk. If |should_open| is true, also disable
   // the built-in PDF plugin. If |should_open| is false, enable the PDF plugin.
   void SetShouldOpenPdfInSystemReader(bool should_open);
@@ -143,7 +136,6 @@ class DownloadPrefs {
 
  private:
   void SaveAutoOpenState();
-  bool CanPlatformEnableAutoOpenForPdf() const;
 
   // Checks whether |path| is a valid download target path. If it is, returns
   // it as is. If it isn't returns the default download directory.
@@ -153,18 +145,18 @@ class DownloadPrefs {
 
   void UpdateAllowedURLsForOpenByPolicy();
 
-  raw_ptr<Profile> profile_;
+  Profile* profile_;
 
   BooleanPrefMember prompt_for_download_;
-#if BUILDFLAG(IS_ANDROID)
+#if defined(OS_ANDROID)
   IntegerPrefMember prompt_for_download_android_;
+  IntegerPrefMember prompt_for_download_later_;
 #endif
 
   FilePathPrefMember download_path_;
   FilePathPrefMember save_file_path_;
   IntegerPrefMember save_file_type_;
   IntegerPrefMember download_restriction_;
-  BooleanPrefMember download_bubble_enabled_;
   BooleanPrefMember safebrowsing_for_trusted_sources_enabled_;
 
   PrefChangeRegistrar pref_change_registrar_;
@@ -184,14 +176,16 @@ class DownloadPrefs {
 
   std::unique_ptr<policy::URLBlocklist> auto_open_allowed_by_urls_;
 
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || \
-    BUILDFLAG(IS_MAC)
+#if defined(OS_WIN) || defined(OS_LINUX) || defined(OS_CHROMEOS) || \
+    defined(OS_MAC)
   bool should_open_pdf_in_system_reader_;
 #endif
 
   // If this is true, SanitizeDownloadTargetPath will always return the passed
   // path verbatim.
   bool skip_sanitize_download_target_path_for_testing_ = false;
+
+  DISALLOW_COPY_AND_ASSIGN(DownloadPrefs);
 };
 
 #endif  // CHROME_BROWSER_DOWNLOAD_DOWNLOAD_PREFS_H_

@@ -1,19 +1,16 @@
-// Copyright 2018 The Chromium Authors
+// Copyright 2018 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 package org.chromium.chrome.browser.toolbar;
 
 import android.content.Context;
-import android.content.res.ColorStateList;
 
 import org.chromium.chrome.browser.layouts.LayoutStateProvider;
 import org.chromium.chrome.browser.layouts.LayoutType;
 import org.chromium.chrome.browser.tabmodel.IncognitoStateProvider;
 import org.chromium.chrome.browser.tabmodel.IncognitoStateProvider.IncognitoStateObserver;
 import org.chromium.chrome.browser.theme.ThemeColorProvider;
-import org.chromium.chrome.browser.theme.ThemeUtils;
-import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
 import org.chromium.components.browser_ui.styles.ChromeColors;
 
 /** A ThemeColorProvider for the app theme (incognito or standard theming). */
@@ -46,8 +43,8 @@ public class AppThemeColorProvider extends ThemeColorProvider implements Incogni
         super(context);
 
         mActivityContext = context;
-        mStandardPrimaryColor = ChromeColors.getDefaultThemeColor(context, false);
-        mIncognitoPrimaryColor = ChromeColors.getDefaultThemeColor(context, true);
+        mStandardPrimaryColor = ChromeColors.getDefaultThemeColor(context.getResources(), false);
+        mIncognitoPrimaryColor = ChromeColors.getDefaultThemeColor(context.getResources(), true);
 
         mLayoutStateObserver = new LayoutStateProvider.LayoutStateObserver() {
             @Override
@@ -94,12 +91,6 @@ public class AppThemeColorProvider extends ThemeColorProvider implements Incogni
         updatePrimaryColor(
                 shouldUseIncognitoBackground ? mIncognitoPrimaryColor : mStandardPrimaryColor,
                 false);
-        final @BrandedColorScheme int brandedColorScheme = shouldUseIncognitoBackground
-                ? BrandedColorScheme.INCOGNITO
-                : BrandedColorScheme.APP_DEFAULT;
-        final ColorStateList iconTint =
-                ThemeUtils.getThemedToolbarIconTint(mActivityContext, brandedColorScheme);
-        updateTint(iconTint, brandedColorScheme);
     }
 
     @Override

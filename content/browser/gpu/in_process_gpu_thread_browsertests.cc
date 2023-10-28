@@ -1,4 +1,4 @@
-// Copyright 2018 The Chromium Authors
+// Copyright 2018 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -28,6 +28,20 @@ class InProcessGpuTest : public content::ContentBrowserTest {
   }
 };
 
+void CreateGpuProcessHost() {
+  GpuProcessHost::Get();
+}
+
+void WaitUntilGpuProcessHostIsCreated() {
+  base::RunLoop run_loop;
+  auto task_runner = base::FeatureList::IsEnabled(features::kProcessHostOnUI)
+                         ? content::GetUIThreadTaskRunner({})
+                         : content::GetIOThreadTaskRunner({});
+  task_runner->PostTaskAndReply(
+      FROM_HERE, base::BindOnce(&CreateGpuProcessHost), run_loop.QuitClosure());
+  run_loop.Run();
+}
+
 // Reproduces the race that could give crbug.com/799002's "hang until OOM" at
 // shutdown.
 IN_PROC_BROWSER_TEST_F(InProcessGpuTest, NoHangAtQuickLaunchAndShutDown) {
@@ -36,7 +50,7 @@ IN_PROC_BROWSER_TEST_F(InProcessGpuTest, NoHangAtQuickLaunchAndShutDown) {
 
 // Tests crbug.com/799002 but with another timing.
 IN_PROC_BROWSER_TEST_F(InProcessGpuTest, NoCrashAtShutdown) {
-  GpuProcessHost::Get();
+  WaitUntilGpuProcessHostIsCreated();
   // ... then exit the browser.
 }
 

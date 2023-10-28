@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -23,10 +23,6 @@ using web_modal::WebContentsModalDialogManager;
 class RepostFormWarningTest : public DialogBrowserTest {
  public:
   RepostFormWarningTest() {}
-
-  RepostFormWarningTest(const RepostFormWarningTest&) = delete;
-  RepostFormWarningTest& operator=(const RepostFormWarningTest&) = delete;
-
   ~RepostFormWarningTest() override {}
 
   // BrowserTestBase:
@@ -37,6 +33,9 @@ class RepostFormWarningTest : public DialogBrowserTest {
 
  protected:
   content::WebContents* TryReload();
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(RepostFormWarningTest);
 };
 
 void RepostFormWarningTest::SetUpOnMainThread() {
@@ -44,11 +43,11 @@ void RepostFormWarningTest::SetUpOnMainThread() {
   ASSERT_TRUE(embedded_test_server()->Start());
 
   // Load a form.
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(
-      browser(), embedded_test_server()->GetURL("/form.html")));
+  ui_test_utils::NavigateToURL(browser(),
+                               embedded_test_server()->GetURL("/form.html"));
   // Submit it.
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(
-      browser(), GURL("javascript:document.getElementById('form').submit()")));
+  ui_test_utils::NavigateToURL(
+      browser(), GURL("javascript:document.getElementById('form').submit()"));
 }
 
 void RepostFormWarningTest::ShowUi(const std::string& name) {
@@ -75,8 +74,8 @@ IN_PROC_BROWSER_TEST_F(RepostFormWarningTest, TestDoubleReload) {
   EXPECT_TRUE(web_contents_modal_dialog_manager->IsDialogActive());
 
   // Navigate away from the page (this is when the test usually crashes).
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(
-      browser(), embedded_test_server()->GetURL("/bar")));
+  ui_test_utils::NavigateToURL(browser(),
+                               embedded_test_server()->GetURL("/bar"));
 
   // The dialog should've been closed.
   EXPECT_FALSE(web_contents_modal_dialog_manager->IsDialogActive());
@@ -113,7 +112,7 @@ IN_PROC_BROWSER_TEST_F(RepostFormWarningTest, TestLoginAfterRepost) {
 
 // Disable on Mac OS until dialogs are using toolkit-views for MacViews project.
 // https://crbug.com/683356
-#if !BUILDFLAG(IS_MAC)
+#if !defined(OS_MAC)
 IN_PROC_BROWSER_TEST_F(RepostFormWarningTest, InvokeUi_TestRepostWarning) {
   ShowAndVerifyUi();
 }

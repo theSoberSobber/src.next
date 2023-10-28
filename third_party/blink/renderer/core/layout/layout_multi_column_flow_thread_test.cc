@@ -400,28 +400,14 @@ TEST_F(MultiColumnRenderingTest, SubtreeWithSpannerBeforeSpanner) {
 }
 
 TEST_F(MultiColumnRenderingTest, columnSetAtBlockOffset) {
-  SetMulticolHTML(R"HTML(
-      <div id='mc' style='line-height:100px;'>
-        text<br>
-        text<br>
-        text<br>
-        text<br>
-        text
-        <div id='spanner1'>spanner</div>
-        text<br>
-        text
-        <div id='spanner2'>
-          text<br>
-          text
-        </div>
-        text
-      </div>
-  )HTML");
+  SetMulticolHTML(
+      "<div id='mc' "
+      "style='line-height:100px;'>text<br>text<br>text<br>text<br>text<div "
+      "id='spanner1'>spanner</div>text<br>text<div "
+      "id='spanner2'>text<br>text</div>text</div>");
   LayoutMultiColumnFlowThread* flow_thread = FindFlowThread("mc");
   EXPECT_EQ(ColumnSetSignature(flow_thread), "cscsc");
   LayoutMultiColumnSet* first_row = flow_thread->FirstMultiColumnSet();
-  LayoutMultiColumnSet* second_row = first_row->NextSiblingMultiColumnSet();
-  LayoutMultiColumnSet* third_row = second_row->NextSiblingMultiColumnSet();
   EXPECT_EQ(flow_thread->ColumnSetAtBlockOffset(
                 LayoutUnit(-10000), LayoutBox::kAssociateWithFormerPage),
             first_row);  // negative overflow
@@ -434,45 +420,34 @@ TEST_F(MultiColumnRenderingTest, columnSetAtBlockOffset) {
   EXPECT_EQ(flow_thread->ColumnSetAtBlockOffset(
                 LayoutUnit(), LayoutBox::kAssociateWithLatterPage),
             first_row);
-  LayoutUnit offset;
-  // The first column row contains 5 lines, split into two columns, i.e. 3 lines
-  // in the first and 2 lines in the second. Line height is 100px. There's 100px
-  // of unused space at the end of the second column. LayoutNGBlockFragmentation
-  // consumes this and includes it in the flow thread offset, while legacy block
-  // fragmentation doesn't. But it doesn't really matter in this case. It's just
-  // an implementation detail.
-  if (RuntimeEnabledFeatures::LayoutNGBlockFragmentationEnabled())
-    offset = LayoutUnit(600);
-  else
-    offset = LayoutUnit(500);
   EXPECT_EQ(flow_thread->ColumnSetAtBlockOffset(
-                offset - LayoutUnit(1), LayoutBox::kAssociateWithFormerPage),
+                LayoutUnit(499), LayoutBox::kAssociateWithFormerPage),
             first_row);  // bottom of last line in first row.
   EXPECT_EQ(flow_thread->ColumnSetAtBlockOffset(
-                offset - LayoutUnit(1), LayoutBox::kAssociateWithLatterPage),
+                LayoutUnit(499), LayoutBox::kAssociateWithLatterPage),
             first_row);  // bottom of last line in first row.
+  LayoutMultiColumnSet* second_row = first_row->NextSiblingMultiColumnSet();
   EXPECT_EQ(flow_thread->ColumnSetAtBlockOffset(
-                offset, LayoutBox::kAssociateWithFormerPage),
+                LayoutUnit(500), LayoutBox::kAssociateWithFormerPage),
             first_row);
   EXPECT_EQ(flow_thread->ColumnSetAtBlockOffset(
-                offset, LayoutBox::kAssociateWithLatterPage),
-            second_row);
-  offset += LayoutUnit(200);
-  EXPECT_EQ(flow_thread->ColumnSetAtBlockOffset(
-                offset - LayoutUnit(1), LayoutBox::kAssociateWithFormerPage),
+                LayoutUnit(500), LayoutBox::kAssociateWithLatterPage),
             second_row);
   EXPECT_EQ(flow_thread->ColumnSetAtBlockOffset(
-                offset - LayoutUnit(1), LayoutBox::kAssociateWithLatterPage),
+                LayoutUnit(699), LayoutBox::kAssociateWithFormerPage),
             second_row);
   EXPECT_EQ(flow_thread->ColumnSetAtBlockOffset(
-                offset, LayoutBox::kAssociateWithFormerPage),
+                LayoutUnit(699), LayoutBox::kAssociateWithLatterPage),
+            second_row);
+  LayoutMultiColumnSet* third_row = second_row->NextSiblingMultiColumnSet();
+  EXPECT_EQ(flow_thread->ColumnSetAtBlockOffset(
+                LayoutUnit(700), LayoutBox::kAssociateWithFormerPage),
             second_row);
   EXPECT_EQ(flow_thread->ColumnSetAtBlockOffset(
-                offset, LayoutBox::kAssociateWithLatterPage),
+                LayoutUnit(700), LayoutBox::kAssociateWithLatterPage),
             third_row);
-  offset += LayoutUnit(100);
   EXPECT_EQ(flow_thread->ColumnSetAtBlockOffset(
-                offset - LayoutUnit(1), LayoutBox::kAssociateWithLatterPage),
+                LayoutUnit(799), LayoutBox::kAssociateWithLatterPage),
             third_row);  // bottom of last row
   EXPECT_EQ(flow_thread->ColumnSetAtBlockOffset(
                 LayoutUnit(10000), LayoutBox::kAssociateWithFormerPage),
@@ -483,28 +458,14 @@ TEST_F(MultiColumnRenderingTest, columnSetAtBlockOffset) {
 }
 
 TEST_F(MultiColumnRenderingTest, columnSetAtBlockOffsetVerticalRl) {
-  SetMulticolHTML(R"HTML(
-      <div id='mc' style='line-height:100px; writing-mode:vertical-rl;'>
-        text<br>
-        text<br>
-        text<br>
-        text<br>
-        text
-        <div id='spanner1'>spanner</div>
-        text<br>
-        text
-        <div id='spanner2'>
-          text<br>
-          text
-        </div>
-        text
-      </div>
-  )HTML");
+  SetMulticolHTML(
+      "<div id='mc' style='line-height:100px; "
+      "-webkit-writing-mode:vertical-rl;'>text<br>text<br>text<br>text<br>text<"
+      "div id='spanner1'>spanner</div>text<br>text<div "
+      "id='spanner2'>text<br>text</div>text</div>");
   LayoutMultiColumnFlowThread* flow_thread = FindFlowThread("mc");
   EXPECT_EQ(ColumnSetSignature(flow_thread), "cscsc");
   LayoutMultiColumnSet* first_row = flow_thread->FirstMultiColumnSet();
-  LayoutMultiColumnSet* second_row = first_row->NextSiblingMultiColumnSet();
-  LayoutMultiColumnSet* third_row = second_row->NextSiblingMultiColumnSet();
   EXPECT_EQ(flow_thread->ColumnSetAtBlockOffset(
                 LayoutUnit(-10000), LayoutBox::kAssociateWithFormerPage),
             first_row);  // negative overflow
@@ -517,45 +478,34 @@ TEST_F(MultiColumnRenderingTest, columnSetAtBlockOffsetVerticalRl) {
   EXPECT_EQ(flow_thread->ColumnSetAtBlockOffset(
                 LayoutUnit(), LayoutBox::kAssociateWithLatterPage),
             first_row);
-  LayoutUnit offset;
-  // The first column row contains 5 lines, split into two columns, i.e. 3 lines
-  // in the first and 2 lines in the second. Line height is 100px. There's 100px
-  // of unused space at the end of the second column. LayoutNGBlockFragmentation
-  // consumes this and includes it in the flow thread offset, while legacy block
-  // fragmentation doesn't. But it doesn't really matter in this case. It's just
-  // an implementation detail.
-  if (RuntimeEnabledFeatures::LayoutNGBlockFragmentationEnabled())
-    offset = LayoutUnit(600);
-  else
-    offset = LayoutUnit(500);
   EXPECT_EQ(flow_thread->ColumnSetAtBlockOffset(
-                offset - LayoutUnit(1), LayoutBox::kAssociateWithFormerPage),
+                LayoutUnit(499), LayoutBox::kAssociateWithFormerPage),
             first_row);  // bottom of last line in first row.
   EXPECT_EQ(flow_thread->ColumnSetAtBlockOffset(
-                offset - LayoutUnit(1), LayoutBox::kAssociateWithLatterPage),
+                LayoutUnit(499), LayoutBox::kAssociateWithLatterPage),
             first_row);  // bottom of last line in first row.
+  LayoutMultiColumnSet* second_row = first_row->NextSiblingMultiColumnSet();
   EXPECT_EQ(flow_thread->ColumnSetAtBlockOffset(
-                offset, LayoutBox::kAssociateWithFormerPage),
+                LayoutUnit(500), LayoutBox::kAssociateWithFormerPage),
             first_row);
   EXPECT_EQ(flow_thread->ColumnSetAtBlockOffset(
-                offset, LayoutBox::kAssociateWithLatterPage),
-            second_row);
-  offset += LayoutUnit(200);
-  EXPECT_EQ(flow_thread->ColumnSetAtBlockOffset(
-                offset - LayoutUnit(1), LayoutBox::kAssociateWithFormerPage),
+                LayoutUnit(500), LayoutBox::kAssociateWithLatterPage),
             second_row);
   EXPECT_EQ(flow_thread->ColumnSetAtBlockOffset(
-                offset - LayoutUnit(1), LayoutBox::kAssociateWithLatterPage),
+                LayoutUnit(699), LayoutBox::kAssociateWithFormerPage),
             second_row);
   EXPECT_EQ(flow_thread->ColumnSetAtBlockOffset(
-                offset, LayoutBox::kAssociateWithFormerPage),
+                LayoutUnit(699), LayoutBox::kAssociateWithLatterPage),
+            second_row);
+  LayoutMultiColumnSet* third_row = second_row->NextSiblingMultiColumnSet();
+  EXPECT_EQ(flow_thread->ColumnSetAtBlockOffset(
+                LayoutUnit(700), LayoutBox::kAssociateWithFormerPage),
             second_row);
   EXPECT_EQ(flow_thread->ColumnSetAtBlockOffset(
-                offset, LayoutBox::kAssociateWithLatterPage),
+                LayoutUnit(700), LayoutBox::kAssociateWithLatterPage),
             third_row);
-  offset += LayoutUnit(100);
   EXPECT_EQ(flow_thread->ColumnSetAtBlockOffset(
-                offset - LayoutUnit(1), LayoutBox::kAssociateWithLatterPage),
+                LayoutUnit(799), LayoutBox::kAssociateWithLatterPage),
             third_row);  // bottom of last row
   EXPECT_EQ(flow_thread->ColumnSetAtBlockOffset(
                 LayoutUnit(10000), LayoutBox::kAssociateWithFormerPage),
@@ -566,28 +516,14 @@ TEST_F(MultiColumnRenderingTest, columnSetAtBlockOffsetVerticalRl) {
 }
 
 TEST_F(MultiColumnRenderingTest, columnSetAtBlockOffsetVerticalLr) {
-  SetMulticolHTML(R"HTML(
-      <div id='mc' style='line-height:100px; writing-mode:vertical-lr;'>
-        text<br>
-        text<br>
-        text<br>
-        text<br>
-        text
-        <div id='spanner1'>spanner</div>
-        text<br>
-        text
-        <div id='spanner2'>
-          text<br>
-          text
-        </div>
-        text
-      </div>
-  )HTML");
+  SetMulticolHTML(
+      "<div id='mc' style='line-height:100px; "
+      "-webkit-writing-mode:vertical-lr;'>text<br>text<br>text<br>text<br>text<"
+      "div id='spanner1'>spanner</div>text<br>text<div "
+      "id='spanner2'>text<br>text</div>text</div>");
   LayoutMultiColumnFlowThread* flow_thread = FindFlowThread("mc");
   EXPECT_EQ(ColumnSetSignature(flow_thread), "cscsc");
   LayoutMultiColumnSet* first_row = flow_thread->FirstMultiColumnSet();
-  LayoutMultiColumnSet* second_row = first_row->NextSiblingMultiColumnSet();
-  LayoutMultiColumnSet* third_row = second_row->NextSiblingMultiColumnSet();
   EXPECT_EQ(flow_thread->ColumnSetAtBlockOffset(
                 LayoutUnit(-10000), LayoutBox::kAssociateWithFormerPage),
             first_row);  // negative overflow
@@ -600,45 +536,34 @@ TEST_F(MultiColumnRenderingTest, columnSetAtBlockOffsetVerticalLr) {
   EXPECT_EQ(flow_thread->ColumnSetAtBlockOffset(
                 LayoutUnit(), LayoutBox::kAssociateWithLatterPage),
             first_row);
-  LayoutUnit offset;
-  // The first column row contains 5 lines, split into two columns, i.e. 3 lines
-  // in the first and 2 lines in the second. Line height is 100px. There's 100px
-  // of unused space at the end of the second column. LayoutNGBlockFragmentation
-  // consumes this and includes it in the flow thread offset, while legacy block
-  // fragmentation doesn't. But it doesn't really matter in this case. It's just
-  // an implementation detail.
-  if (RuntimeEnabledFeatures::LayoutNGBlockFragmentationEnabled())
-    offset = LayoutUnit(600);
-  else
-    offset = LayoutUnit(500);
   EXPECT_EQ(flow_thread->ColumnSetAtBlockOffset(
-                offset - LayoutUnit(1), LayoutBox::kAssociateWithFormerPage),
+                LayoutUnit(499), LayoutBox::kAssociateWithFormerPage),
             first_row);  // bottom of last line in first row.
   EXPECT_EQ(flow_thread->ColumnSetAtBlockOffset(
-                offset - LayoutUnit(1), LayoutBox::kAssociateWithLatterPage),
+                LayoutUnit(499), LayoutBox::kAssociateWithLatterPage),
             first_row);  // bottom of last line in first row.
+  LayoutMultiColumnSet* second_row = first_row->NextSiblingMultiColumnSet();
   EXPECT_EQ(flow_thread->ColumnSetAtBlockOffset(
-                offset, LayoutBox::kAssociateWithFormerPage),
+                LayoutUnit(500), LayoutBox::kAssociateWithFormerPage),
             first_row);
   EXPECT_EQ(flow_thread->ColumnSetAtBlockOffset(
-                offset, LayoutBox::kAssociateWithLatterPage),
-            second_row);
-  offset += LayoutUnit(200);
-  EXPECT_EQ(flow_thread->ColumnSetAtBlockOffset(
-                offset - LayoutUnit(1), LayoutBox::kAssociateWithFormerPage),
+                LayoutUnit(500), LayoutBox::kAssociateWithLatterPage),
             second_row);
   EXPECT_EQ(flow_thread->ColumnSetAtBlockOffset(
-                offset - LayoutUnit(1), LayoutBox::kAssociateWithLatterPage),
+                LayoutUnit(699), LayoutBox::kAssociateWithFormerPage),
             second_row);
   EXPECT_EQ(flow_thread->ColumnSetAtBlockOffset(
-                offset, LayoutBox::kAssociateWithFormerPage),
+                LayoutUnit(699), LayoutBox::kAssociateWithLatterPage),
+            second_row);
+  LayoutMultiColumnSet* third_row = second_row->NextSiblingMultiColumnSet();
+  EXPECT_EQ(flow_thread->ColumnSetAtBlockOffset(
+                LayoutUnit(700), LayoutBox::kAssociateWithFormerPage),
             second_row);
   EXPECT_EQ(flow_thread->ColumnSetAtBlockOffset(
-                offset, LayoutBox::kAssociateWithLatterPage),
+                LayoutUnit(700), LayoutBox::kAssociateWithLatterPage),
             third_row);
-  offset += LayoutUnit(100);
   EXPECT_EQ(flow_thread->ColumnSetAtBlockOffset(
-                offset - LayoutUnit(1), LayoutBox::kAssociateWithLatterPage),
+                LayoutUnit(799), LayoutBox::kAssociateWithLatterPage),
             third_row);  // bottom of last row
   EXPECT_EQ(flow_thread->ColumnSetAtBlockOffset(
                 LayoutUnit(10000), LayoutBox::kAssociateWithFormerPage),
@@ -1206,32 +1131,18 @@ LayoutBlockFlow DIV id="mc"
   +--LayoutMultiColumnSet (anonymous)
 )DUMP",
               ToSimpleLayoutTree(container));
-  } else if (RuntimeEnabledFeatures::LayoutNGBlockInInlineEnabled()) {
+  } else {
     EXPECT_EQ(R"DUMP(
 LayoutNGBlockFlow DIV id="mc"
   +--LayoutMultiColumnFlowThread (anonymous)
   |  +--LayoutNGBlockFlow (anonymous)
   |  |  +--LayoutInline SPAN
   |  |  |  +--LayoutText #text "x"
-  |  |  |  +--LayoutNGBlockFlow (anonymous)
-  |  |  |  |  +--LayoutNGBlockFlow DIV id="inner"
-  |  |  |  +--LayoutText #text "y"
-  +--LayoutMultiColumnSet (anonymous)
-)DUMP",
-              ToSimpleLayoutTree(container));
-  } else {
-    EXPECT_EQ(R"DUMP(
-LayoutNGBlockFlow DIV id="mc"
-  +--LayoutMultiColumnFlowThread (anonymous)
   |  +--LayoutNGBlockFlow (anonymous)
-  |  |  +--LayoutNGBlockFlow (anonymous)
-  |  |  |  +--LayoutInline SPAN
-  |  |  |  |  +--LayoutText #text "x"
-  |  |  +--LayoutNGBlockFlow (anonymous)
-  |  |  |  +--LayoutNGBlockFlow DIV id="inner"
-  |  |  +--LayoutNGBlockFlow (anonymous)
-  |  |  |  +--LayoutInline SPAN
-  |  |  |  |  +--LayoutText #text "y"
+  |  |  +--LayoutNGBlockFlow DIV id="inner"
+  |  +--LayoutNGBlockFlow (anonymous)
+  |  |  +--LayoutInline SPAN
+  |  |  |  +--LayoutText #text "y"
   +--LayoutMultiColumnSet (anonymous)
 )DUMP",
               ToSimpleLayoutTree(container));
@@ -1248,17 +1159,6 @@ LayoutBlockFlow DIV id="mc"
   |  |  +--LayoutText #text "x"
   |  +--LayoutInline SPAN
   |  |  +--LayoutText #text "y"
-  +--LayoutMultiColumnSet (anonymous)
-)DUMP",
-              ToSimpleLayoutTree(container));
-  } else if (RuntimeEnabledFeatures::LayoutNGBlockInInlineEnabled()) {
-    EXPECT_EQ(R"DUMP(
-LayoutNGBlockFlow DIV id="mc"
-  +--LayoutMultiColumnFlowThread (anonymous)
-  |  +--LayoutNGBlockFlow (anonymous)
-  |  |  +--LayoutInline SPAN
-  |  |  |  +--LayoutText #text "x"
-  |  |  |  +--LayoutText #text "y"
   +--LayoutMultiColumnSet (anonymous)
 )DUMP",
               ToSimpleLayoutTree(container));
@@ -1288,17 +1188,6 @@ LayoutBlockFlow DIV id="mc"
   |  +--LayoutInline SPAN
   |  |  +--LayoutText #text "xy"
   |  +--LayoutInline SPAN
-  +--LayoutMultiColumnSet (anonymous)
-)DUMP",
-              ToSimpleLayoutTree(container));
-  } else if (RuntimeEnabledFeatures::LayoutNGBlockInInlineEnabled()) {
-    EXPECT_FALSE(flow_thread.ChildrenInline());
-    EXPECT_EQ(R"DUMP(
-LayoutNGBlockFlow DIV id="mc"
-  +--LayoutMultiColumnFlowThread (anonymous)
-  |  +--LayoutNGBlockFlow (anonymous)
-  |  |  +--LayoutInline SPAN
-  |  |  |  +--LayoutText #text "xy"
   +--LayoutMultiColumnSet (anonymous)
 )DUMP",
               ToSimpleLayoutTree(container));
@@ -1535,7 +1424,7 @@ LayoutListItem DIV id="mc"
 LayoutNGListItem DIV id="mc"
   +--LayoutMultiColumnFlowThread (anonymous)
   |  +--LayoutNGOutsideListMarker ::marker
-  |  |  +--LayoutTextFragment (anonymous) ("\u2022 ")
+  |  |  +--LayoutText (anonymous)
   +--LayoutMultiColumnSet (anonymous)
 )DUMP",
               ToSimpleLayoutTree(container));
@@ -1692,48 +1581,6 @@ LayoutNGBlockFlow DIV id="mc"
 )DUMP",
               ToSimpleLayoutTree(container));
   }
-}
-
-TEST_F(MultiColumnRenderingTest, LegacyMulticolWithMathMLAndAbspos) {
-  // Disable LayoutNGBlockFragmentation, so that multicol uses legacy layout.
-  ScopedLayoutNGBlockFragmentationForTest layout_ng_block_fragmentation(false);
-
-  // Enable MathML. This will not actually create MathML objects, since we're
-  // inside legacy multicol. But at the very least it shouldn't crash.
-  ScopedMathMLCoreForTest mathml_core(true);
-  ScopedLayoutNGForTest layout_ng(true);
-
-  // This combination should not crash when having abspos.
-  SetBodyContent(
-      "<section style='position: relative; column-count: 1'>"
-      "<math>"
-      "<mtext style='position: absolute'></mtext>"
-      "<mtext style='position: fixed'></mtext>"
-      "</math>"
-      "</section>");
-}
-
-TEST_F(MultiColumnRenderingTest, LegacyMulticolWithTHeadContainingFixedpos) {
-  // Disable LayoutNGBlockFragmentation, so that multicol uses legacy layout.
-  ScopedLayoutNGBlockFragmentationForTest layout_ng_block_fragmentation(false);
-
-  // Enable MathML. This will not actually create MathML objects, since we're
-  // inside legacy multicol. But at the very least it shouldn't crash.
-  ScopedMathMLCoreForTest mathml_core(true);
-  ScopedLayoutNGForTest layout_ng(true);
-
-  // The table-header-group is a LayoutTableSection and contains position:fixed
-  // due to transform. But LayoutTableSection is not a LayoutBlock, so the
-  // ContainingBlock() of the fixed element is the anonymous LayoutTable.
-  // This combination should not crash.
-  SetBodyContent(
-      "<div style='column-count: 1'>"
-      "<div style='display: table-header-group; transform: scale(1)'>"
-      "<math style='position: absolute'>"
-      "<mtext style='position: fixed'></mtext>"
-      "</math>"
-      "</div>"
-      "</div>");
 }
 
 }  // anonymous namespace

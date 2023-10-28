@@ -1,20 +1,17 @@
-// Copyright 2020 The Chromium Authors
+// Copyright 2020 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 package org.chromium.chrome.browser.omnibox.suggestions;
 
-import android.content.Context;
 import android.util.SparseArray;
 import android.util.SparseBooleanArray;
 import android.view.View;
 
 import androidx.annotation.NonNull;
 
-import org.chromium.chrome.browser.omnibox.OmniboxFeatures;
-import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
+import org.chromium.chrome.browser.omnibox.styles.OmniboxTheme;
 import org.chromium.components.omnibox.AutocompleteResult;
-import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.modelutil.MVCListAdapter.ListItem;
 import org.chromium.ui.modelutil.MVCListAdapter.ModelList;
 import org.chromium.ui.modelutil.PropertyModel;
@@ -25,21 +22,24 @@ import java.util.List;
 
 /** Manages the list of DropdownItemViewInfo elements. */
 class DropdownItemViewInfoListManager {
-    private final Context mContext;
     private final ModelList mManagedModel;
     private final SparseBooleanArray mGroupsCollapsedState;
     private int mLayoutDirection;
-    private @BrandedColorScheme int mBrandedColorScheme;
+    private @OmniboxTheme int mOmniboxTheme;
     private List<DropdownItemViewInfo> mSourceViewInfoList;
 
-    DropdownItemViewInfoListManager(@NonNull ModelList managedModel, @NonNull Context context) {
+    DropdownItemViewInfoListManager(@NonNull ModelList managedModel) {
         assert managedModel != null : "Must specify a non-null model.";
-        mContext = context;
         mLayoutDirection = View.LAYOUT_DIRECTION_INHERIT;
-        mBrandedColorScheme = BrandedColorScheme.LIGHT_BRANDED_THEME;
+        mOmniboxTheme = OmniboxTheme.LIGHT_THEME;
         mSourceViewInfoList = Collections.emptyList();
         mGroupsCollapsedState = new SparseBooleanArray();
         mManagedModel = managedModel;
+    }
+
+    /** @return Total count of view infos that may be shown in the Omnibox Suggestions list. */
+    int getSuggestionsCount() {
+        return mSourceViewInfoList.size();
     }
 
     /**
@@ -58,15 +58,15 @@ class DropdownItemViewInfoListManager {
 
     /**
      * Specifies the visual theme to be used by the suggestions.
-     * @param brandedColorScheme Specifies which {@link BrandedColorScheme} should be used.
+     * @param omniboxTheme Specifies which {@link OmniboxTheme} should be used.
      */
-    void setBrandedColorScheme(@BrandedColorScheme int brandedColorScheme) {
-        if (mBrandedColorScheme == brandedColorScheme) return;
+    void setOmniboxTheme(@OmniboxTheme int omniboxTheme) {
+        if (mOmniboxTheme == omniboxTheme) return;
 
-        mBrandedColorScheme = brandedColorScheme;
+        mOmniboxTheme = omniboxTheme;
         for (int i = 0; i < mSourceViewInfoList.size(); i++) {
             PropertyModel model = mSourceViewInfoList.get(i).model;
-            model.set(SuggestionCommonProperties.COLOR_SCHEME, brandedColorScheme);
+            model.set(SuggestionCommonProperties.OMNIBOX_THEME, omniboxTheme);
         }
     }
 
@@ -125,36 +125,11 @@ class DropdownItemViewInfoListManager {
 
         // Build a new list of suggestions. Honor the default collapsed state.
         final List<ListItem> suggestionsList = new ArrayList<>();
-        int deviceType = DeviceFormFactor.isNonMultiDisplayContextOnTablet(mContext)
-                ? SuggestionCommonProperties.FormFactor.TABLET
-                : SuggestionCommonProperties.FormFactor.PHONE;
-        DropdownItemViewInfo prevSuggestionWithBackground = null;
-        boolean inDropdownItemBackgroundRoundingGroup = false;
         for (int i = 0; i < mSourceViewInfoList.size(); i++) {
             final DropdownItemViewInfo item = mSourceViewInfoList.get(i);
             final PropertyModel model = item.model;
             model.set(SuggestionCommonProperties.LAYOUT_DIRECTION, mLayoutDirection);
-            model.set(SuggestionCommonProperties.COLOR_SCHEME, mBrandedColorScheme);
-            model.set(SuggestionCommonProperties.DEVICE_FORM_FACTOR, deviceType);
-
-            // Add the background to suggestions.
-            if (item.processor.allowBackgroundRounding()) {
-                model.set(DropdownCommonProperties.BG_TOP_CORNER_ROUNDED,
-                        !inDropdownItemBackgroundRoundingGroup);
-                // The default value is false, so we do not need to assign false to
-                // BG_BOTTOM_CORNER_ROUNDED here.
-
-                prevSuggestionWithBackground = item;
-                inDropdownItemBackgroundRoundingGroup = true;
-            } else {
-                // If the current suggestion does not support background, we should round corner the
-                // bottom of the previous suggestion's background.
-                if (prevSuggestionWithBackground != null) {
-                    prevSuggestionWithBackground.model.set(
-                            DropdownCommonProperties.BG_BOTTOM_CORNER_ROUNDED, true);
-                }
-                inDropdownItemBackgroundRoundingGroup = false;
-            }
+            model.set(SuggestionCommonProperties.OMNIBOX_THEME, mOmniboxTheme);
 
             final boolean groupIsDefaultCollapsed = getGroupCollapsedState(item.groupId);
             if (!groupIsDefaultCollapsed || isGroupHeaderWithId(item, item.groupId)) {
@@ -162,29 +137,7 @@ class DropdownItemViewInfoListManager {
             }
         }
 
-        // round the bottom corners of the last suggestion.
-        if (prevSuggestionWithBackground != null) {
-            prevSuggestionWithBackground.model.set(
-                    DropdownCommonProperties.BG_BOTTOM_CORNER_ROUNDED, true);
-        }
-
         mManagedModel.set(suggestionsList);
-    }
-
-    /**
-     * Return if the suggestion type should have background.
-     *
-     * @param type The type of the suggestion.
-     */
-    private boolean suggestionShouldHaveBackground(@OmniboxSuggestionUiType int type) {
-        return OmniboxFeatures.shouldShowModernizeVisualUpdate(mContext)
-                && (type == OmniboxSuggestionUiType.DEFAULT
-                        || type == OmniboxSuggestionUiType.EDIT_URL_SUGGESTION
-                        || type == OmniboxSuggestionUiType.ANSWER_SUGGESTION
-                        || type == OmniboxSuggestionUiType.ENTITY_SUGGESTION
-                        || type == OmniboxSuggestionUiType.TAIL_SUGGESTION
-                        || type == OmniboxSuggestionUiType.CLIPBOARD_SUGGESTION
-                        || type == OmniboxSuggestionUiType.PEDAL_SUGGESTION);
     }
 
     /**

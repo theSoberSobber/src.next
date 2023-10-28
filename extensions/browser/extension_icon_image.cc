@@ -1,4 +1,4 @@
-// Copyright 2014 The Chromium Authors
+// Copyright 2014 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,11 +7,12 @@
 #include <vector>
 
 #include "base/bind.h"
+#include "base/macros.h"
 #include "base/memory/ptr_util.h"
-#include "base/memory/raw_ptr.h"
-#include "base/observer_list.h"
 #include "base/threading/thread_task_runner_handle.h"
+#include "content/public/browser/notification_service.h"
 #include "extensions/browser/image_loader.h"
+#include "extensions/browser/notification_types.h"
 #include "extensions/common/extension.h"
 #include "ui/base/layout.h"
 #include "ui/gfx/canvas.h"
@@ -20,7 +21,6 @@
 #include "ui/gfx/image/canvas_image_source.h"
 #include "ui/gfx/image/image.h"
 #include "ui/gfx/image/image_skia_operations.h"
-#include "ui/gfx/image/image_skia_rep.h"
 #include "ui/gfx/image/image_skia_source.h"
 
 // The ImageSkia provided by extensions::IconImage contains ImageSkiaReps that
@@ -58,10 +58,6 @@ class BlankImageSource : public gfx::CanvasImageSource {
  public:
   explicit BlankImageSource(const gfx::Size& size_in_dip)
       : CanvasImageSource(size_in_dip) {}
-
-  BlankImageSource(const BlankImageSource&) = delete;
-  BlankImageSource& operator=(const BlankImageSource&) = delete;
-
   ~BlankImageSource() override {}
 
  private:
@@ -69,6 +65,8 @@ class BlankImageSource : public gfx::CanvasImageSource {
   void Draw(gfx::Canvas* canvas) override {
     canvas->DrawColor(SkColorSetARGB(0, 0, 0, 0));
   }
+
+  DISALLOW_COPY_AND_ASSIGN(BlankImageSource);
 };
 
 }  // namespace
@@ -81,10 +79,6 @@ namespace extensions {
 class IconImage::Source : public gfx::ImageSkiaSource {
  public:
   Source(IconImage* host, const gfx::Size& size_in_dip);
-
-  Source(const Source&) = delete;
-  Source& operator=(const Source&) = delete;
-
   ~Source() override;
 
   void ResetHost();
@@ -95,11 +89,13 @@ class IconImage::Source : public gfx::ImageSkiaSource {
 
   // Used to load images, possibly asynchronously. nullptr'ed out when the
   // IconImage is destroyed.
-  raw_ptr<IconImage> host_;
+  IconImage* host_;
 
   // Image whose representations will be used until |host_| loads the real
   // representations for the image.
   gfx::ImageSkia blank_image_;
+
+  DISALLOW_COPY_AND_ASSIGN(Source);
 };
 
 IconImage::Source::Source(IconImage* host, const gfx::Size& size_in_dip)
@@ -145,10 +141,12 @@ IconImage::IconImage(content::BrowserContext* context,
     AddObserver(observer);
   gfx::Size resource_size(resource_size_in_dip, resource_size_in_dip);
   source_ = new Source(this, resource_size);
-  image_skia_ = gfx::ImageSkia(base::WrapUnique(source_.get()), resource_size);
+  image_skia_ = gfx::ImageSkia(base::WrapUnique(source_), resource_size);
   image_ = gfx::Image(image_skia_);
 
-  registry_observation_.Observe(ExtensionRegistry::Get(context));
+  registrar_.Add(this,
+                 extensions::NOTIFICATION_EXTENSION_REMOVED,
+                 content::NotificationService::AllSources());
 }
 
 IconImage::IconImage(content::BrowserContext* context,
@@ -256,18 +254,15 @@ void IconImage::OnImageRepLoaded(const gfx::ImageSkiaRep& rep) {
     observer.OnExtensionIconImageChanged(this);
 }
 
-void IconImage::OnExtensionUnloaded(content::BrowserContext* browser_context,
-                                    const Extension* extension,
-                                    UnloadedExtensionReason reason) {
-  if (extension == extension_)
-    extension_ = nullptr;
-}
+void IconImage::Observe(int type,
+                        const content::NotificationSource& source,
+                        const content::NotificationDetails& details) {
+  DCHECK_EQ(type, extensions::NOTIFICATION_EXTENSION_REMOVED);
 
-void IconImage::OnShutdown(ExtensionRegistry* extension_registry) {
-  // UI shutdown has historically been racy with profiles. Be sure to clean
-  // up the registration so that the ScopedObservation doesn't call
-  // RemoveObserver() on ExtensionRegistry after it's freed.
-  registry_observation_.Reset();
+  const Extension* extension = content::Details<const Extension>(details).ptr();
+
+  if (extension_.get() == extension)
+    extension_ = nullptr;
 }
 
 }  // namespace extensions

@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -12,10 +12,9 @@
 
 #include "base/callback_forward.h"
 #include "base/gtest_prod_util.h"
-#include "base/memory/raw_ptr.h"
+#include "base/macros.h"
 #include "base/supports_user_data.h"
 #include "content/browser/storage_partition_impl.h"
-#include "content/common/content_export.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/storage_partition_config.h"
 
@@ -34,9 +33,6 @@ class CONTENT_EXPORT StoragePartitionImplMap
  public:
   explicit StoragePartitionImplMap(BrowserContext* browser_context);
 
-  StoragePartitionImplMap(const StoragePartitionImplMap&) = delete;
-  StoragePartitionImplMap& operator=(const StoragePartitionImplMap&) = delete;
-
   ~StoragePartitionImplMap() override;
 
   // This map retains ownership of the returned StoragePartition objects.
@@ -50,20 +46,20 @@ class CONTENT_EXPORT StoragePartitionImplMap
   // |on_gc_required| is called if the AsyncObliterate() call was unable to
   // fully clean the on-disk storage requiring a call to GarbageCollect() on
   // the next browser start.
-  // |done_callback| is synchronously invoked once all on-disk storage
-  // (excluding paths that are known to still be in use) are deleted.
   void AsyncObliterate(const std::string& partition_domain,
-                       base::OnceClosure on_gc_required,
-                       base::OnceClosure done_callback);
+                       base::OnceClosure on_gc_required);
 
-  // See BrowserContext::GarbageCollectStoragePartitions().
-  void GarbageCollect(std::unordered_set<base::FilePath> active_paths,
-                      base::OnceClosure done);
+  // Examines the on-disk storage and removes any entires that are not listed
+  // in the |active_paths|, or in use by current entries in the storage
+  // partition.
+  //
+  // The |done| closure is executed on the calling thread when garbage
+  // collection is complete.
+  void GarbageCollect(
+      std::unique_ptr<std::unordered_set<base::FilePath>> active_paths,
+      base::OnceClosure done);
 
   void ForEach(BrowserContext::StoragePartitionCallback callback);
-
-  // Disposes the given in-memory storage partition.
-  void DisposeInMemory(StoragePartition* partition);
 
   size_t size() const { return partitions_.size(); }
 
@@ -91,13 +87,15 @@ class CONTENT_EXPORT StoragePartitionImplMap
   void PostCreateInitialization(StoragePartitionImpl* partition,
                                 bool in_memory);
 
-  raw_ptr<BrowserContext> browser_context_;  // Not Owned.
+  BrowserContext* browser_context_;  // Not Owned.
   scoped_refptr<base::SequencedTaskRunner> file_access_runner_;
   PartitionMap partitions_;
 
   // Set to true when the ResourceContext for the associated |browser_context_|
   // is initialized. Can never return to false.
   bool resource_context_initialized_;
+
+  DISALLOW_COPY_AND_ASSIGN(StoragePartitionImplMap);
 };
 
 }  // namespace content

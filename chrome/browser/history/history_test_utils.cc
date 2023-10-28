@@ -1,10 +1,11 @@
-// Copyright 2016 The Chromium Authors
+// Copyright 2016 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include <memory>
 #include <utility>
 
+#include "base/macros.h"
 #include "base/run_loop.h"
 #include "base/task/cancelable_task_tracker.h"
 #include "chrome/browser/history/history_service_factory.h"
@@ -26,9 +27,6 @@ class WaitForHistoryTask : public history::HistoryDBTask {
  public:
   WaitForHistoryTask() {}
 
-  WaitForHistoryTask(const WaitForHistoryTask&) = delete;
-  WaitForHistoryTask& operator=(const WaitForHistoryTask&) = delete;
-
   bool RunOnDBThread(history::HistoryBackend* backend,
                      history::HistoryDatabase* db) override {
     return true;
@@ -40,6 +38,8 @@ class WaitForHistoryTask : public history::HistoryDBTask {
 
  private:
   ~WaitForHistoryTask() override {}
+
+  DISALLOW_COPY_AND_ASSIGN(WaitForHistoryTask);
 };
 
 }  // namespace

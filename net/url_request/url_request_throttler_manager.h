@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -9,6 +9,7 @@
 #include <set>
 #include <string>
 
+#include "base/macros.h"
 #include "base/memory/ref_counted.h"
 #include "base/threading/platform_thread.h"
 #include "base/threading/thread_checker.h"
@@ -36,11 +37,6 @@ class NET_EXPORT_PRIVATE URLRequestThrottlerManager
       public NetworkChangeNotifier::ConnectionTypeObserver {
  public:
   URLRequestThrottlerManager();
-
-  URLRequestThrottlerManager(const URLRequestThrottlerManager&) = delete;
-  URLRequestThrottlerManager& operator=(const URLRequestThrottlerManager&) =
-      delete;
-
   ~URLRequestThrottlerManager() override;
 
   // Must be called for every request, returns the URL request throttler entry
@@ -53,8 +49,7 @@ class NET_EXPORT_PRIVATE URLRequestThrottlerManager
   // Registers a new entry in this service and overrides the existing entry (if
   // any) for the URL. The service will hold a reference to the entry.
   // It is only used by unit tests.
-  void OverrideEntryForTests(const GURL& url,
-                             scoped_refptr<URLRequestThrottlerEntry> entry);
+  void OverrideEntryForTests(const GURL& url, URLRequestThrottlerEntry* entry);
 
   // Explicitly erases an entry.
   // This is useful to remove those entries which have got infinite lifetime and
@@ -102,9 +97,7 @@ class NET_EXPORT_PRIVATE URLRequestThrottlerManager
   void OnNetworkChange();
 
   // Used by tests.
-  int GetNumberOfEntriesForTests() const {
-    return static_cast<int>(url_entries_.size());
-  }
+  int GetNumberOfEntriesForTests() const { return url_entries_.size(); }
 
  private:
   // From each URL we generate an ID composed of the scheme, host, port and path
@@ -123,7 +116,7 @@ class NET_EXPORT_PRIVATE URLRequestThrottlerManager
 
   // This keeps track of how many requests have been made. Used with
   // GarbageCollectEntries.
-  unsigned int requests_since_last_gc_ = 0;
+  unsigned int requests_since_last_gc_;
 
   // Valid after construction.
   GURL::Replacements url_id_replacements_;
@@ -138,15 +131,17 @@ class NET_EXPORT_PRIVATE URLRequestThrottlerManager
 
   // Initially false, switches to true once we have logged because of back-off
   // being disabled for localhost.
-  bool logged_for_localhost_disabled_ = false;
+  bool logged_for_localhost_disabled_;
 
   // NetLog to use, if configured.
   NetLogWithSource net_log_;
 
   // Valid once we've registered for network notifications.
-  base::PlatformThreadId registered_from_thread_ = base::kInvalidThreadId;
+  base::PlatformThreadId registered_from_thread_;
 
   THREAD_CHECKER(thread_checker_);
+
+  DISALLOW_COPY_AND_ASSIGN(URLRequestThrottlerManager);
 };
 
 }  // namespace net

@@ -1,4 +1,4 @@
-// Copyright 2013 The Chromium Authors
+// Copyright 2013 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -11,6 +11,7 @@
 #include <string>
 
 #include "base/callback.h"
+#include "base/macros.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "mojo/public/cpp/bindings/remote.h"
@@ -41,9 +42,6 @@ class BlobReader : public blink::mojom::BlobReaderClient,
   static void Read(content::BrowserContext* browser_context,
                    const std::string& blob_uuid,
                    BlobReadCallback callback);
-
-  BlobReader(const BlobReader&) = delete;
-  BlobReader& operator=(const BlobReader&) = delete;
 
   ~BlobReader() override;
 
@@ -84,6 +82,8 @@ class BlobReader : public blink::mojom::BlobReaderClient,
   absl::optional<uint64_t> blob_length_;
   std::unique_ptr<std::string> blob_data_;
   bool data_complete_ = false;
+
+  DISALLOW_COPY_AND_ASSIGN(BlobReader);
 };
 
 #endif  // EXTENSIONS_BROWSER_BLOB_READER_H_

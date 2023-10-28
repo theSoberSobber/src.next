@@ -1,4 +1,4 @@
-// Copyright 2013 The Chromium Authors
+// Copyright 2013 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -26,13 +26,13 @@ namespace base {
 namespace android {
 
 JavaHandlerThread::JavaHandlerThread(const char* name,
-                                     base::ThreadType thread_type)
+                                     base::ThreadPriority priority)
     : JavaHandlerThread(
           name,
           Java_JavaHandlerThread_create(
               AttachCurrentThread(),
               ConvertUTF8ToJavaString(AttachCurrentThread(), name),
-              base::internal::ThreadTypeToNiceValue(thread_type))) {}
+              base::internal::ThreadPriorityToNiceValue(priority))) {}
 
 JavaHandlerThread::JavaHandlerThread(
     const char* name,

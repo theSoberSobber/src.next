@@ -40,16 +40,11 @@ scoped_refptr<SimpleFontData> BinaryDataFontFaceSource::CreateFontData(
   return SimpleFontData::Create(
       custom_platform_data_->GetFontPlatformData(
           font_description.EffectiveFontSize(),
-          font_description.AdjustedSpecifiedSize(),
-          font_description.IsSyntheticBold() &&
-              font_description.SyntheticBoldAllowed(),
-          font_description.IsSyntheticItalic() &&
-              font_description.SyntheticItalicAllowed(),
+          font_description.IsSyntheticBold(),
+          font_description.IsSyntheticItalic(),
           font_description.GetFontSelectionRequest(),
           font_selection_capabilities, font_description.FontOpticalSizing(),
-          font_description.TextRendering(), font_description.Orientation(),
-          font_description.VariationSettings(),
-          font_description.GetFontPalette()),
+          font_description.Orientation(), font_description.VariationSettings()),
       CustomFontData::Create());
 }
 

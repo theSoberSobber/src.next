@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium Authors
+// Copyright 2019 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -302,7 +302,7 @@ class NavigationHandler implements TouchEventObserver {
      * @return {@code true} if navigation was triggered and its UI is in action, or
      *         edge glow effect is visible.
      */
-    boolean isActive() {
+    private boolean isActive() {
         return mState == GestureState.DRAGGED || mState == GestureState.GLOW;
     }
 

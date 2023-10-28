@@ -1,4 +1,4 @@
-// Copyright 2017 The Chromium Authors
+// Copyright 2017 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -9,6 +9,7 @@
 #include <string>
 #include <vector>
 
+#include "base/macros.h"
 #include "extensions/common/api/app_runtime.h"
 #include "extensions/common/extension.h"
 #include "extensions/common/manifest_handler.h"
@@ -35,16 +36,14 @@ struct ActionHandlersInfo : public Extension::ManifestData {
 class ActionHandlersHandler : public ManifestHandler {
  public:
   ActionHandlersHandler();
-
-  ActionHandlersHandler(const ActionHandlersHandler&) = delete;
-  ActionHandlersHandler& operator=(const ActionHandlersHandler&) = delete;
-
   ~ActionHandlersHandler() override;
 
   bool Parse(Extension* extension, std::u16string* error) override;
 
  private:
   base::span<const char* const> Keys() const override;
+
+  DISALLOW_COPY_AND_ASSIGN(ActionHandlersHandler);
 };
 
 }  // namespace extensions

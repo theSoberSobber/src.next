@@ -1,4 +1,4 @@
-// Copyright 2017 The Chromium Authors
+// Copyright 2017 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,7 +7,6 @@
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
-#include "base/memory/raw_ptr.h"
 #include "base/path_service.h"
 #include "base/test/bind.h"
 #include "base/version.h"
@@ -90,10 +89,6 @@ void WriteComputedHashes(
 class ContentVerifyJobUnittest : public ExtensionsTest {
  public:
   ContentVerifyJobUnittest() {}
-
-  ContentVerifyJobUnittest(const ContentVerifyJobUnittest&) = delete;
-  ContentVerifyJobUnittest& operator=(const ContentVerifyJobUnittest&) = delete;
-
   ~ContentVerifyJobUnittest() override {}
 
   // Helper to get files from our subdirectory in the general extensions test
@@ -141,8 +136,8 @@ class ContentVerifyJobUnittest : public ExtensionsTest {
     auto run_content_read_step = [](ContentVerifyJob* verify_job,
                                     std::string* resource_contents) {
       // Simulate serving |resource_contents| from |resource_path|.
-      verify_job->Read(std::data(*resource_contents), resource_contents->size(),
-                       MOJO_RESULT_OK);
+      verify_job->Read(base::data(*resource_contents),
+                       resource_contents->size(), MOJO_RESULT_OK);
       verify_job->Done();
     };
 
@@ -253,9 +248,11 @@ class ContentVerifyJobUnittest : public ExtensionsTest {
 
   scoped_refptr<InfoMap> extension_info_map_;
   scoped_refptr<ContentVerifier> content_verifier_;
-  raw_ptr<MockContentVerifierDelegate> content_verifier_delegate_ =
+  MockContentVerifierDelegate* content_verifier_delegate_ =
       nullptr;  // Owned by |content_verifier_|.
   content::TestBrowserContext testing_context_;
+
+  DISALLOW_COPY_AND_ASSIGN(ContentVerifyJobUnittest);
 };
 
 // Tests that deleted legitimate files trigger content verification failure.
@@ -513,7 +510,8 @@ TEST_F(ContentVerifyJobUnittest, DifferentSizedFiles) {
       {"8191.js", 8191}, {"8193.js", 8193},
   };
   for (const auto& file_to_test : kFilesToTest) {
-    base::FilePath resource_path = base::FilePath::FromASCII(file_to_test.name);
+    base::FilePath resource_path =
+        base::FilePath::FromUTF8Unsafe(file_to_test.name);
     std::string contents;
     base::ReadFileToString(unzipped_path.AppendASCII(file_to_test.name),
                            &contents);
@@ -723,9 +721,6 @@ class ContentMismatchUnittest
  public:
   ContentMismatchUnittest() {}
 
-  ContentMismatchUnittest(const ContentMismatchUnittest&) = delete;
-  ContentMismatchUnittest& operator=(const ContentMismatchUnittest&) = delete;
-
  protected:
   // Runs test to verify that a modified extension resource (background.js)
   // causes ContentVerifyJob to fail with HASH_MISMATCH. The string
@@ -754,6 +749,9 @@ class ContentMismatchUnittest
                                     modified_contents, run_mode));
     }
   }
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(ContentMismatchUnittest);
 };
 
 INSTANTIATE_TEST_SUITE_P(ContentVerifyJobUnittest,
@@ -782,11 +780,6 @@ class ContentVerifyJobWithHashFetchUnittest : public ContentVerifyJobUnittest {
       : hash_fetch_interceptor_(base::BindRepeating(
             &ContentVerifyJobWithHashFetchUnittest::InterceptHashFetch,
             base::Unretained(this))) {}
-
-  ContentVerifyJobWithHashFetchUnittest(
-      const ContentVerifyJobWithHashFetchUnittest&) = delete;
-  ContentVerifyJobWithHashFetchUnittest& operator=(
-      const ContentVerifyJobWithHashFetchUnittest&) = delete;
 
  protected:
   // Responds to hash fetch request.
@@ -845,6 +838,8 @@ class ContentVerifyJobWithHashFetchUnittest : public ContentVerifyJobUnittest {
 
   // Copy of the contents of verified_contents.json.
   absl::optional<std::string> verified_contents_;
+
+  DISALLOW_COPY_AND_ASSIGN(ContentVerifyJobWithHashFetchUnittest);
 };
 
 // Regression test for https://crbug.com/995436.

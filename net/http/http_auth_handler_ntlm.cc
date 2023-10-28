@@ -1,4 +1,4 @@
-// Copyright 2011 The Chromium Authors
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -36,12 +36,11 @@ HttpAuth::AuthorizationResult HttpAuthHandlerNTLM::HandleAnotherChallengeImpl(
 }
 
 // static
-std::string HttpAuthHandlerNTLM::CreateSPN(
-    const url::SchemeHostPort& scheme_host_port) {
+std::string HttpAuthHandlerNTLM::CreateSPN(const GURL& origin) {
   // The service principal name of the destination server.  See
   // http://msdn.microsoft.com/en-us/library/ms677949%28VS.85%29.aspx
   std::string target("HTTP/");
-  target.append(GetHostAndOptionalPort(scheme_host_port));
+  target.append(GetHostAndOptionalPort(origin));
   return target;
 }
 

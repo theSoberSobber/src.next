@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -14,13 +14,7 @@ TestExtensionService::~TestExtensionService() {}
 extensions::PendingExtensionManager*
 TestExtensionService::pending_extension_manager() {
   ADD_FAILURE();
-  return nullptr;
-}
-
-extensions::CorruptedExtensionReinstaller*
-TestExtensionService::corrupted_extension_reinstaller() {
-  ADD_FAILURE();
-  return nullptr;
+  return NULL;
 }
 
 bool TestExtensionService::UpdateExtension(
@@ -34,7 +28,7 @@ bool TestExtensionService::UpdateExtension(
 const Extension* TestExtensionService::GetPendingExtensionUpdate(
     const std::string& id) const {
   ADD_FAILURE();
-  return nullptr;
+  return NULL;
 }
 
 bool TestExtensionService::FinishDelayedInstallationIfReady(
@@ -81,8 +75,4 @@ bool TestExtensionService::UserCanDisableInstalledExtension(
     const std::string& extension_id) {
   ADD_FAILURE();
   return false;
-}
-
-void TestExtensionService::ReinstallProviderExtensions() {
-  ADD_FAILURE();
 }

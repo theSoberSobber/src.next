@@ -1,4 +1,4 @@
-// Copyright 2015 The Chromium Authors
+// Copyright 2015 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -13,9 +13,6 @@ import android.os.ParcelFileDescriptor;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import org.chromium.base.annotations.JNINamespace;
-import org.chromium.base.annotations.NativeMethods;
-
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileDescriptor;
@@ -29,7 +26,6 @@ import java.util.Locale;
 /**
  * Helper methods for dealing with Files.
  */
-@JNINamespace("base::android")
 public class FileUtils {
     private static final String TAG = "FileUtils";
 
@@ -59,7 +55,7 @@ public class FileUtils {
         if (currentFile.isDirectory()) {
             File[] files = currentFile.listFiles();
             if (files != null) {
-                for (var file : files) {
+                for (File file : files) {
                     recursivelyDeleteFile(file, canDelete);
                 }
             }
@@ -110,6 +106,22 @@ public class FileUtils {
             return size;
         } else {
             return file.length();
+        }
+    }
+
+    /**
+     * Extracts an asset from the app's APK to a file.
+     * @param context
+     * @param assetName Name of the asset to extract.
+     * @param outFile File to extract the asset to.
+     * @return true on success.
+     */
+    public static boolean extractAsset(Context context, String assetName, File outFile) {
+        try (InputStream inputStream = context.getAssets().open(assetName)) {
+            copyStreamToFile(inputStream, outFile);
+            return true;
+        } catch (IOException e) {
+            return false;
         }
     }
 
@@ -211,23 +223,5 @@ public class FileUtils {
             Log.w(TAG, "IO exception when reading uri " + uri);
         }
         return null;
-    }
-
-    /**
-     * Gets the canonicalised absolute pathname for |filePath|. Returns empty string if the path is
-     * invalid. This function can result in I/O so it can be slow.
-     * @param filePath Path of the file, has to be a file path instead of a content URI.
-     * @return canonicalised absolute pathname for |filePath|.
-     */
-    public static String getAbsoluteFilePath(String filePath) {
-        return FileUtilsJni.get().getAbsoluteFilePath(filePath);
-    }
-
-    @NativeMethods
-    public interface Natives {
-        /**
-         * Returns the canonicalised absolute pathname for |filePath|.
-         */
-        String getAbsoluteFilePath(String filePath);
     }
 }

@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium Authors
+// Copyright 2019 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -9,11 +9,7 @@
 #include <set>
 
 #include "base/profiler/unwinder.h"
-#include "v8/include/v8-unwinder.h"
-
-namespace v8 {
-class Isolate;
-}  // namespace v8
+#include "v8/include/v8.h"
 
 // Implements stack frame unwinding for V8 generated code frames, for use with
 // the StackSamplingProfiler.

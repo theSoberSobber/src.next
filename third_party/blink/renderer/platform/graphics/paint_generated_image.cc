@@ -4,30 +4,32 @@
 
 #include "third_party/blink/renderer/platform/graphics/paint_generated_image.h"
 
+#include "third_party/blink/renderer/platform/geometry/float_rect.h"
 #include "third_party/blink/renderer/platform/graphics/graphics_context.h"
 #include "third_party/blink/renderer/platform/graphics/paint/paint_canvas.h"
 #include "third_party/blink/renderer/platform/graphics/paint/paint_record.h"
-#include "ui/gfx/geometry/rect_f.h"
 
 namespace blink {
 
 void PaintGeneratedImage::Draw(cc::PaintCanvas* canvas,
-                               const cc::PaintFlags& flags,
-                               const gfx::RectF& dest_rect,
-                               const gfx::RectF& src_rect,
-                               const ImageDrawOptions&) {
+                               const PaintFlags& flags,
+                               const FloatRect& dest_rect,
+                               const FloatRect& src_rect,
+                               const SkSamplingOptions&,
+                               RespectImageOrientationEnum,
+                               ImageClampingMode,
+                               ImageDecodingMode) {
   PaintCanvasAutoRestore ar(canvas, true);
-  SkRect sk_dest_rect = gfx::RectFToSkRect(dest_rect);
-  SkRect sk_src_rect = gfx::RectFToSkRect(src_rect);
-  canvas->clipRect(sk_dest_rect);
-  canvas->concat(SkMatrix::RectToRect(sk_src_rect, sk_dest_rect));
-  canvas->saveLayer(&sk_src_rect, &flags);
+  canvas->clipRect(dest_rect);
+  canvas->concat(SkMatrix::RectToRect(src_rect, dest_rect));
+  SkRect bounds = src_rect;
+  canvas->saveLayer(&bounds, &flags);
   canvas->drawPicture(record_);
 }
 
 void PaintGeneratedImage::DrawTile(GraphicsContext& context,
-                                   const gfx::RectF& src_rect,
-                                   const ImageDrawOptions&) {
+                                   const FloatRect& src_rect,
+                                   RespectImageOrientationEnum) {
   context.DrawRecord(record_);
 }
 

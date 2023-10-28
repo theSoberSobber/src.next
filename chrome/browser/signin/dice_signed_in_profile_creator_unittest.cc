@@ -1,4 +1,4 @@
-// Copyright 2020 The Chromium Authors
+// Copyright 2020 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -9,7 +9,6 @@
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
-#include "base/memory/raw_ptr.h"
 #include "base/run_loop.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/threading/thread_task_runner_handle.h"
@@ -117,11 +116,6 @@ class DiceSignedInProfileCreatorTest : public testing::Test,
 
   void DeleteProfiles() {
     identity_test_env_profile_adaptor_.reset();
-
-    // Delete the profile first to make sure all observers to the profile
-    // manager are cleared to avoid heap-use-after-free when the observer try to
-    // stop observing the manager.
-    profile_.reset();
     if (profile_manager_) {
       profile_manager()->RemoveObserver(this);
       TestingBrowserProcess::GetGlobal()->SetProfileManager(nullptr);
@@ -148,12 +142,12 @@ class DiceSignedInProfileCreatorTest : public testing::Test,
   content::BrowserTaskEnvironment task_environment_;
   base::ScopedTempDir temp_dir_;
   ScopedTestingLocalState local_state_;
-  raw_ptr<UnittestProfileManager> profile_manager_ = nullptr;
+  UnittestProfileManager* profile_manager_ = nullptr;
   std::unique_ptr<IdentityTestEnvironmentProfileAdaptor>
       identity_test_env_profile_adaptor_;
   std::unique_ptr<TestingProfile> profile_;
-  raw_ptr<Profile> signed_in_profile_ = nullptr;
-  raw_ptr<Profile> added_profile_ = nullptr;
+  Profile* signed_in_profile_ = nullptr;
+  Profile* added_profile_ = nullptr;
   base::OnceClosure profile_added_closure_;
   bool creator_callback_called_ = false;
   base::test::ScopedFeatureList scoped_feature_list_;

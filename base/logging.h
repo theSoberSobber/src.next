@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -16,13 +16,11 @@
 #include "base/callback_forward.h"
 #include "base/compiler_specific.h"
 #include "base/dcheck_is_on.h"
-#include "base/logging_buildflags.h"
 #include "base/scoped_clear_last_error.h"
 #include "base/strings/string_piece_forward.h"
-#include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
 
-#if BUILDFLAG(IS_CHROMEOS)
+#if BUILDFLAG(IS_CHROMEOS_ASH)
 #include <cstdio>
 #endif
 
@@ -89,17 +87,7 @@
 //   VLOG(2) << "I'm printed when you run the program with --v=2 or more";
 //
 // These always log at the INFO log level (when they log at all).
-//
-// There is a build flag USE_RUNTIME_VLOG that controls whether verbose
-// logging is processed at runtime or at build time.
-//
-// When USE_RUNTIME_VLOG is not set, the verbose logging is processed at
-// build time. VLOG(n) is only included and compiled when `n` is less than or
-// equal to the verbose level defined by ENABLED_VLOG_LEVEL macro. Command line
-// switch --v and --vmodule are ignored in this mode.
-//
-// When USE_RUNTIME_VLOG is set, the verbose logging is controlled at
-// runtime and can be turned on module-by-module.  For instance,
+// The verbose logging can also be turned on module-by-module.  For instance,
 //    --vmodule=profile=2,icon_loader=1,browser_*=3,*/chromeos/*=4 --v=0
 // will cause:
 //   a. VLOG(2) and lower messages to be printed from profile.{h,cc}
@@ -172,7 +160,7 @@
 // 5. The filename and line number where the log was instantiated
 //
 // Output for Chrome OS can be switched to syslog-like format. See
-// InitWithSyslogPrefix() in logging_chromeos.cc for details.
+// InitWithSyslogPrefix() in logging_chromeos.h for details.
 //
 // Note that the visibility can be changed by setting preferences in
 // SetLogItems()
@@ -183,9 +171,9 @@
 namespace logging {
 
 // TODO(avi): do we want to do a unification of character types here?
-#if BUILDFLAG(IS_WIN)
+#if defined(OS_WIN)
 typedef wchar_t PathChar;
-#elif BUILDFLAG(IS_POSIX) || BUILDFLAG(IS_FUCHSIA)
+#elif defined(OS_POSIX) || defined(OS_FUCHSIA)
 typedef char PathChar;
 #endif
 
@@ -196,10 +184,10 @@ using LoggingDestination = uint32_t;
 // Unless destination is LOG_NONE, all logs with severity ERROR and above will
 // be written to stderr in addition to the specified destination.
 enum : uint32_t {
-  LOG_NONE = 0,
-  LOG_TO_FILE = 1 << 0,
+  LOG_NONE                = 0,
+  LOG_TO_FILE             = 1 << 0,
   LOG_TO_SYSTEM_DEBUG_LOG = 1 << 1,
-  LOG_TO_STDERR = 1 << 2,
+  LOG_TO_STDERR           = 1 << 2,
 
   LOG_TO_ALL = LOG_TO_FILE | LOG_TO_SYSTEM_DEBUG_LOG | LOG_TO_STDERR,
 
@@ -207,11 +195,11 @@ enum : uint32_t {
 // On POSIX platforms, where it may not even be possible to locate the
 // executable on disk, use stderr.
 // On Fuchsia, use the Fuchsia logging service.
-#if BUILDFLAG(IS_FUCHSIA) || BUILDFLAG(IS_NACL)
+#if defined(OS_FUCHSIA) || defined(OS_NACL)
   LOG_DEFAULT = LOG_TO_SYSTEM_DEBUG_LOG,
-#elif BUILDFLAG(IS_WIN)
+#elif defined(OS_WIN)
   LOG_DEFAULT = LOG_TO_FILE,
-#elif BUILDFLAG(IS_POSIX)
+#elif defined(OS_POSIX)
   LOG_DEFAULT = LOG_TO_SYSTEM_DEBUG_LOG | LOG_TO_STDERR,
 #endif
 };
@@ -229,7 +217,7 @@ enum LogLockingState { LOCK_LOG_FILE, DONT_LOCK_LOG_FILE };
 // Defaults to APPEND_TO_OLD_LOG_FILE.
 enum OldFileDeletionState { DELETE_OLD_LOG_FILE, APPEND_TO_OLD_LOG_FILE };
 
-#if BUILDFLAG(IS_CHROMEOS)
+#if BUILDFLAG(IS_CHROMEOS_ASH)
 // Defines the log message prefix format to use.
 // LOG_FORMAT_SYSLOG indicates syslog-like message prefixes.
 // LOG_FORMAT_CHROME indicates the normal Chrome format.
@@ -246,7 +234,7 @@ struct BASE_EXPORT LoggingSettings {
   const PathChar* log_file_path = nullptr;
   LogLockingState lock_log = LOCK_LOG_FILE;
   OldFileDeletionState delete_old = APPEND_TO_OLD_LOG_FILE;
-#if BUILDFLAG(IS_CHROMEOS)
+#if BUILDFLAG(IS_CHROMEOS_ASH)
   // Contains an optional file that logs should be written to. If present,
   // |log_file_path| will be ignored, and the logging system will take ownership
   // of the FILE. If there's an error writing to this file, no fallback paths
@@ -295,9 +283,7 @@ inline bool InitLogging(const LoggingSettings& settings) {
 // will be silently ignored. The log level defaults to 0 (everything is logged
 // up to level INFO) if this function is not called.
 // Note that log messages for VLOG(x) are logged at level -x, so setting
-// the min log level to negative values enables verbose logging and conversely,
-// setting the VLOG default level will set this min level to a negative number,
-// effectively enabling all levels of logging.
+// the min log level to negative values enables verbose logging.
 BASE_EXPORT void SetMinLogLevel(int level);
 
 // Gets the current log level.
@@ -421,7 +407,7 @@ constexpr LogSeverity LOG_DFATAL = LOGGING_DFATAL;
 #define COMPACT_GOOGLE_LOG_DFATAL COMPACT_GOOGLE_LOG_EX_DFATAL(LogMessage)
 #define COMPACT_GOOGLE_LOG_DCHECK COMPACT_GOOGLE_LOG_EX_DCHECK(LogMessage)
 
-#if BUILDFLAG(IS_WIN)
+#if defined(OS_WIN)
 // wingdi.h defines ERROR to be 0. When we call LOG(ERROR), it gets
 // substituted with 0, and it expands to COMPACT_GOOGLE_LOG_0. To allow us
 // to keep using this syntax, we define this macro to do the same thing
@@ -441,54 +427,12 @@ constexpr LogSeverity LOGGING_0 = LOGGING_ERROR;
 #define LOG_IS_ON(severity) \
   (::logging::ShouldCreateLogMessage(::logging::LOGGING_##severity))
 
-#if !BUILDFLAG(USE_RUNTIME_VLOG)
-
-// When USE_RUNTIME_VLOG is not set, --vmodule is completely ignored and
-// ENABLED_VLOG_LEVEL macro is used to determine the enabled VLOG levels
-// at build time.
-//
-// Files that need VLOG would need to redefine ENABLED_VLOG_LEVEL to a desired
-// VLOG level number,
-// e.g.
-//   To enable VLOG(1) output,
-//
-//   For a source cc file:
-//
-//     #undef ENABLED_VLOG_LEVEL
-//     #define ENABLED_VLOG_LEVEL 1
-//
-//   For all cc files in a build target of a BUILD.gn:
-//
-//     source_set("build_target") {
-//       ...
-//
-//       defines = ["ENABLED_VLOG_LEVEL=1"]
-//     }
-
-// Returns a vlog level that suppresses all vlogs. Using this function so that
-// compiler cannot calculate VLOG_IS_ON() and generate unreached code
-// warnings.
-BASE_EXPORT int GetDisableAllVLogLevel();
-
-// Define the default ENABLED_VLOG_LEVEL if it is not defined. This is to
-// allow ENABLED_VLOG_LEVEL to be overridden from defines in cc flags.
-#if !defined(ENABLED_VLOG_LEVEL)
-#define ENABLED_VLOG_LEVEL (logging::GetDisableAllVLogLevel())
-#endif  // !defined(ENABLED_VLOG_LEVEL)
-
-#define VLOG_IS_ON(verboselevel) ((verboselevel) <= (ENABLED_VLOG_LEVEL))
-
-#else  // !BUILDFLAG(USE_RUNTIME_VLOG)
-
 // We don't do any caching tricks with VLOG_IS_ON() like the
 // google-glog version since it increases binary size.  This means
 // that using the v-logging functions in conjunction with --vmodule
 // may be slow.
-
 #define VLOG_IS_ON(verboselevel) \
   ((verboselevel) <= ::logging::GetVlogLevel(__FILE__))
-
-#endif  // !BUILDFLAG(USE_RUNTIME_VLOG)
 
 // Helper macro which avoids evaluating the arguments to a stream if
 // the condition doesn't hold. Condition is evaluated once and only once.
@@ -524,7 +468,7 @@ BASE_EXPORT int GetDisableAllVLogLevel();
 #define VPLOG_STREAM(verbose_level) \
   ::logging::Win32ErrorLogMessage(__FILE__, __LINE__, -(verbose_level), \
     ::logging::GetLastSystemErrorCode()).stream()
-#elif BUILDFLAG(IS_POSIX) || BUILDFLAG(IS_FUCHSIA)
+#elif defined(OS_POSIX) || defined(OS_FUCHSIA)
 #define VPLOG_STREAM(verbose_level) \
   ::logging::ErrnoLogMessage(__FILE__, __LINE__, -(verbose_level), \
     ::logging::GetLastSystemErrorCode()).stream()
@@ -543,11 +487,11 @@ BASE_EXPORT int GetDisableAllVLogLevel();
   LOG_IF(FATAL, !(ANALYZER_ASSUME_TRUE(condition))) \
       << "Assert failed: " #condition ". "
 
-#if BUILDFLAG(IS_WIN)
+#if defined(OS_WIN)
 #define PLOG_STREAM(severity) \
   COMPACT_GOOGLE_LOG_EX_ ## severity(Win32ErrorLogMessage, \
       ::logging::GetLastSystemErrorCode()).stream()
-#elif BUILDFLAG(IS_POSIX) || BUILDFLAG(IS_FUCHSIA)
+#elif defined(OS_POSIX) || defined(OS_FUCHSIA)
 #define PLOG_STREAM(severity) \
   COMPACT_GOOGLE_LOG_EX_ ## severity(ErrnoLogMessage, \
       ::logging::GetLastSystemErrorCode()).stream()
@@ -615,11 +559,11 @@ BASE_EXPORT extern std::ostream* g_swallow_stream;
 
 // Definitions for DCHECK et al.
 
-#if BUILDFLAG(DCHECK_IS_CONFIGURABLE)
+#if defined(DCHECK_IS_CONFIGURABLE)
 BASE_EXPORT extern LogSeverity LOGGING_DCHECK;
 #else
 constexpr LogSeverity LOGGING_DCHECK = LOGGING_FATAL;
-#endif  // BUILDFLAG(DCHECK_IS_CONFIGURABLE)
+#endif  // defined(DCHECK_IS_CONFIGURABLE)
 
 // Redefine the standard assert to use our nice log files
 #undef assert
@@ -646,13 +590,8 @@ class BASE_EXPORT LogMessage {
 
   std::ostream& stream() { return stream_; }
 
-  LogSeverity severity() const { return severity_; }
-  std::string str() const { return stream_.str(); }
-  const char* file() const { return file_; }
-  int line() const { return line_; }
-
-  // Gets file:line: message in a format suitable for crash reporting.
-  std::string BuildCrashString() const;
+  LogSeverity severity() { return severity_; }
+  std::string str() { return stream_.str(); }
 
  private:
   void Init(const char* file, int line);
@@ -670,7 +609,7 @@ class BASE_EXPORT LogMessage {
   // will have lost the thread error value when the log call returns.
   base::ScopedClearLastError last_error_;
 
-#if BUILDFLAG(IS_CHROMEOS)
+#if BUILDFLAG(IS_CHROMEOS_ASH)
   void InitWithSyslogPrefix(base::StringPiece filename,
                             int line,
                             uint64_t tick_count,
@@ -694,9 +633,9 @@ class LogMessageVoidify {
   void operator&(std::ostream&) { }
 };
 
-#if BUILDFLAG(IS_WIN)
+#if defined(OS_WIN)
 typedef unsigned long SystemErrorCode;
-#elif BUILDFLAG(IS_POSIX) || BUILDFLAG(IS_FUCHSIA)
+#elif defined(OS_POSIX) || defined(OS_FUCHSIA)
 typedef int SystemErrorCode;
 #endif
 
@@ -705,7 +644,7 @@ typedef int SystemErrorCode;
 BASE_EXPORT SystemErrorCode GetLastSystemErrorCode();
 BASE_EXPORT std::string SystemErrorCodeToString(SystemErrorCode error_code);
 
-#if BUILDFLAG(IS_WIN)
+#if defined(OS_WIN)
 // Appends a formatted system message of the GetLastError() type.
 class BASE_EXPORT Win32ErrorLogMessage : public LogMessage {
  public:
@@ -721,7 +660,7 @@ class BASE_EXPORT Win32ErrorLogMessage : public LogMessage {
  private:
   SystemErrorCode err_;
 };
-#elif BUILDFLAG(IS_POSIX) || BUILDFLAG(IS_FUCHSIA)
+#elif defined(OS_POSIX) || defined(OS_FUCHSIA)
 // Appends a formatted system message of the errno type
 class BASE_EXPORT ErrnoLogMessage : public LogMessage {
  public:
@@ -737,7 +676,7 @@ class BASE_EXPORT ErrnoLogMessage : public LogMessage {
  private:
   SystemErrorCode err_;
 };
-#endif  // BUILDFLAG(IS_WIN)
+#endif  // OS_WIN
 
 // Closes the log file explicitly if open.
 // NOTE: Since the log file is opened as necessary by the action of logging
@@ -759,7 +698,7 @@ BASE_EXPORT void RawLog(int level, const char* message);
 #define RAW_LOG(level, message) \
   ::logging::RawLog(::logging::LOGGING_##level, message)
 
-#if BUILDFLAG(IS_WIN)
+#if defined(OS_WIN)
 // Returns true if logging to file is enabled.
 BASE_EXPORT bool IsLoggingToFileEnabled();
 

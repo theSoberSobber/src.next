@@ -1,4 +1,4 @@
-// Copyright 2020 The Chromium Authors
+// Copyright 2020 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -31,12 +31,6 @@
 class ActiveRenderWidgetHostBrowserTest : public InProcessBrowserTest {
  public:
   ActiveRenderWidgetHostBrowserTest() = default;
-
-  ActiveRenderWidgetHostBrowserTest(const ActiveRenderWidgetHostBrowserTest&) =
-      delete;
-  ActiveRenderWidgetHostBrowserTest& operator=(
-      const ActiveRenderWidgetHostBrowserTest&) = delete;
-
   ~ActiveRenderWidgetHostBrowserTest() override = default;
 
   void SetUpCommandLine(base::CommandLine* command_line) override {
@@ -51,6 +45,9 @@ class ActiveRenderWidgetHostBrowserTest : public InProcessBrowserTest {
 
     ASSERT_TRUE(embedded_test_server()->Start());
   }
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(ActiveRenderWidgetHostBrowserTest);
 };
 
 IN_PROC_BROWSER_TEST_F(ActiveRenderWidgetHostBrowserTest,
@@ -66,11 +63,11 @@ IN_PROC_BROWSER_TEST_F(ActiveRenderWidgetHostBrowserTest,
   //       B = http://b.com/
   //       C = http://c.com/
   //       D = http://d.com/
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), main_url));
+  ui_test_utils::NavigateToURL(browser(), main_url);
 
   content::WebContents* web_contents =
       browser()->tab_strip_model()->GetActiveWebContents();
-  content::RenderFrameHost* main_frame_a = web_contents->GetPrimaryMainFrame();
+  content::RenderFrameHost* main_frame_a = web_contents->GetMainFrame();
   content::RenderFrameHost* child_frame_b = ChildFrameAt(main_frame_a, 0);
   ASSERT_NE(nullptr, child_frame_b);
   content::RenderFrameHost* child_frame_d = ChildFrameAt(main_frame_a, 1);
@@ -219,12 +216,12 @@ IN_PROC_BROWSER_TEST_F(ActiveRenderWidgetHostBrowserTest,
 // 'active' state maintains old value.
 IN_PROC_BROWSER_TEST_F(ActiveRenderWidgetHostBrowserTest, FocusOmniBox) {
   GURL main_url(embedded_test_server()->GetURL("a.com", "/title1.html"));
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), main_url));
+  ui_test_utils::NavigateToURL(browser(), main_url);
 
   content::WebContents* web_contents =
       browser()->tab_strip_model()->GetActiveWebContents();
 
-  content::RenderFrameHost* main_frame = web_contents->GetPrimaryMainFrame();
+  content::RenderFrameHost* main_frame = web_contents->GetMainFrame();
   EXPECT_EQ(main_frame, web_contents->GetFocusedFrame());
 
   mojo::PendingAssociatedReceiver<blink::mojom::FrameWidget>
@@ -240,7 +237,7 @@ IN_PROC_BROWSER_TEST_F(ActiveRenderWidgetHostBrowserTest, FocusOmniBox) {
   omnibox->SetFocus(/*is_user_initiated=*/true);
 
   base::RunLoop().RunUntilIdle();
-#if BUILDFLAG(IS_MAC)
+#if defined(OS_MAC)
   // On MacOS, calling omnibox->SetFocus function doesn't invoke
   // RWHI::SetActive. Hence there is no IPC call to renderer and
   // FakeFrameWidget's 'active' state remains uninitialised.

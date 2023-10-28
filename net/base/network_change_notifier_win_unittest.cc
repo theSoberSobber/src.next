@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -8,7 +8,7 @@
 
 #include "base/bind.h"
 #include "base/run_loop.h"
-#include "base/task/single_thread_task_runner.h"
+#include "base/single_thread_task_runner.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "base/win/windows_version.h"
 #include "net/base/network_change_notifier.h"
@@ -66,7 +66,7 @@ class TestIPAddressObserver : public NetworkChangeNotifier::IPAddressObserver {
   TestIPAddressObserver(const TestIPAddressObserver&) = delete;
   TestIPAddressObserver& operator=(const TestIPAddressObserver&) = delete;
 
-  ~TestIPAddressObserver() override {
+  ~TestIPAddressObserver() {
     NetworkChangeNotifier::RemoveIPAddressObserver(this);
   }
 

@@ -1,4 +1,4 @@
-// Copyright 2013 The Chromium Authors
+// Copyright 2013 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -19,7 +19,7 @@
 #include "base/time/time.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
-#include "chrome/browser/browser_process.h"
+#include "chrome/browser/account_manager_facade_factory.h"
 #include "chrome/browser/prefs/incognito_mode_prefs.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_io_data.h"
@@ -33,9 +33,6 @@
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/signin/process_dice_header_delegate_impl.h"
 #include "chrome/browser/signin/signin_features.h"
-#include "chrome/browser/signin/signin_manager.h"
-#include "chrome/browser/signin/signin_manager_factory.h"
-#include "chrome/browser/signin/signin_ui_util.h"
 #include "chrome/browser/tab_contents/tab_util.h"
 #include "chrome/browser/ui/webui/signin/login_ui_service.h"
 #include "chrome/browser/ui/webui/signin/login_ui_service_factory.h"
@@ -45,7 +42,6 @@
 #include "components/signin/core/browser/account_reconcilor.h"
 #include "components/signin/core/browser/cookie_reminter.h"
 #include "components/signin/public/base/account_consistency_method.h"
-#include "components/signin/public/base/consent_level.h"
 #include "components/signin/public/base/signin_buildflags.h"
 #include "components/signin/public/identity_manager/accounts_cookie_mutator.h"
 #include "content/public/browser/browser_task_traits.h"
@@ -53,7 +49,7 @@
 #include "google_apis/gaia/gaia_auth_util.h"
 #include "net/http/http_response_headers.h"
 
-#if BUILDFLAG(IS_ANDROID)
+#if defined(OS_ANDROID)
 #include "chrome/browser/android/signin/signin_bridge.h"
 #include "ui/android/view_android.h"
 #else
@@ -61,12 +57,11 @@
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "extensions/browser/guest_view/web_view/web_view_renderer_state.h"
-#endif  // BUILDFLAG(IS_ANDROID)
+#endif  // defined(OS_ANDROID)
 
-#if BUILDFLAG(IS_CHROMEOS)
+#if BUILDFLAG(IS_CHROMEOS_ASH) || BUILDFLAG(IS_CHROMEOS_LACROS)
 #include "chrome/browser/profiles/profile_manager.h"
-#include "components/account_manager_core/chromeos/account_manager_facade_factory.h"
-#endif  // BUILDFLAG(IS_CHROMEOS)
+#endif  // BUILDFLAG(IS_CHROMEOS_ASH) || BUILDFLAG(IS_CHROMEOS_LACROS)
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 #include "chrome/browser/supervised_user/supervised_user_service.h"
@@ -74,8 +69,13 @@
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
-#include "chrome/browser/ui/webui/signin/turn_sync_on_helper.h"
+#include "chrome/browser/ui/webui/signin/dice_turn_sync_on_helper.h"
 #endif
+
+#if BUILDFLAG(IS_CHROMEOS_LACROS)
+#include "chromeos/crosapi/mojom/crosapi.mojom.h"
+#include "chromeos/lacros/lacros_chrome_service_impl.h"
+#endif  // BUILDFLAG(IS_CHROMEOS_LACROS)
 
 namespace signin {
 
@@ -122,17 +122,14 @@ class AccountReconcilorLockWrapper
         std::make_unique<AccountReconcilor::Lock>(account_reconcilor);
   }
 
-  AccountReconcilorLockWrapper(const AccountReconcilorLockWrapper&) = delete;
-  AccountReconcilorLockWrapper& operator=(const AccountReconcilorLockWrapper&) =
-      delete;
-
   void DestroyAfterDelay() {
-    // TODO(dcheng): Should ReleaseSoon() support this use case?
     content::GetUIThreadTaskRunner({})->PostDelayedTask(
         FROM_HERE,
-        base::BindOnce([](scoped_refptr<AccountReconcilorLockWrapper>) {},
+        base::BindOnce(base::DoNothing::Once<
+                           scoped_refptr<AccountReconcilorLockWrapper>>(),
                        base::RetainedRef(this)),
-        base::Milliseconds(g_dice_account_reconcilor_blocked_delay_ms));
+        base::TimeDelta::FromMilliseconds(
+            g_dice_account_reconcilor_blocked_delay_ms));
   }
 
  private:
@@ -142,6 +139,8 @@ class AccountReconcilorLockWrapper
   }
 
   std::unique_ptr<AccountReconcilor::Lock> account_reconcilor_lock_;
+
+  DISALLOW_COPY_AND_ASSIGN(AccountReconcilorLockWrapper);
 };
 
 // Returns true if the account reconcilor needs be be blocked while a Gaia
@@ -152,14 +151,13 @@ class AccountReconcilorLockWrapper
 // * Main frame  requests.
 // * XHR requests having Gaia URL as referrer.
 bool ShouldBlockReconcilorForRequest(ChromeRequestAdapter* request) {
-  if (request->IsOutermostMainFrame() &&
-      request->GetRequestDestination() ==
-          network::mojom::RequestDestination::kDocument) {
+  if (request->GetRequestDestination() ==
+      network::mojom::RequestDestination::kDocument) {
     return true;
   }
 
   return request->IsFetchLikeAPI() &&
-         gaia::HasGaiaSchemeHostPort(request->GetReferrer());
+         gaia::IsGaiaSignonRealm(request->GetReferrerOrigin());
 }
 
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
@@ -169,15 +167,12 @@ class RequestDestructionObserverUserData : public base::SupportsUserData::Data {
   explicit RequestDestructionObserverUserData(base::OnceClosure closure)
       : closure_(std::move(closure)) {}
 
-  RequestDestructionObserverUserData(
-      const RequestDestructionObserverUserData&) = delete;
-  RequestDestructionObserverUserData& operator=(
-      const RequestDestructionObserverUserData&) = delete;
-
   ~RequestDestructionObserverUserData() override { std::move(closure_).Run(); }
 
  private:
   base::OnceClosure closure_;
+
+  DISALLOW_COPY_AND_ASSIGN(RequestDestructionObserverUserData);
 };
 
 // This user data is used as a marker that a Mirror header was found on the
@@ -186,13 +181,14 @@ class RequestDestructionObserverUserData : public base::SupportsUserData::Data {
 class ManageAccountsHeaderReceivedUserData
     : public base::SupportsUserData::Data {};
 
-#if BUILDFLAG(ENABLE_MIRROR)
 // Processes the mirror response header on the UI thread. Currently depending
 // on the value of |header_value|, it either shows the profile avatar menu, or
 // opens an incognito window/tab.
 void ProcessMirrorHeader(
     ManageAccountsParams manage_accounts_params,
     const content::WebContents::Getter& web_contents_getter) {
+#if BUILDFLAG(IS_CHROMEOS_ASH) || BUILDFLAG(IS_CHROMEOS_LACROS) || \
+    defined(OS_ANDROID)
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
 
   GAIAServiceType service_type = manage_accounts_params.service_type;
@@ -210,8 +206,10 @@ void ProcessMirrorHeader(
   AccountReconcilor* account_reconcilor =
       AccountReconcilorFactory::GetForProfile(profile);
   account_reconcilor->OnReceivedManageAccountsResponse(service_type);
+#endif  // BUILDFLAG(IS_CHROMEOS_ASH) || BUILDFLAG(IS_CHROMEOS_LACROS) ||
+        // defined(OS_ANDROID)
 
-#if BUILDFLAG(IS_CHROMEOS)
+#if BUILDFLAG(IS_CHROMEOS_ASH) || BUILDFLAG(IS_CHROMEOS_LACROS)
   signin_metrics::LogAccountReconcilorStateOnGaiaResponse(
       account_reconcilor->GetState());
 
@@ -223,9 +221,8 @@ void ProcessMirrorHeader(
           web_contents);
 #endif
 
-  Browser* browser = chrome::FindBrowserWithWebContents(web_contents);
   // Do not do anything if the navigation happened in the "background".
-  if ((!browser || !browser->window()->IsActive()) &&
+  if (!chrome::FindBrowserWithWebContents(web_contents) &&
       should_ignore_guest_webview) {
     return;
   }
@@ -234,12 +231,10 @@ void ProcessMirrorHeader(
   base::UmaHistogramEnumeration("AccountManager.ManageAccountsServiceType",
                                 service_type);
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
   // Ignore response to background request from another profile, so dialogs are
-  // not displayed in the wrong profile when using ChromeOS multiprofile mode.
+  // not displayed in the wrong profile when using multiprofile mode.
   if (profile != ProfileManager::GetActiveUserProfile())
     return;
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
   // The only allowed operations are:
   // 1. Going Incognito.
@@ -272,6 +267,9 @@ void ProcessMirrorHeader(
       return;
     }
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+    base::UmaHistogramBoolean("AccountManager.MirrorReauthenticationRequest",
+                              true);
+
     // Child users shouldn't get the re-authentication dialog for primary
     // account. Log out all accounts to re-mint the cookies.
     // (See the reason below.)
@@ -283,7 +281,8 @@ void ProcessMirrorHeader(
         gaia::AreEmailsSame(primary_account.email,
                             manage_accounts_params.email)) {
       identity_manager->GetAccountsCookieMutator()->LogOutAllAccounts(
-          gaia::GaiaSource::kChromeOS, base::DoNothing());
+          gaia::GaiaSource::kChromeOS,
+          base::DoNothing::Once<const GoogleServiceAuthError&>());
       return;
     }
 
@@ -306,47 +305,24 @@ void ProcessMirrorHeader(
     }
 
     // Display a re-authentication dialog.
-    signin_ui_util::ShowReauthForAccount(
-        profile, manage_accounts_params.email,
-        signin_metrics::AccessPoint::ACCESS_POINT_WEB_SIGNIN);
+    ::GetAccountManagerFacade(profile->GetPath().value())
+        ->ShowReauthAccountDialog(account_manager::AccountManagerFacade::
+                                      AccountAdditionSource::kContentArea,
+                                  manage_accounts_params.email);
     return;
   }
 
+#if BUILDFLAG(IS_CHROMEOS_LACROS)
+  const crosapi::mojom::BrowserInitParams* init_params =
+      chromeos::LacrosChromeServiceImpl::Get()->init_params();
+  DCHECK(init_params->use_new_account_manager);
+#endif  // BUILDFLAG(IS_CHROMEOS_LACROS)
+
   // 3. Displaying an account addition window.
   if (service_type == GAIA_SERVICE_TYPE_ADDSESSION) {
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-    signin::IdentityManager* const identity_manager =
-        IdentityManagerFactory::GetForProfile(profile);
-    CoreAccountInfo primary_account =
-        identity_manager->GetPrimaryAccountInfo(signin::ConsentLevel::kSignin);
-    if (identity_manager->HasAccountWithRefreshTokenInPersistentErrorState(
-            primary_account.account_id)) {
-      // On Lacros, it is not allowed to add a new account while the primary
-      // account is in error, as the reconcilor cannot generate the cookie until
-      // the primary account is fixed. Display a reauth dialog instead.
-      signin_ui_util::ShowReauthForPrimaryAccountWithAuthError(
-          profile, signin_metrics::AccessPoint::ACCESS_POINT_WEB_SIGNIN);
-      return;
-    }
-
-    // As per https://crbug.com/1286822 and internal b/215509741, the session
-    // may sometimes become invalid on the server without notice. When this
-    // happens, the user may try to fix it by signing-in again.
-    // Trigger a cookie jar update now to fix the session if needed.
-    identity_manager->GetAccountsCookieMutator()->TriggerCookieJarUpdate();
-
-    AccountProfileMapper* mapper =
-        g_browser_process->profile_manager()->GetAccountProfileMapper();
-    SigninManagerFactory::GetForProfile(profile)->StartLacrosSigninFlow(
-        profile->GetPath(), mapper,
-        account_reconcilor->GetConsistencyCookieManager(),
-        account_manager::AccountManagerFacade::AccountAdditionSource::
-            kOgbAddAccount);
-#else
     ::GetAccountManagerFacade(profile->GetPath().value())
         ->ShowAddAccountDialog(account_manager::AccountManagerFacade::
-                                   AccountAdditionSource::kOgbAddAccount);
-#endif
+                                   AccountAdditionSource::kContentArea);
     return;
   }
 
@@ -355,7 +331,7 @@ void ProcessMirrorHeader(
       ->ShowManageAccountsSettings();
   return;
 
-#elif BUILDFLAG(IS_ANDROID)
+#elif defined(OS_ANDROID)
   if (manage_accounts_params.show_consistency_promo) {
     auto* window = web_contents->GetNativeView()->GetWindowAndroid();
     if (!window) {
@@ -384,28 +360,27 @@ void ProcessMirrorHeader(
       return;
     SigninBridge::OpenAccountManagementScreen(window, service_type);
   }
-#endif  // BUILDFLAG(IS_CHROMEOS)
+#endif  // BUILDFLAG(IS_CHROMEOS_ASH) || BUILDFLAG(IS_CHROMEOS_LACROS)
 }
-#endif  // BUILDFLAG(ENABLE_MIRROR)
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
 
-// Creates a TurnSyncOnHelper.
-void CreateTurnSyncOnHelper(Profile* profile,
-                            signin_metrics::AccessPoint access_point,
-                            signin_metrics::PromoAction promo_action,
-                            signin_metrics::Reason reason,
-                            content::WebContents* web_contents,
-                            const CoreAccountId& account_id) {
+// Creates a DiceTurnOnSyncHelper.
+void CreateDiceTurnOnSyncHelper(Profile* profile,
+                                signin_metrics::AccessPoint access_point,
+                                signin_metrics::PromoAction promo_action,
+                                signin_metrics::Reason reason,
+                                content::WebContents* web_contents,
+                                const CoreAccountId& account_id) {
   DCHECK(profile);
   Browser* browser = web_contents
                          ? chrome::FindBrowserWithWebContents(web_contents)
                          : chrome::FindBrowserWithProfile(profile);
-  // TurnSyncOnHelper is suicidal (it will kill itself once it finishes enabling
-  // sync).
-  new TurnSyncOnHelper(profile, browser, access_point, promo_action, reason,
-                       account_id,
-                       TurnSyncOnHelper::SigninAbortedMode::REMOVE_ACCOUNT);
+  // DiceTurnSyncOnHelper is suicidal (it will kill itself once it finishes
+  // enabling sync).
+  new DiceTurnSyncOnHelper(
+      profile, browser, access_point, promo_action, reason, account_id,
+      DiceTurnSyncOnHelper::SigninAbortedMode::REMOVE_ACCOUNT);
 }
 
 // Shows UI for signin errors.
@@ -440,21 +415,21 @@ void ProcessDiceHeader(
   DiceResponseHandler* dice_response_handler =
       DiceResponseHandler::GetForProfile(profile);
   dice_response_handler->ProcessDiceHeader(
-      dice_params, std::make_unique<ProcessDiceHeaderDelegateImpl>(
-                       web_contents, base::BindOnce(&CreateTurnSyncOnHelper),
-                       base::BindOnce(&ShowDiceSigninError)));
+      dice_params,
+      std::make_unique<ProcessDiceHeaderDelegateImpl>(
+          web_contents, base::BindOnce(&CreateDiceTurnOnSyncHelper),
+          base::BindOnce(&ShowDiceSigninError)));
 }
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 
-#if BUILDFLAG(ENABLE_MIRROR)
 // Looks for the X-Chrome-Manage-Accounts response header, and if found,
 // tries to show the avatar bubble in the browser identified by the
 // child/route id. Must be called on IO thread.
 void ProcessMirrorResponseHeaderIfExists(ResponseAdapter* response,
                                          bool is_off_the_record) {
-  CHECK(gaia::HasGaiaSchemeHostPort(response->GetURL()));
+  CHECK(gaia::IsGaiaSignonRealm(response->GetOrigin()));
 
-  if (!response->IsOutermostMainFrame())
+  if (!response->IsMainFrame())
     return;
 
   const net::HttpResponseHeaders* response_headers = response->GetHeaders();
@@ -497,12 +472,11 @@ void ProcessMirrorResponseHeaderIfExists(ResponseAdapter* response,
       FROM_HERE, base::BindOnce(ProcessMirrorHeader, params,
                                 response->GetWebContentsGetter()));
 }
-#endif
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
 void ProcessDiceResponseHeaderIfExists(ResponseAdapter* response,
                                        bool is_off_the_record) {
-  CHECK(gaia::HasGaiaSchemeHostPort(response->GetURL()));
+  CHECK(gaia::IsGaiaSignonRealm(response->GetOrigin()));
 
   if (is_off_the_record)
     return;
@@ -563,7 +537,7 @@ std::string ParseGaiaIdFromRemoveLocalAccountResponseHeader(
 
 void ProcessRemoveLocalAccountResponseHeaderIfExists(ResponseAdapter* response,
                                                      bool is_off_the_record) {
-  CHECK(gaia::HasGaiaSchemeHostPort(response->GetURL()));
+  CHECK(gaia::IsGaiaSignonRealm(response->GetOrigin()));
 
   if (is_off_the_record)
     return;
@@ -631,14 +605,8 @@ void FixAccountConsistencyRequestHeader(
   if (is_off_the_record)
     return;  // Account consistency is disabled in incognito.
 
-  // If new url is eligible to have the header, add it, otherwise remove it.
-
-  // Mirror header:
-  // The Mirror header may be added on desktop platforms, for integration with
-  // Google Drive.
   int profile_mode_mask = PROFILE_MODE_DEFAULT;
-  if (incognito_availibility ==
-          static_cast<int>(IncognitoModePrefs::Availability::kDisabled) ||
+  if (incognito_availibility == IncognitoModePrefs::DISABLED ||
       IncognitoModePrefs::ArePlatformParentalControlsEnabled()) {
     profile_mode_mask |= PROFILE_MODE_INCOGNITO_DISABLED;
   }
@@ -651,13 +619,10 @@ void FixAccountConsistencyRequestHeader(
   }
 #endif
 
-  AppendOrRemoveMirrorRequestHeader(
-      request, redirect_url, gaia_id, is_child_account, account_consistency,
-      cookie_settings, profile_mode_mask, kChromeMirrorHeaderSource,
-      /*force_account_consistency=*/false);
+  // If new url is eligible to have the header, add it, otherwise remove it.
 
-// Dice header:
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
+  // Dice header:
   bool dice_header_added = AppendOrRemoveDiceRequestHeader(
       request, redirect_url, gaia_id, is_sync_enabled, account_consistency,
       cookie_settings, signin_scoped_device_id);
@@ -673,20 +638,24 @@ void FixAccountConsistencyRequestHeader(
         &AccountReconcilorLockWrapper::DestroyAfterDelay, lock_wrapper));
   }
 #endif
+
+  // Mirror header:
+  AppendOrRemoveMirrorRequestHeader(
+      request, redirect_url, gaia_id, is_child_account, account_consistency,
+      cookie_settings, profile_mode_mask, kChromeMirrorHeaderSource,
+      /*force_account_consistency=*/false);
 }
 
 void ProcessAccountConsistencyResponseHeaders(ResponseAdapter* response,
                                               const GURL& redirect_url,
                                               bool is_off_the_record) {
-  if (!gaia::HasGaiaSchemeHostPort(response->GetURL()))
+  if (!gaia::IsGaiaSignonRealm(response->GetOrigin()))
     return;
 
-#if BUILDFLAG(ENABLE_MIRROR)
   // See if the response contains the X-Chrome-Manage-Accounts header. If so
   // show the profile avatar bubble so that user can complete signin/out
   // action the native UI.
   ProcessMirrorResponseHeaderIfExists(response, is_off_the_record);
-#endif
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
   // Process the Dice header: on sign-in, exchange the authorization code for a

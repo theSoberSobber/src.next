@@ -1,4 +1,4 @@
-// Copyright 2015 The Chromium Authors
+// Copyright 2015 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -27,35 +27,35 @@ bool HttpAuthPreferences::NegotiateEnablePort() const {
   return negotiate_enable_port_;
 }
 
-#if BUILDFLAG(IS_POSIX) || BUILDFLAG(IS_FUCHSIA)
+#if defined(OS_POSIX) || defined(OS_FUCHSIA)
 bool HttpAuthPreferences::NtlmV2Enabled() const {
   return ntlm_v2_enabled_;
 }
-#endif  // BUILDFLAG(IS_POSIX) || BUILDFLAG(IS_FUCHSIA)
+#endif
 
-#if BUILDFLAG(IS_ANDROID)
+#if defined(OS_ANDROID)
 std::string HttpAuthPreferences::AuthAndroidNegotiateAccountType() const {
   return auth_android_negotiate_account_type_;
 }
-#endif  // BUILDFLAG(IS_ANDROID)
+#endif
 
-#if BUILDFLAG(IS_CHROMEOS)
+#if BUILDFLAG(IS_CHROMEOS_ASH)
 bool HttpAuthPreferences::AllowGssapiLibraryLoad() const {
   return allow_gssapi_library_load_;
 }
-#endif  // BUILDFLAG(IS_CHROMEOS)
+#endif
 
 bool HttpAuthPreferences::CanUseDefaultCredentials(
-    const url::SchemeHostPort& auth_scheme_host_port) const {
+    const GURL& auth_origin) const {
   return allow_default_credentials_ == ALLOW_DEFAULT_CREDENTIALS &&
-         security_manager_->CanUseDefaultCredentials(auth_scheme_host_port);
+         security_manager_->CanUseDefaultCredentials(auth_origin);
 }
 
 using DelegationType = HttpAuth::DelegationType;
 
 DelegationType HttpAuthPreferences::GetDelegationType(
-    const url::SchemeHostPort& auth_scheme_host_port) const {
-  if (!security_manager_->CanDelegate(auth_scheme_host_port))
+    const GURL& auth_origin) const {
+  if (!security_manager_->CanDelegate(auth_origin))
     return DelegationType::kNone;
 
   if (delegate_by_kdc_policy())
@@ -66,12 +66,6 @@ DelegationType HttpAuthPreferences::GetDelegationType(
 
 void HttpAuthPreferences::SetAllowDefaultCredentials(DefaultCredentials creds) {
   allow_default_credentials_ = creds;
-}
-
-bool HttpAuthPreferences::IsAllowedToUseAllHttpAuthSchemes(
-    const url::SchemeHostPort& scheme_host_port) const {
-  return !http_auth_scheme_filter_ ||
-         http_auth_scheme_filter_.Run(scheme_host_port);
 }
 
 void HttpAuthPreferences::SetServerAllowlist(

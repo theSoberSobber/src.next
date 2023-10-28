@@ -12,8 +12,7 @@
 #include "third_party/blink/public/platform/web_document_subresource_filter.h"
 #include "third_party/blink/public/platform/web_url_request.h"
 #include "third_party/blink/renderer/core/core_export.h"
-#include "third_party/blink/renderer/platform/heap/garbage_collected.h"
-#include "third_party/blink/renderer/platform/heap/member.h"
+#include "third_party/blink/renderer/platform/heap/handle.h"
 #include "third_party/blink/renderer/platform/weborigin/kurl.h"
 #include "third_party/blink/renderer/platform/weborigin/reporting_disposition.h"
 
@@ -36,7 +35,6 @@ class CORE_EXPORT SubresourceFilter final
                  mojom::blink::RequestContextType,
                  ReportingDisposition);
   bool AllowWebSocketConnection(const KURL&);
-  bool AllowWebTransportConnection(const KURL&);
 
   // Returns if |resource_url| is an ad resource.
   bool IsAdResource(const KURL& resource_url, mojom::blink::RequestContextType);
@@ -48,8 +46,6 @@ class CORE_EXPORT SubresourceFilter final
  private:
   void ReportLoad(const KURL& resource_url,
                   WebDocumentSubresourceFilter::LoadPolicy);
-  void ReportLoadAsync(const KURL& resource_url,
-                       WebDocumentSubresourceFilter::LoadPolicy);
 
   Member<ExecutionContext> execution_context_;
   std::unique_ptr<WebDocumentSubresourceFilter> subresource_filter_;

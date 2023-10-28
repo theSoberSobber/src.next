@@ -28,7 +28,7 @@ String CSSCustomIdentValue::CustomCSSText() const {
   }
   StringBuilder builder;
   SerializeIdentifier(string_, builder);
-  return builder.ReleaseString();
+  return builder.ToString();
 }
 
 void CSSCustomIdentValue::TraceAfterDispatch(blink::Visitor* visitor) const {

@@ -1,4 +1,4 @@
-// Copyright 2017 The Chromium Authors
+// Copyright 2017 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -6,7 +6,7 @@
 #define CHROME_BROWSER_FONT_PREF_CHANGE_NOTIFIER_H_
 
 #include "base/callback.h"
-#include "base/memory/raw_ptr.h"
+#include "base/macros.h"
 #include "base/observer_list.h"
 #include "components/keyed_service/core/keyed_service.h"
 #include "components/prefs/pref_observer.h"
@@ -35,10 +35,6 @@ class FontPrefChangeNotifier : public PrefObserver, public KeyedService {
   class Registrar {
    public:
     Registrar();
-
-    Registrar(const Registrar&) = delete;
-    Registrar& operator=(const Registrar&) = delete;
-
     ~Registrar();
 
     bool is_registered() const { return !!notifier_; }
@@ -54,16 +50,14 @@ class FontPrefChangeNotifier : public PrefObserver, public KeyedService {
    private:
     friend FontPrefChangeNotifier;
 
-    raw_ptr<FontPrefChangeNotifier> notifier_ = nullptr;
+    FontPrefChangeNotifier* notifier_ = nullptr;
     FontPrefChangeNotifier::Callback callback_;
+
+    DISALLOW_COPY_AND_ASSIGN(Registrar);
   };
 
   // The pref service must outlive this class.
   explicit FontPrefChangeNotifier(PrefService* pref_service);
-
-  FontPrefChangeNotifier(const FontPrefChangeNotifier&) = delete;
-  FontPrefChangeNotifier& operator=(const FontPrefChangeNotifier&) = delete;
-
   ~FontPrefChangeNotifier() override;
 
  private:
@@ -76,11 +70,13 @@ class FontPrefChangeNotifier : public PrefObserver, public KeyedService {
   void OnPreferenceChanged(PrefService* service,
                            const std::string& pref_name) override;
 
-  raw_ptr<PrefService> pref_service_;  // Non-owning.
+  PrefService* pref_service_;  // Non-owning.
 
   // Non-owning pointers to the Registrars that have registered themselves
   // with us. We expect few registrars.
   base::ObserverList<Registrar>::Unchecked registrars_;
+
+  DISALLOW_COPY_AND_ASSIGN(FontPrefChangeNotifier);
 };
 
 #endif  // CHROME_BROWSER_FONT_PREF_CHANGE_NOTIFIER_H_

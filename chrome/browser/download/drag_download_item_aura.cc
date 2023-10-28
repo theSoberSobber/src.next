@@ -1,4 +1,4 @@
-// Copyright 2013 The Chromium Authors
+// Copyright 2013 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -22,6 +22,7 @@
 #include "ui/gfx/image/image.h"
 #include "ui/gfx/image/image_skia.h"
 #include "ui/views/button_drag_utils.h"
+#include "ui/views/widget/widget.h"
 #include "url/gurl.h"
 
 void DragDownloadItem(const download::DownloadItem* download,
@@ -39,7 +40,8 @@ void DragDownloadItem(const download::DownloadItem* download,
 
   button_drag_utils::SetDragImage(
       GURL(), download->GetFileNameToReportUser().BaseName().LossyDisplayName(),
-      icon ? icon->AsImageSkia() : gfx::ImageSkia(), nullptr, data.get());
+      icon ? icon->AsImageSkia() : gfx::ImageSkia(), nullptr,
+      *views::Widget::GetTopLevelWidgetForNativeView(view), data.get());
 
   base::FilePath full_path = download->GetTargetFilePath();
   std::vector<ui::FileInfo> file_infos;

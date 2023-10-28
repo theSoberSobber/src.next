@@ -1,4 +1,4 @@
-// Copyright 2013 The Chromium Authors
+// Copyright 2013 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -32,10 +32,17 @@ using ContextType = ExtensionBrowserTest::ContextType;
 class SystemMemoryApiTest : public ExtensionApiTest,
                             public testing::WithParamInterface<ContextType> {
  public:
-  SystemMemoryApiTest() : ExtensionApiTest(GetParam()) {}
+  SystemMemoryApiTest() = default;
   ~SystemMemoryApiTest() override = default;
   SystemMemoryApiTest(const SystemMemoryApiTest&) = delete;
   SystemMemoryApiTest& operator=(const SystemMemoryApiTest&) = delete;
+
+ protected:
+  bool RunTest(const char* name) {
+    return RunExtensionTest(
+        name, {},
+        {.load_as_service_worker = GetParam() == ContextType::kServiceWorker});
+  }
 };
 
 INSTANTIATE_TEST_SUITE_P(EventPage,
@@ -49,7 +56,7 @@ IN_PROC_BROWSER_TEST_P(SystemMemoryApiTest, Memory) {
   scoped_refptr<MemoryInfoProvider> provider = new MockMemoryInfoProviderImpl;
   // The provider is owned by the single MemoryInfoProvider instance.
   MemoryInfoProvider::InitializeForTesting(provider);
-  ASSERT_TRUE(RunExtensionTest("system_memory")) << message_;
+  ASSERT_TRUE(RunTest("system_memory")) << message_;
 }
 
 }  // namespace extensions

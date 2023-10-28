@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -63,11 +63,6 @@ TEST(CPU, RunExtendedInstructions) {
     __asm__ __volatile__("vzeroupper\n" : : : "xmm0");
   }
 
-  if (cpu.has_fma3()) {
-    // Execute a FMA3 instruction.
-    __asm__ __volatile__("vfmadd132ps %%xmm0, %%xmm0, %%xmm0\n" : : : "xmm0");
-  }
-
   if (cpu.has_avx2()) {
     // Execute an AVX 2 instruction.
     __asm__ __volatile__("vpunpcklbw %%ymm0, %%ymm0, %%ymm0\n" : : : "xmm0");
@@ -111,11 +106,6 @@ TEST(CPU, RunExtendedInstructions) {
   if (cpu.has_avx()) {
     // Execute an AVX instruction.
     __asm vzeroupper;
-  }
-
-  if (cpu.has_fma3()) {
-    // Execute an AVX instruction.
-    __asm vfmadd132ps xmm0, xmm0, xmm0;
   }
 
   if (cpu.has_avx2()) {
@@ -196,7 +186,7 @@ TEST(CPU, X86FamilyAndModel) {
 #endif  // defined(ARCH_CPU_X86_FAMILY)
 
 #if defined(ARCH_CPU_ARM_FAMILY) && \
-    (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_CHROMEOS))
+    (defined(OS_LINUX) || defined(OS_ANDROID) || defined(OS_CHROMEOS))
 TEST(CPU, ARMImplementerAndPartNumber) {
   base::CPU cpu;
 
@@ -208,5 +198,5 @@ TEST(CPU, ARMImplementerAndPartNumber) {
   EXPECT_GT(cpu.implementer(), 0u);
   EXPECT_GT(cpu.part_number(), 0u);
 }
-#endif  // defined(ARCH_CPU_ARM_FAMILY) && (BUILDFLAG(IS_LINUX) ||
-        // BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_CHROMEOS))
+#endif  // defined(ARCH_CPU_ARM_FAMILY) && (defined(OS_LINUX) ||
+        // defined(OS_ANDROID) || defined(OS_CHROMEOS))

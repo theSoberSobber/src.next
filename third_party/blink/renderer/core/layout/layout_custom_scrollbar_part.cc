@@ -85,17 +85,10 @@ LayoutCustomScrollbarPart* LayoutCustomScrollbarPart::CreateAnonymous(
     CustomScrollbar* scrollbar,
     ScrollbarPart part) {
   LayoutCustomScrollbarPart* layout_object =
-      MakeGarbageCollected<LayoutCustomScrollbarPart>(scrollable_area,
-                                                      scrollbar, part);
+      new LayoutCustomScrollbarPart(scrollable_area, scrollbar, part);
   RecordScrollbarPartStats(*document, part);
   layout_object->SetDocumentForAnonymous(document);
   return layout_object;
-}
-
-void LayoutCustomScrollbarPart::Trace(Visitor* visitor) const {
-  visitor->Trace(scrollable_area_);
-  visitor->Trace(scrollbar_);
-  LayoutReplaced::Trace(visitor);
 }
 
 // TODO(crbug.com/1020913): Support subpixel layout of scrollbars and remove
@@ -156,11 +149,11 @@ int LayoutCustomScrollbarPart::ComputeLength() const {
   NOT_DESTROYED();
   DCHECK_NE(kScrollbarBGPart, part_);
 
-  gfx::Rect visible_content_rect =
+  IntRect visible_content_rect =
       scrollbar_->GetScrollableArea()->VisibleContentRect(kIncludeScrollbars);
   if (scrollbar_->Orientation() == kHorizontalScrollbar)
-    return ComputeWidth(visible_content_rect.width());
-  return ComputeHeight(visible_content_rect.height());
+    return ComputeWidth(visible_content_rect.Width());
+  return ComputeHeight(visible_content_rect.Height());
 }
 
 static LayoutUnit ComputeMargin(const Length& style_margin) {

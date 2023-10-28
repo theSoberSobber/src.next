@@ -1,4 +1,4 @@
-// Copyright 2018 The Chromium Authors
+// Copyright 2018 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,7 +7,6 @@
 #include <list>
 
 #include "base/bind.h"
-#include "base/memory/raw_ptr.h"
 #include "base/run_loop.h"
 #include "base/task/current_thread.h"
 #include "base/test/test_mock_time_task_runner.h"
@@ -20,10 +19,6 @@
 class RecentlyAudibleHelperTest : public testing::Test {
  public:
   RecentlyAudibleHelperTest() = default;
-
-  RecentlyAudibleHelperTest(const RecentlyAudibleHelperTest&) = delete;
-  RecentlyAudibleHelperTest& operator=(const RecentlyAudibleHelperTest&) =
-      delete;
 
   ~RecentlyAudibleHelperTest() override {}
 
@@ -118,11 +113,13 @@ class RecentlyAudibleHelperTest : public testing::Test {
   TestingProfile testing_profile_;
 
   // A test WebContents and its associated helper.
-  raw_ptr<content::WebContents> contents_;
-  raw_ptr<RecentlyAudibleHelper> helper_;
+  content::WebContents* contents_;
+  RecentlyAudibleHelper* helper_;
   base::CallbackListSubscription subscription_;
 
   std::list<bool> recently_audible_messages_;
+
+  DISALLOW_COPY_AND_ASSIGN(RecentlyAudibleHelperTest);
 };
 
 TEST_F(RecentlyAudibleHelperTest, AllStateTransitions) {
@@ -137,7 +134,7 @@ TEST_F(RecentlyAudibleHelperTest, AllStateTransitions) {
   VerifyAndClearExpectations();
 
   // Keep audio playing and don't expect any transitions.
-  AdvanceTime(base::Seconds(30));
+  AdvanceTime(base::TimeDelta::FromSeconds(30));
   ExpectCurrentlyAudible();
   VerifyAndClearExpectations();
 
@@ -157,7 +154,7 @@ TEST_F(RecentlyAudibleHelperTest, AllStateTransitions) {
   VerifyAndClearExpectations();
 
   // Advance time and stop audio, not expecting a transition.
-  AdvanceTime(base::Seconds(30));
+  AdvanceTime(base::TimeDelta::FromSeconds(30));
   SimulateAudioStops();
   ExpectRecentlyAudible();
   VerifyAndClearExpectations();

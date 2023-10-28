@@ -1,4 +1,4 @@
-// Copyright 2015 The Chromium Authors
+// Copyright 2015 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 //
@@ -16,7 +16,8 @@
 
 using std::string;
 
-namespace net::test {
+namespace net {
+namespace test {
 namespace {
 
 class IntervalTest : public ::testing::Test {
@@ -243,14 +244,15 @@ TEST_F(IntervalTest, Length) {
   const Interval<int> empty1;
   const Interval<int> empty2(1, 1);
   const Interval<int> empty3(1, 0);
-  const Interval<base::TimeDelta> empty4(base::TimeDelta() + base::Seconds(1),
-                                         base::TimeDelta());
+  const Interval<base::TimeDelta> empty4(
+      base::TimeDelta() + base::TimeDelta::FromSeconds(1), base::TimeDelta());
   const Interval<int> d1(1, 2);
   const Interval<int> d2(0, 50);
-  const Interval<base::TimeDelta> d3(base::TimeDelta(),
-                                     base::TimeDelta() + base::Seconds(1));
-  const Interval<base::TimeDelta> d4(base::TimeDelta() + base::Hours(1),
-                                     base::TimeDelta() + base::Minutes(90));
+  const Interval<base::TimeDelta> d3(
+      base::TimeDelta(), base::TimeDelta() + base::TimeDelta::FromSeconds(1));
+  const Interval<base::TimeDelta> d4(
+      base::TimeDelta() + base::TimeDelta::FromHours(1),
+      base::TimeDelta() + base::TimeDelta::FromMinutes(90));
 
   EXPECT_EQ(0, empty1.Length());
   EXPECT_EQ(0, empty2.Length());
@@ -258,8 +260,8 @@ TEST_F(IntervalTest, Length) {
   EXPECT_EQ(base::TimeDelta(), empty4.Length());
   EXPECT_EQ(1, d1.Length());
   EXPECT_EQ(50, d2.Length());
-  EXPECT_EQ(base::Seconds(1), d3.Length());
-  EXPECT_EQ(base::Minutes(30), d4.Length());
+  EXPECT_EQ(base::TimeDelta::FromSeconds(1), d3.Length());
+  EXPECT_EQ(base::TimeDelta::FromMinutes(30), d4.Length());
 }
 
 TEST_F(IntervalTest, IntervalOfTypeWithNoOperatorMinus) {
@@ -274,4 +276,5 @@ TEST_F(IntervalTest, IntervalOfTypeWithNoOperatorMinus) {
 }
 
 }  // unnamed namespace
-}  // namespace net::test
+}  // namespace test
+}  // namespace net

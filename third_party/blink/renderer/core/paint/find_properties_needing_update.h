@@ -9,7 +9,7 @@
 
 #if DCHECK_IS_ON()
 
-#include "base/check_op.h"
+#include "third_party/abseil-cpp/absl/types/optional.h"
 #include "third_party/blink/renderer/core/layout/layout_object.h"
 #include "third_party/blink/renderer/core/paint/object_paint_properties.h"
 #include "third_party/blink/renderer/core/paint/paint_property_tree_builder.h"
@@ -43,7 +43,8 @@ class FindPropertiesNeedingUpdateScope {
       return;
 
     // Mark the properties as needing an update to ensure they are rebuilt.
-    object.GetMutableForPainting().SetOnlyThisNeedsPaintPropertyUpdate();
+    object.GetMutableForPainting()
+        .SetOnlyThisNeedsPaintPropertyUpdateForTesting();
 
     if (const auto* properties = fragment_data_.PaintProperties()) {
       had_original_properties_ = true;

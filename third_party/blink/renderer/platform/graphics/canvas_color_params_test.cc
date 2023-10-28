@@ -18,14 +18,14 @@ namespace blink {
 // GetStorageGfxColorSpace(). This test verifies that the two different color
 // spaces are approximately the same for different CanvasColorParam objects.
 TEST(CanvasColorParamsTest, MatchSkColorSpaceWithGfxColorSpace) {
-  PredefinedColorSpace canvas_color_spaces[] = {
-      PredefinedColorSpace::kSRGB,
-      PredefinedColorSpace::kRec2020,
-      PredefinedColorSpace::kP3,
+  CanvasColorSpace canvas_color_spaces[] = {
+      CanvasColorSpace::kSRGB,
+      CanvasColorSpace::kRec2020,
+      CanvasColorSpace::kP3,
   };
-  for (PredefinedColorSpace color_space : canvas_color_spaces) {
-    CanvasColorParams color_params(color_space, CanvasPixelFormat::kF16,
-                                   kNonOpaque);
+  for (int iter_color_space = 0; iter_color_space < 3; iter_color_space++) {
+    CanvasColorParams color_params(canvas_color_spaces[iter_color_space],
+                                   CanvasPixelFormat::kF16, kNonOpaque);
     sk_sp<SkColorSpace> canvas_drawing_color_space =
         color_params.GetSkColorSpace();
     sk_sp<SkColorSpace> canvas_media_color_space =

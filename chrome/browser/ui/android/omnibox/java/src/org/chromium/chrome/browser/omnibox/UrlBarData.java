@@ -1,4 +1,4 @@
-// Copyright 2018 The Chromium Authors
+// Copyright 2018 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -11,9 +11,7 @@ import android.text.TextUtils;
 import androidx.annotation.Nullable;
 
 import org.chromium.base.CollectionUtil;
-import org.chromium.chrome.browser.ui.native_page.NativePage;
 import org.chromium.components.embedder_support.util.UrlConstants;
-import org.chromium.components.embedder_support.util.UrlUtilities;
 import org.chromium.content_public.common.ContentUrlConstants;
 
 import java.util.HashSet;
@@ -25,10 +23,10 @@ public class UrlBarData {
     /**
      * The URL schemes that should be displayed complete with path.
      */
-    public static final HashSet<String> UNSUPPORTED_SCHEMES_TO_SPLIT = CollectionUtil.newHashSet(
-            ContentUrlConstants.ABOUT_SCHEME, UrlConstants.CONTENT_SCHEME, UrlConstants.DATA_SCHEME,
-            UrlConstants.FILE_SCHEME, UrlConstants.FTP_SCHEME, UrlConstants.INLINE_SCHEME,
-            UrlConstants.JAVASCRIPT_SCHEME, UrlConstants.CHROME_SCHEME);
+    public static final HashSet<String> UNSUPPORTED_SCHEMES_TO_SPLIT =
+            CollectionUtil.newHashSet(ContentUrlConstants.ABOUT_SCHEME, UrlConstants.DATA_SCHEME,
+                    UrlConstants.FILE_SCHEME, UrlConstants.FTP_SCHEME, UrlConstants.INLINE_SCHEME,
+                    UrlConstants.JAVASCRIPT_SCHEME, UrlConstants.CHROME_SCHEME);
     /**
      * URI schemes that ContentView can handle.
      *
@@ -59,11 +57,6 @@ public class UrlBarData {
 
     public static UrlBarData forUrlAndText(String url, String displayText) {
         return forUrlAndText(url, displayText, null);
-    }
-
-    /** Returns whether supplied URL should be shown in the Omnibox/Suggestions list. */
-    public static boolean shouldShowUrl(String url, boolean isIncognito) {
-        return !(NativePage.isNativePageUrl(url, isIncognito) || UrlUtilities.isNTPUrl(url));
     }
 
     public static UrlBarData forUrlAndText(

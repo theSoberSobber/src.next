@@ -42,7 +42,7 @@ class AbstractPropertySetCSSStyleDeclaration : public CSSStyleDeclaration {
  public:
   virtual Element* ParentElement() const { return nullptr; }
   StyleSheetContents* ContextStyleSheet() const;
-  explicit AbstractPropertySetCSSStyleDeclaration(ExecutionContext* context)
+  AbstractPropertySetCSSStyleDeclaration(ExecutionContext* context)
       : CSSStyleDeclaration(context) {}
 
   void Trace(Visitor*) const override;
@@ -69,12 +69,8 @@ class AbstractPropertySetCSSStyleDeclaration : public CSSStyleDeclaration {
                   ExceptionState&) final;
   const CSSValue* GetPropertyCSSValueInternal(CSSPropertyID) final;
   const CSSValue* GetPropertyCSSValueInternal(
-      const AtomicString& custom_property_name) final;
+      AtomicString custom_property_name) final;
   String GetPropertyValueInternal(CSSPropertyID) final;
-  String GetPropertyValueWithHint(const String& property_name,
-                                  unsigned index) final;
-  String GetPropertyPriorityWithHint(const String& property_name,
-                                     unsigned index) final;
   void SetPropertyInternal(CSSPropertyID,
                            const String& custom_property_name,
                            const String& value,
@@ -85,15 +81,7 @@ class AbstractPropertySetCSSStyleDeclaration : public CSSStyleDeclaration {
   bool CssPropertyMatches(CSSPropertyID, const CSSValue&) const final;
 
  protected:
-  enum MutationType {
-    kNoChanges,
-    // Only properties that were independent changed, so that if there are
-    // no other changes and this is on the inline style, it may be
-    // possible to reuse an already-computed style and just apply
-    // the new changes on top of it.
-    kIndependentPropertyChanged,
-    kPropertyChanged
-  };
+  enum MutationType { kNoChanges, kPropertyChanged };
   virtual void WillMutate() {}
   virtual void DidMutate(MutationType) {}
   virtual MutableCSSPropertyValueSet& PropertySet() const = 0;

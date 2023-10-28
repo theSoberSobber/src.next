@@ -1,18 +1,16 @@
-// Copyright 2018 The Chromium Authors
+// Copyright 2018 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 import {assert, assertNotReached} from '../js/assert.m.js';
 import {isMac} from '../js/cr.m.js';
-import {KeyboardShortcutList} from '../js/cr/ui/keyboard_shortcut_list_js.js';
+import {KeyboardShortcutList} from '../js/cr/ui/keyboard_shortcut_list.m.js';
 import {isTextInputElement} from '../js/util.m.js';
 
 /**
  * @fileoverview Listens for a find keyboard shortcut (i.e. Ctrl/Cmd+f or /)
  * and keeps track of an stack of potential listeners. Only the listener at the
  * top of the stack will be notified that a find shortcut has been invoked.
- * NOTE: This file is deprecated in favor of find_shortcut_mixin.ts. Don't use
- * it in new code.
  */
 
 export const FindShortcutManager = (() => {
@@ -39,8 +37,7 @@ export const FindShortcutManager = (() => {
     }
 
     if (!shortcutCtrlF.matchesEvent(e) &&
-        (isTextInputElement(/** @type {!Element} */ (e.composedPath()[0])) ||
-         !shortcutSlash.matchesEvent(e))) {
+        (isTextInputElement(e.path[0]) || !shortcutSlash.matchesEvent(e))) {
       return;
     }
 

@@ -13,9 +13,7 @@ namespace blink {
 
 class ComputedStyle;
 class CounterContentData;
-class Document;
 class HTMLElement;
-class HTMLFrameSetElement;
 class LayoutBlock;
 class LayoutBlockFlow;
 class LayoutObject;
@@ -26,7 +24,6 @@ class LayoutRubyAsBlock;
 class LayoutTableCaption;
 class LayoutText;
 class LayoutTextFragment;
-class LayoutView;
 class Node;
 class PseudoElement;
 
@@ -48,13 +45,11 @@ class LayoutObjectFactory {
   static LayoutBlock* CreateBlockForLineClamp(Node& node,
                                               const ComputedStyle& style,
                                               LegacyLayout legacy);
-  static LayoutView* CreateView(Document&, const ComputedStyle&);
   static LayoutBlock* CreateFlexibleBox(Node&,
                                         const ComputedStyle&,
                                         LegacyLayout);
   static LayoutBlock* CreateGrid(Node&, const ComputedStyle&, LegacyLayout);
   static LayoutBlock* CreateMath(Node&, const ComputedStyle&, LegacyLayout);
-  static LayoutBlock* CreateCustom(Node&, const ComputedStyle&, LegacyLayout);
   static LayoutObject* CreateListMarker(Node&,
                                         const ComputedStyle&,
                                         LegacyLayout);
@@ -84,9 +79,6 @@ class LayoutObjectFactory {
   static LayoutBlockFlow* CreateFileUploadControl(Node& node,
                                                   const ComputedStyle& style,
                                                   LegacyLayout legacy);
-  static LayoutBox* CreateFrameSet(HTMLFrameSetElement& element,
-                                   const ComputedStyle& style,
-                                   LegacyLayout legacy);
   static LayoutObject* CreateSliderTrack(Node& node,
                                          const ComputedStyle& style,
                                          LegacyLayout legacy);
@@ -119,9 +111,6 @@ class LayoutObjectFactory {
                                       const ComputedStyle& style,
                                       LegacyLayout legacy);
 
-  static LayoutObject* CreateSVGForeignObject(Node& node,
-                                              const ComputedStyle& style,
-                                              LegacyLayout legacy);
   static LayoutObject* CreateSVGText(Node& node,
                                      const ComputedStyle& style,
                                      LegacyLayout legacy);

@@ -1,4 +1,4 @@
-// Copyright 2020 The Chromium Authors
+// Copyright 2020 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -15,18 +15,16 @@
 
 class GURL;
 
-namespace blink {
-class BlinkSchemefulSite;
-}  // namespace blink
-
 namespace IPC {
 template <class P>
 struct ParamTraits;
 }  // namespace IPC
 
-namespace network::mojom {
+namespace network {
+namespace mojom {
 class SchemefulSiteDataView;
-}  // namespace network::mojom
+}  // namespace mojom
+}  // namespace network
 
 namespace mojo {
 template <typename DataViewType, typename T>
@@ -49,9 +47,6 @@ class SiteForCookies;
 //    SchemefulSite iff they share a scheme and host.
 // 4. Origins which differ only by port have the same SchemefulSite.
 // 5. Websocket origins cannot have a SchemefulSite (they trigger a DCHECK).
-//
-// Note that blink::BlinkSchemefulSite mirrors this class and needs to be kept
-// in sync with any data member changes.
 class NET_EXPORT SchemefulSite {
  public:
   SchemefulSite() = default;
@@ -67,10 +62,10 @@ class NET_EXPORT SchemefulSite {
   explicit SchemefulSite(const GURL& url);
 
   SchemefulSite(const SchemefulSite& other);
-  SchemefulSite(SchemefulSite&& other) noexcept;
+  SchemefulSite(SchemefulSite&& other);
 
   SchemefulSite& operator=(const SchemefulSite& other);
-  SchemefulSite& operator=(SchemefulSite&& other) noexcept;
+  SchemefulSite& operator=(SchemefulSite&& other);
 
   // Tries to construct an instance from a (potentially untrusted) value of the
   // internal `site_as_origin_` that got received over an RPC.
@@ -99,12 +94,6 @@ class NET_EXPORT SchemefulSite {
   // is invalid, returns an empty string. If serialization of opaque origins
   // with their associated nonce is necessary, see `SerializeWithNonce()`.
   std::string Serialize() const;
-
-  // Serializes `site_as_origin_` in cases when it has a 'file' scheme but
-  // we want to preserve the Origin's host.
-  // This was added to serialize cookie partition keys, which may contain
-  // file origins with a host.
-  std::string SerializeFileSiteWithHost() const;
 
   std::string GetDebugString() const;
 
@@ -139,8 +128,6 @@ class NET_EXPORT SchemefulSite {
   friend struct mojo::StructTraits<network::mojom::SchemefulSiteDataView,
                                    SchemefulSite>;
   friend struct IPC::ParamTraits<net::SchemefulSite>;
-
-  friend class blink::BlinkSchemefulSite;
 
   // Create SiteForCookies from SchemefulSite needs to access internal origin,
   // and SiteForCookies needs to access private method SchemelesslyEqual.
@@ -212,9 +199,9 @@ class NET_EXPORT SchemefulSite {
 
 // Provided to allow gtest to create more helpful error messages, instead of
 // printing hex.
-//
-// Also used so that SchemefulSites can be the arguments of DCHECK_EQ.
-NET_EXPORT std::ostream& operator<<(std::ostream& os, const SchemefulSite& ss);
+inline void PrintTo(const SchemefulSite& ss, std::ostream* os) {
+  *os << ss.Serialize();
+}
 
 }  // namespace net
 

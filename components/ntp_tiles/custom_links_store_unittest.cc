@@ -1,4 +1,4 @@
-// Copyright 2018 The Chromium Authors
+// Copyright 2018 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -8,6 +8,7 @@
 
 #include <memory>
 
+#include "base/macros.h"
 #include "base/strings/utf_string_conversions.h"
 #include "components/sync_preferences/testing_pref_service_syncable.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -32,12 +33,11 @@ class CustomLinksStoreTest : public testing::Test {
     CustomLinksStore::RegisterProfilePrefs(prefs_.registry());
   }
 
-  CustomLinksStoreTest(const CustomLinksStoreTest&) = delete;
-  CustomLinksStoreTest& operator=(const CustomLinksStoreTest&) = delete;
-
  protected:
   sync_preferences::TestingPrefServiceSyncable prefs_;
   std::unique_ptr<CustomLinksStore> custom_links_store_;
+
+  DISALLOW_COPY_AND_ASSIGN(CustomLinksStoreTest);
 };
 
 TEST_F(CustomLinksStoreTest, StoreAndRetrieveLinks) {

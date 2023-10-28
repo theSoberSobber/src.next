@@ -1,4 +1,4 @@
-// Copyright 2018 The Chromium Authors
+// Copyright 2018 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -10,9 +10,7 @@
 #include "base/bind.h"
 #include "base/callback.h"
 #include "base/callback_helpers.h"
-#include "base/memory/raw_ptr.h"
 #include "base/strings/utf_string_conversions.h"
-#include "base/threading/thread_task_runner_handle.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
 #include "chrome/browser/browser_process.h"
@@ -27,7 +25,7 @@
 #include "ui/display/display.h"
 #include "ui/display/screen.h"
 
-#if BUILDFLAG(IS_ANDROID)
+#if defined(OS_ANDROID)
 #include "base/android/build_info.h"
 #include "chrome/browser/download/android/download_manager_bridge.h"
 #include "chrome/browser/download/android/download_manager_service.h"
@@ -38,6 +36,7 @@ using OfflineItemFilter = offline_items_collection::OfflineItemFilter;
 using OfflineItemState = offline_items_collection::OfflineItemState;
 using OfflineItemProgressUnit =
     offline_items_collection::OfflineItemProgressUnit;
+using offline_items_collection::OfflineItemSchedule;
 using offline_items_collection::OfflineItemShareInfo;
 using OfflineItemVisuals = offline_items_collection::OfflineItemVisuals;
 using UpdateDelta = offline_items_collection::UpdateDelta;
@@ -50,9 +49,9 @@ const int kThumbnailSizeInDP = 64;
 // The delay to wait after loading history and before starting the check for
 // externally removed downloads.
 const base::TimeDelta kCheckExternallyRemovedDownloadsDelay =
-    base::Milliseconds(100);
+    base::TimeDelta::FromMilliseconds(100);
 
-#if BUILDFLAG(IS_ANDROID)
+#if defined(OS_ANDROID)
 // Invalid system download Id.
 const int kInvalidSystemDownloadId = -1;
 #endif
@@ -65,7 +64,7 @@ bool ShouldShowDownloadItem(const DownloadItem* item) {
 std::unique_ptr<OfflineItemShareInfo> CreateShareInfo(
     const DownloadItem* item) {
   auto share_info = std::make_unique<OfflineItemShareInfo>();
-#if BUILDFLAG(IS_ANDROID)
+#if defined(OS_ANDROID)
   if (item) {
     share_info->uri =
         DownloadUtils::GetUriStringForPath(item->GetTargetFilePath());
@@ -83,10 +82,6 @@ class AllDownloadObserver
     : public download::AllDownloadEventNotifier::Observer {
  public:
   explicit AllDownloadObserver(DownloadOfflineContentProvider* provider);
-
-  AllDownloadObserver(const AllDownloadObserver&) = delete;
-  AllDownloadObserver& operator=(const AllDownloadObserver&) = delete;
-
   ~AllDownloadObserver() override;
 
   void OnDownloadUpdated(SimpleDownloadManagerCoordinator* manager,
@@ -98,8 +93,10 @@ class AllDownloadObserver
   void DeleteDownloadItem(SimpleDownloadManagerCoordinator* manager,
                           const std::string& guid);
 
-  raw_ptr<DownloadOfflineContentProvider> provider_;
+  DownloadOfflineContentProvider* provider_;
   base::WeakPtrFactory<AllDownloadObserver> weak_ptr_factory_{this};
+
+  DISALLOW_COPY_AND_ASSIGN(AllDownloadObserver);
 };
 
 AllDownloadObserver::AllDownloadObserver(
@@ -145,7 +142,7 @@ DownloadOfflineContentProvider::DownloadOfflineContentProvider(
       state_(State::UNINITIALIZED),
       profile_(nullptr) {
   aggregator_->RegisterProvider(name_space_, this);
-#if BUILDFLAG(IS_ANDROID)
+#if defined(OS_ANDROID)
   all_download_observer_ = std::make_unique<AllDownloadObserver>(this);
 #endif
 }
@@ -276,33 +273,46 @@ void DownloadOfflineContentProvider::GetItemById(
     const ContentId& id,
     OfflineContentProvider::SingleItemCallback callback) {
   EnsureDownloadCoreServiceStarted();
-  base::OnceClosure run_get_item_callback =
-      base::BindOnce(&DownloadOfflineContentProvider::RunGetItemByIdCallback,
-                     weak_ptr_factory_.GetWeakPtr(), id, std::move(callback));
   if (state_ != State::HISTORY_LOADED) {
-    pending_actions_for_full_browser_.push_back(
-        std::move(run_get_item_callback));
+    pending_actions_for_full_browser_.push_back(base::BindOnce(
+        &DownloadOfflineContentProvider::GetItemById,
+        weak_ptr_factory_.GetWeakPtr(), id, std::move(callback)));
     return;
   }
 
+  DownloadItem* item = GetDownload(id.id);
+  auto offline_item =
+      item && ShouldShowDownloadItem(item)
+          ? absl::make_optional(
+                OfflineItemUtils::CreateOfflineItem(name_space_, item))
+          : absl::nullopt;
+
   base::ThreadTaskRunnerHandle::Get()->PostTask(
-      FROM_HERE, std::move(run_get_item_callback));
+      FROM_HERE, base::BindOnce(std::move(callback), offline_item));
 }
 
 void DownloadOfflineContentProvider::GetAllItems(
     OfflineContentProvider::MultipleItemCallback callback) {
   EnsureDownloadCoreServiceStarted();
-  base::OnceClosure run_get_all_items_callback =
-      base::BindOnce(&DownloadOfflineContentProvider::RunGetAllItemsCallback,
-                     weak_ptr_factory_.GetWeakPtr(), std::move(callback));
   if (state_ != State::HISTORY_LOADED) {
     pending_actions_for_full_browser_.push_back(
-        std::move(run_get_all_items_callback));
+        base::BindOnce(&DownloadOfflineContentProvider::GetAllItems,
+                       weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
     return;
   }
 
+  std::vector<DownloadItem*> all_items;
+  GetAllDownloads(&all_items);
+
+  std::vector<OfflineItem> items;
+  for (auto* item : all_items) {
+    if (!ShouldShowDownloadItem(item))
+      continue;
+    items.push_back(OfflineItemUtils::CreateOfflineItem(name_space_, item));
+  }
+
   base::ThreadTaskRunnerHandle::Get()->PostTask(
-      FROM_HERE, std::move(run_get_all_items_callback));
+      FROM_HERE, base::BindOnce(std::move(callback), items));
 }
 
 void DownloadOfflineContentProvider::GetVisualsForItem(
@@ -383,12 +393,31 @@ void DownloadOfflineContentProvider::RenameItem(const ContentId& id,
           &DownloadOfflineContentProvider::OnRenameDownloadCallbackDone,
           weak_ptr_factory_.GetWeakPtr(), std::move(callback), item);
   base::FilePath::StringType filename;
-#if BUILDFLAG(IS_WIN)
+#if defined(OS_WIN)
   filename = base::UTF8ToWide(name);
 #else
   filename = name;
 #endif
   item->Rename(base::FilePath(filename), std::move(download_callback));
+}
+
+void DownloadOfflineContentProvider::ChangeSchedule(
+    const ContentId& id,
+    absl::optional<OfflineItemSchedule> schedule) {
+  EnsureDownloadCoreServiceStarted();
+  if (state_ != State::HISTORY_LOADED) {
+    pending_actions_for_full_browser_.push_back(base::BindOnce(
+        &DownloadOfflineContentProvider::ChangeSchedule,
+        weak_ptr_factory_.GetWeakPtr(), id, std::move(schedule)));
+    return;
+  }
+
+  DownloadItem* item = GetDownload(id.id);
+  if (!item)
+    return;
+
+  item->OnDownloadScheduleChanged(
+      OfflineItemUtils::ToDownloadSchedule(schedule));
 }
 
 void DownloadOfflineContentProvider::OnRenameDownloadCallbackDone(
@@ -463,7 +492,7 @@ void DownloadOfflineContentProvider::OnDownloadRemoved(DownloadItem* item) {
   if (!ShouldShowDownloadItem(item))
     return;
 
-#if BUILDFLAG(IS_ANDROID)
+#if defined(OS_ANDROID)
   DownloadManagerBridge::RemoveCompletedDownload(item);
 #endif
 
@@ -476,7 +505,7 @@ void DownloadOfflineContentProvider::OnProfileCreated(Profile* profile) {
 }
 
 void DownloadOfflineContentProvider::AddCompletedDownload(DownloadItem* item) {
-#if BUILDFLAG(IS_ANDROID)
+#if defined(OS_ANDROID)
   base::OnceCallback<void(int64_t)> cb =
       base::BindOnce(&DownloadOfflineContentProvider::AddCompletedDownloadDone,
                      weak_ptr_factory_.GetWeakPtr(), item->GetGuid());
@@ -493,7 +522,7 @@ void DownloadOfflineContentProvider::AddCompletedDownload(DownloadItem* item) {
 void DownloadOfflineContentProvider::AddCompletedDownloadDone(
     const std::string& download_guid,
     int64_t system_download_id) {
-#if BUILDFLAG(IS_ANDROID)
+#if defined(OS_ANDROID)
   DownloadItem* item = GetDownload(download_guid);
   if (!item)
     return;
@@ -531,7 +560,7 @@ void DownloadOfflineContentProvider::CheckForExternallyRemovedDownloads() {
 
   checked_for_externally_removed_downloads_ = true;
 
-#if BUILDFLAG(IS_ANDROID)
+#if defined(OS_ANDROID)
   manager_->CheckForExternallyRemovedDownloads();
 #endif
 }
@@ -539,31 +568,4 @@ void DownloadOfflineContentProvider::CheckForExternallyRemovedDownloads() {
 void DownloadOfflineContentProvider::EnsureDownloadCoreServiceStarted() {
   DCHECK(profile_);
   CHECK(profile_->GetDownloadManager());
-}
-
-void DownloadOfflineContentProvider::RunGetAllItemsCallback(
-    OfflineContentProvider::MultipleItemCallback callback) {
-  std::vector<DownloadItem*> all_items;
-  GetAllDownloads(&all_items);
-
-  std::vector<OfflineItem> items;
-  for (auto* item : all_items) {
-    if (!ShouldShowDownloadItem(item))
-      continue;
-    items.push_back(OfflineItemUtils::CreateOfflineItem(name_space_, item));
-  }
-  std::move(callback).Run(std::move(items));
-}
-
-void DownloadOfflineContentProvider::RunGetItemByIdCallback(
-    const ContentId& id,
-    OfflineContentProvider::SingleItemCallback callback) {
-  DownloadItem* item = GetDownload(id.id);
-  auto offline_item =
-      item && ShouldShowDownloadItem(item)
-          ? absl::make_optional(
-                OfflineItemUtils::CreateOfflineItem(name_space_, item))
-          : absl::nullopt;
-
-  std::move(callback).Run(offline_item);
 }

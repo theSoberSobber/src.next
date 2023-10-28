@@ -5,12 +5,9 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_CORE_CSS_CSS_NUMERIC_LITERAL_VALUE_H_
 #define THIRD_PARTY_BLINK_RENDERER_CORE_CSS_CSS_NUMERIC_LITERAL_VALUE_H_
 
-#include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/css/css_primitive_value.h"
 
 namespace blink {
-
-class CSSLengthResolver;
 
 // Numeric values that can be expressed as a single unit (or a naked number or
 // percentage). The equivalence of CSS Typed OM's |CSSUnitValue| in the
@@ -29,7 +26,7 @@ class CORE_EXPORT CSSNumericLiteralValue : public CSSPrimitiveValue {
   bool IsFontRelativeLength() const {
     return GetType() == UnitType::kQuirkyEms || GetType() == UnitType::kEms ||
            GetType() == UnitType::kExs || GetType() == UnitType::kRems ||
-           GetType() == UnitType::kChs || GetType() == UnitType::kIcs;
+           GetType() == UnitType::kChs;
   }
   bool IsQuirkyEms() const { return GetType() == UnitType::kQuirkyEms; }
   bool IsViewportPercentageLength() const {
@@ -57,7 +54,8 @@ class CORE_EXPORT CSSNumericLiteralValue : public CSSPrimitiveValue {
   double ComputeDegrees() const;
   double ComputeDotsPerPixel() const;
 
-  double ComputeLengthPx(const CSSLengthResolver&) const;
+  double ComputeLengthPx(
+      const CSSToLengthConversionData& conversion_data) const;
   bool AccumulateLengthArray(CSSLengthArray& length_array,
                              double multiplier) const;
   void AccumulateLengthUnitTypes(LengthTypeFlags& types) const;

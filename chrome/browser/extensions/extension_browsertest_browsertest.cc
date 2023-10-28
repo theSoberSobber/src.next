@@ -1,4 +1,4 @@
-// Copyright 2020 The Chromium Authors
+// Copyright 2020 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -39,7 +39,8 @@ IN_PROC_BROWSER_TEST_P(MultiBackgroundExtensionBrowserTestBrowserTest,
   // We add a custom delay here to force the background page of the extension to
   // load a little later; this helps ensure we are properly waiting on it in the
   // LoadExtension() method.
-  ExtensionHostQueue::GetInstance().SetCustomDelayForTesting(base::Seconds(1));
+  ExtensionHostQueue::GetInstance().SetCustomDelayForTesting(
+      base::TimeDelta::FromSeconds(1));
 
   constexpr char kPersistentBackgroundPage[] =
       R"("scripts": ["background.js"])";
@@ -84,13 +85,15 @@ IN_PROC_BROWSER_TEST_P(MultiBackgroundExtensionBrowserTestBrowserTest,
   EventRouter* event_router = EventRouter::Get(profile());
   EXPECT_TRUE(event_router->ExtensionHasEventListener(extension->id(),
                                                       "tabs.onCreated"));
-  ExtensionHostQueue::GetInstance().SetCustomDelayForTesting(base::Seconds(0));
+  ExtensionHostQueue::GetInstance().SetCustomDelayForTesting(
+      base::TimeDelta::FromSeconds(0));
 }
 
+// TODO(devlin): Add support for ServiceWorker-based extensions here as well.
+// Currently, we have no good way to wait for the ServiceWorker to be ready.
 INSTANTIATE_TEST_SUITE_P(All,
                          MultiBackgroundExtensionBrowserTestBrowserTest,
                          testing::Values(BackgroundType::kPersistentPage,
-                                         BackgroundType::kLazyPage,
-                                         BackgroundType::kWorker));
+                                         BackgroundType::kLazyPage));
 
 }  // namespace extensions

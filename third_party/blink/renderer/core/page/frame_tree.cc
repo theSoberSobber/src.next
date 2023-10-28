@@ -68,7 +68,7 @@ const AtomicString& FrameTree::GetName() const {
 
   if (cross_site_cross_browsing_context_group_set_nulled_name_) {
     auto* frame = DynamicTo<LocalFrame>(this_frame_.Get());
-    if (frame && frame->IsOutermostMainFrame() && !name_.IsEmpty()) {
+    if (frame && frame->IsMainFrame() && !name_.IsEmpty()) {
       UseCounter::Count(
           frame->GetDocument(),
           WebFeature::
@@ -109,7 +109,7 @@ void FrameTree::SetName(const AtomicString& name,
   experimental_set_nulled_name_ = false;
 
   auto* frame = DynamicTo<LocalFrame>(this_frame_.Get());
-  if (frame && frame->IsOutermostMainFrame() && !name.IsEmpty()) {
+  if (frame && frame->IsMainFrame() && !name.IsEmpty()) {
     // TODO(shuuran): remove this once we have gathered the data
     cross_site_cross_browsing_context_group_set_nulled_name_ = false;
   }
@@ -117,20 +117,20 @@ void FrameTree::SetName(const AtomicString& name,
 }
 
 DISABLE_CFI_PERF
-Frame* FrameTree::Parent(FrameTreeBoundary frame_tree_boundary) const {
-  return this_frame_->Parent(frame_tree_boundary);
+Frame* FrameTree::Parent() const {
+  return this_frame_->Parent();
 }
 
-Frame& FrameTree::Top(FrameTreeBoundary frame_tree_boundary) const {
-  return *this_frame_->Top(frame_tree_boundary);
+Frame& FrameTree::Top() const {
+  return *this_frame_->Top();
 }
 
-Frame* FrameTree::NextSibling(FrameTreeBoundary frame_tree_boundary) const {
-  return this_frame_->NextSibling(frame_tree_boundary);
+Frame* FrameTree::NextSibling() const {
+  return this_frame_->NextSibling();
 }
 
-Frame* FrameTree::FirstChild(FrameTreeBoundary frame_tree_boundary) const {
-  return this_frame_->FirstChild(frame_tree_boundary);
+Frame* FrameTree::FirstChild() const {
+  return this_frame_->FirstChild();
 }
 
 Frame* FrameTree::ScopedChild(unsigned index) const {
@@ -211,7 +211,7 @@ FrameTree::FindResult FrameTree::FindOrCreateFrameForNavigation(
     return FindResult(current_frame, false);
 
   const KURL& url = request.GetResourceRequest().Url();
-  Frame* frame = FindFrameForNavigationInternal(name, url, &request);
+  Frame* frame = FindFrameForNavigationInternal(name, url);
   bool new_window = false;
   if (!frame) {
     frame = CreateNewWindow(*current_frame, request, name);
@@ -234,10 +234,8 @@ FrameTree::FindResult FrameTree::FindOrCreateFrameForNavigation(
   return FindResult(frame, new_window);
 }
 
-Frame* FrameTree::FindFrameForNavigationInternal(
-    const AtomicString& name,
-    const KURL& url,
-    FrameLoadRequest* request) const {
+Frame* FrameTree::FindFrameForNavigationInternal(const AtomicString& name,
+                                                 const KURL& url) const {
   if (EqualIgnoringASCIICase(name, "_current")) {
     UseCounter::Count(
         blink::DynamicTo<blink::LocalFrame>(this_frame_.Get())->GetDocument(),
@@ -245,33 +243,14 @@ Frame* FrameTree::FindFrameForNavigationInternal(
   }
 
   if (EqualIgnoringASCIICase(name, "_self") ||
-      EqualIgnoringASCIICase(name, "_current") || name.IsEmpty()) {
+      EqualIgnoringASCIICase(name, "_current") || name.IsEmpty())
     return this_frame_;
-  }
 
   if (EqualIgnoringASCIICase(name, "_top"))
-    return &Top(FrameTreeBoundary::kFenced);
+    return &Top();
 
-  // The target _unfencedTop should only be treated as a special name in
-  // opaque-ads mode fenced frames.
-  if (EqualIgnoringASCIICase(name, "_unfencedTop")) {
-    // In fenced frames, we set a flag that will later indicate to the browser
-    // that this is an _unfencedTop navigation, and return the current frame
-    // so that the renderer-side checks will succeed.
-    // TODO(crbug.com/1315802): Refactor MPArch _unfencedTop handling.
-    if (this_frame_.Get()->GetFencedFrameMode() ==
-            mojom::blink::FencedFrameMode::kOpaqueAds &&
-        request != nullptr) {
-      request->SetIsUnfencedTopNavigation(true);
-      return this_frame_;
-    }
-  }
-
-  if (EqualIgnoringASCIICase(name, "_parent")) {
-    return Parent(FrameTreeBoundary::kFenced)
-               ? Parent(FrameTreeBoundary::kFenced)
-               : this_frame_.Get();
-  }
+  if (EqualIgnoringASCIICase(name, "_parent"))
+    return Parent() ? Parent() : this_frame_.Get();
 
   // Since "_blank" should never be any frame's name, the following just amounts
   // to an optimization.
@@ -280,8 +259,7 @@ Frame* FrameTree::FindFrameForNavigationInternal(
 
   // Search subtree starting with this frame first.
   for (Frame* frame = this_frame_; frame;
-       frame = frame->Tree().TraverseNext(this_frame_,
-                                          FrameTreeBoundary::kFenced)) {
+       frame = frame->Tree().TraverseNext(this_frame_)) {
     if (frame->Tree().GetName() == name &&
         To<LocalFrame>(this_frame_.Get())->CanNavigate(*frame, url)) {
       return frame;
@@ -295,10 +273,8 @@ Frame* FrameTree::FindFrameForNavigationInternal(
   if (!page)
     return nullptr;
 
-  for (Frame *top = &this_frame_->Tree().Top(FrameTreeBoundary::kFenced),
-             *frame = top;
-       frame;
-       frame = frame->Tree().TraverseNext(top, FrameTreeBoundary::kFenced)) {
+  for (Frame* frame = page->MainFrame(); frame;
+       frame = frame->Tree().TraverseNext()) {
     // Skip descendants of this frame that were searched above to avoid
     // showing duplicate console messages if a frame is found by name
     // but access is blocked.
@@ -309,21 +285,12 @@ Frame* FrameTree::FindFrameForNavigationInternal(
     }
   }
 
-  // In fenced frames, only resolve target names using the above lookup methods
-  // (keywords, descendants, and the rest of the frame tree within the fence).
-  // TODO(crbug.com/1262022): Remove this early return when we get rid of
-  // ShadowDOM fenced frames, because it is unnecessary in MPArch.
-  if (this_frame_->IsInFencedFrameTree()) {
-    return nullptr;
-  }
-
   // Search the entire tree of each of the other pages in this namespace.
   for (const Page* other_page : page->RelatedPages()) {
     if (other_page == page || other_page->IsClosing())
       continue;
     for (Frame* frame = other_page->MainFrame(); frame;
-         frame =
-             frame->Tree().TraverseNext(nullptr, FrameTreeBoundary::kFenced)) {
+         frame = frame->Tree().TraverseNext()) {
       if (frame->Tree().GetName() == name &&
           To<LocalFrame>(this_frame_.Get())->CanNavigate(*frame, url)) {
         return frame;
@@ -358,9 +325,8 @@ bool FrameTree::IsDescendantOf(const Frame* ancestor) const {
 }
 
 DISABLE_CFI_PERF
-Frame* FrameTree::TraverseNext(const Frame* stay_within,
-                               FrameTreeBoundary frame_tree_boundary) const {
-  Frame* child = FirstChild(frame_tree_boundary);
+Frame* FrameTree::TraverseNext(const Frame* stay_within) const {
+  Frame* child = FirstChild();
   if (child) {
     DCHECK(!stay_within || child->Tree().IsDescendantOf(stay_within));
     return child;
@@ -369,20 +335,18 @@ Frame* FrameTree::TraverseNext(const Frame* stay_within,
   if (this_frame_ == stay_within)
     return nullptr;
 
-  Frame* sibling = NextSibling(frame_tree_boundary);
+  Frame* sibling = NextSibling();
   if (sibling) {
     DCHECK(!stay_within || sibling->Tree().IsDescendantOf(stay_within));
     return sibling;
   }
 
   Frame* frame = this_frame_;
-  while (!sibling &&
-         (!stay_within ||
-          frame->Tree().Parent(frame_tree_boundary) != stay_within)) {
-    frame = frame->Tree().Parent(frame_tree_boundary);
+  while (!sibling && (!stay_within || frame->Tree().Parent() != stay_within)) {
+    frame = frame->Tree().Parent();
     if (!frame)
       return nullptr;
-    sibling = frame->Tree().NextSibling(frame_tree_boundary);
+    sibling = frame->Tree().NextSibling();
   }
 
   if (frame) {
@@ -402,32 +366,32 @@ void FrameTree::Trace(Visitor* visitor) const {
 
 #if DCHECK_IS_ON()
 
-static void PrintIndent(int indent) {
+static void printIndent(int indent) {
   for (int i = 0; i < indent; ++i)
     printf("    ");
 }
 
-static void PrintFrames(const blink::Frame* frame,
+static void printFrames(const blink::Frame* frame,
                         const blink::Frame* targetFrame,
                         int indent) {
   if (frame == targetFrame) {
     printf("--> ");
-    PrintIndent(indent - 1);
+    printIndent(indent - 1);
   } else {
-    PrintIndent(indent);
+    printIndent(indent);
   }
 
   auto* local_frame = blink::DynamicTo<blink::LocalFrame>(frame);
   blink::LocalFrameView* view = local_frame ? local_frame->View() : nullptr;
   printf("Frame %p %dx%d\n", frame, view ? view->Width() : 0,
          view ? view->Height() : 0);
-  PrintIndent(indent);
+  printIndent(indent);
   printf("  owner=%p\n", frame->Owner());
-  PrintIndent(indent);
+  printIndent(indent);
   printf("  frameView=%p\n", view);
-  PrintIndent(indent);
+  printIndent(indent);
   printf("  document=%p\n", local_frame ? local_frame->GetDocument() : nullptr);
-  PrintIndent(indent);
+  printIndent(indent);
   printf("  uri=%s\n\n",
          local_frame && local_frame->GetDocument()
              ? local_frame->GetDocument()->Url().GetString().Utf8().c_str()
@@ -435,16 +399,16 @@ static void PrintFrames(const blink::Frame* frame,
 
   for (blink::Frame* child = frame->Tree().FirstChild(); child;
        child = child->Tree().NextSibling())
-    PrintFrames(child, targetFrame, indent + 1);
+    printFrames(child, targetFrame, indent + 1);
 }
 
-void ShowFrameTree(const blink::Frame* frame) {
+void showFrameTree(const blink::Frame* frame) {
   if (!frame) {
     printf("Null input frame\n");
     return;
   }
 
-  PrintFrames(&frame->Tree().Top(), frame, 0);
+  printFrames(&frame->Tree().Top(), frame, 0);
 }
 
 #endif  // DCHECK_IS_ON()

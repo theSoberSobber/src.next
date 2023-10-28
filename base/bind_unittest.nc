@@ -1,4 +1,4 @@
-// Copyright 2011 The Chromium Authors
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -9,9 +9,8 @@
 
 #include "base/bind.h"
 #include "base/callback.h"
+#include "base/macros.h"
 #include "base/memory/ref_counted.h"
-#include "base/memory/raw_ptr.h"
-#include "base/memory/raw_ref.h"
 #include "base/test/bind.h"
 
 namespace base {
@@ -82,7 +81,7 @@ struct NonEmptyFunctor {
   void operator()() const {}
 };
 
-#if defined(NCTEST_METHOD_ON_CONST_OBJECT)  // [r"static assertion failed.+?BindArgument<0>::ForwardedAs<.+?>::ToParamWithType<.+?>::kCanBeForwardedToBoundFunctor.+?Type mismatch between bound argument and bound functor's parameter\."]
+#if defined(NCTEST_METHOD_ON_CONST_OBJECT)  // [r"static_assert failed.+?BindArgument<0>::ForwardedAs<.+?>::ToParamWithType<.+?>::kCanBeForwardedToBoundFunctor.+?Type mismatch between bound argument and bound functor's parameter\."]
 
 // Method bound to const-object.
 //
@@ -95,7 +94,7 @@ void WontCompile() {
   method_to_const_cb.Run();
 }
 
-#elif defined(NCTEST_METHOD_BIND_NEEDS_REFCOUNTED_OBJECT)  // [r"fatal error: static assertion failed due to requirement '!IsPointerV<base::NoRef \*> \|\| IsRefCountedType<base::NoRef, void>::value': Receivers may not be raw pointers. If using a raw pointer here is safe and has no lifetime concerns, use base::Unretained\(\) and document why it's safe."]
+#elif defined(NCTEST_METHOD_BIND_NEEDS_REFCOUNTED_OBJECT)  // [r"fatal error: static_assert failed due to requirement '!std::is_pointer<base::NoRef *>::value || IsRefCountedType<base::NoRef, void>::value' \"Receivers may not be raw pointers. If using a raw pointer here is safe and has no lifetime concerns, use base::Unretained() and document why it's safe.\""]
 
 
 // Method bound to non-refcounted object.
@@ -108,7 +107,7 @@ void WontCompile() {
   no_ref_cb.Run();
 }
 
-#elif defined(NCTEST_CONST_METHOD_BIND_NEEDS_REFCOUNTED_OBJECT)  // [r"fatal error: static assertion failed due to requirement '!IsPointerV<base::NoRef \*> \|\| IsRefCountedType<base::NoRef, void>::value': Receivers may not be raw pointers. If using a raw pointer here is safe and has no lifetime concerns, use base::Unretained\(\) and document why it's safe."]
+#elif defined(NCTEST_CONST_METHOD_NEEDS_REFCOUNTED_OBJECT)  // [r"fatal error: static_assert failed due to requirement '!std::is_pointer<base::NoRef *>::value || IsRefCountedType<base::NoRef, void>::value' \"Receivers may not be raw pointers. If using a raw pointer here is safe and has no lifetime concerns, use base::Unretained() and document why it's safe.\""]
 
 // Const Method bound to non-refcounted object.
 //
@@ -120,102 +119,7 @@ void WontCompile() {
   no_ref_const_cb.Run();
 }
 
-#elif defined(NCTEST_METHOD_BIND_RAW_PTR_RECEIVER_NEEDS_REFCOUNTED_OBJECT)  // [r"fatal error: static assertion failed due to requirement '!IsPointerV<base::raw_ptr<base::NoRef, [^>]+>?>> \|\| IsRefCountedType<base::NoRef, void>::value': Receivers may not be raw pointers. If using a raw pointer here is safe and has no lifetime concerns, use base::Unretained\(\) and document why it's safe."]
-
-
-// Method bound to non-refcounted object.
-//
-// We require refcounts unless you have Unretained().
-void WontCompile() {
-  NoRef no_ref;
-  raw_ptr<NoRef> rawptr(&no_ref);
-  RepeatingCallback<void()> no_ref_cb =
-      BindRepeating(&NoRef::VoidMethod0, rawptr);
-  no_ref_cb.Run();
-}
-
-#elif defined(NCTEST_CONST_METHOD_BIND_RAW_PTR_RECEIVER_NEEDS_REFCOUNTED_OBJECT)  // [r"fatal error: static assertion failed due to requirement '!IsPointerV<base::raw_ptr<base::NoRef, [^>]+>?>> \|\| IsRefCountedType<base::NoRef, void>::value': Receivers may not be raw pointers. If using a raw pointer here is safe and has no lifetime concerns, use base::Unretained\(\) and document why it's safe."]
-
-// Const Method bound to non-refcounted object.
-//
-// We require refcounts unless you have Unretained().
-void WontCompile() {
-  NoRef no_ref;
-  raw_ptr<NoRef> rawptr(&no_ref);
-  RepeatingCallback<void()> no_ref_const_cb =
-      BindRepeating(&NoRef::VoidConstMethod0, rawptr);
-  no_ref_const_cb.Run();
-}
-
-#elif defined(NCTEST_METHOD_BIND_REF_WRAPPER_RECEIVER_NON_REFCOUNTED_OBJECT)  // [r"fatal error: indirection requires pointer operand"]
-
-// Method bound to non-refcounted object. It fails to compile with
-// std::reference_wrapper.
-void WontCompile() {
-  NoRef no_ref;
-  RepeatingCallback<void()> no_ref_cb =
-      BindRepeating(&NoRef::VoidMethod0, std::cref(no_ref));
-  no_ref_cb.Run();
-}
-
-#elif defined(NCTEST_METHOD_BIND_NATIVE_REF_RECEIVER_NON_REFCOUNTED_OBJECT)  // [r"fatal error: indirection requires pointer operand"]
-
-// Method bound to non-refcounted object. It fails to compile with
-// a native reference.
-void WontCompile() {
-  NoRef no_ref;
-  RepeatingCallback<void()> no_ref_cb =
-      BindRepeating(&NoRef::VoidMethod0, no_ref);
-  no_ref_cb.Run();
-}
-
-#elif defined(NCTEST_METHOD_BIND_RAW_REF_RECEIVER_NON_REFCOUNTED_OBJECT)  // [r"fatal error: .*Receivers may not be raw_ref<T>\."]
-
-// Method bound to non-refcounted object. It fails to compile with
-// a raw_ref.
-void WontCompile() {
-  NoRef no_ref;
-  raw_ref<NoRef> rawref(no_ref);
-  RepeatingCallback<void()> no_ref_cb =
-      BindRepeating(&NoRef::VoidMethod0, rawref);
-  no_ref_cb.Run();
-}
-
-#elif defined(NCTEST_METHOD_BIND_REF_WRAPPER_RECEIVER_REFCOUNTED_OBJECT)  // [r"fatal error: indirection requires pointer operand"]
-
-// Method bound to non-refcounted object. It fails to compile with
-// std::reference_wrapper.
-void WontCompile() {
-  HasRef has_ref;
-  RepeatingCallback<void()> has_ref_cb =
-      BindRepeating(&HasRef::VoidMethod0, std::cref(has_ref));
-  has_ref_cb.Run();
-}
-
-#elif defined(NCTEST_METHOD_BIND_NATIVE_REF_RECEIVER_REFCOUNTED_OBJECT)  // [r"fatal error: indirection requires pointer operand"]
-
-// Method bound to non-refcounted object. It fails to compile with
-// a native reference.
-void WontCompile() {
-  HasRef has_ref;
-  RepeatingCallback<void()> has_ref_cb =
-      BindRepeating(&HasRef::VoidMethod0, has_ref);
-  has_ref_cb.Run();
-}
-
-#elif defined(NCTEST_METHOD_BIND_RAW_REF_RECEIVER_REFCOUNTED_OBJECT)  // [r"fatal error: .*Receivers may not be raw_ref<T>\."]
-
-// Method bound to non-refcounted object. It fails to compile with
-// a raw_ref.
-void WontCompile() {
-  HasRef has_ref;
-  raw_ref<HasRef> rawref(has_ref);
-  RepeatingCallback<void()> has_ref_cb =
-      BindRepeating(&HasRef::VoidMethod0, rawref);
-  has_ref_cb.Run();
-}
-
-#elif defined(NCTEST_CONST_POINTER)  // [r"static assertion failed.+?BindArgument<0>::ForwardedAs<.+?>::ToParamWithType<.+?>::kCanBeForwardedToBoundFunctor.+?Type mismatch between bound argument and bound functor's parameter\."]
+#elif defined(NCTEST_CONST_POINTER)  // [r"static_assert failed.+?BindArgument<0>::ForwardedAs<.+?>::ToParamWithType<.+?>::kCanBeForwardedToBoundFunctor.+?Type mismatch between bound argument and bound functor's parameter\."]
 // Const argument used with non-const pointer parameter of same type.
 //
 // This is just a const-correctness check.
@@ -226,7 +130,7 @@ void WontCompile() {
   pointer_same_cb.Run();
 }
 
-#elif defined(NCTEST_CONST_POINTER_SUBTYPE)  // [r"static assertion failed.+?BindArgument<0>::ForwardedAs<.+?>::ToParamWithType<.+?>::kCanBeForwardedToBoundFunctor.+?Type mismatch between bound argument and bound functor's parameter\."]
+#elif defined(NCTEST_CONST_POINTER_SUBTYPE)  // [r"static_assert failed.+?BindArgument<0>::ForwardedAs<.+?>::ToParamWithType<.+?>::kCanBeForwardedToBoundFunctor.+?Type mismatch between bound argument and bound functor's parameter\."]
 
 // Const argument used with non-const pointer parameter of super type.
 //
@@ -255,7 +159,7 @@ void WontCompile() {
   ref_arg_cb.Run(p);
 }
 
-#elif defined(NCTEST_BIND_ONCE_WITH_NON_CONST_REF_PARAM)  // [r"static assertion failed due to requirement 'BindArgument<0>::ForwardedAs<.+?>::ToParamWithType<.+?>::kNonConstRefParamMustBeWrapped': Bound argument for non-const reference parameter must be wrapped in std::ref\(\) or base::OwnedRef\(\)."]
+#elif defined(NCTEST_BIND_ONCE_WITH_NON_CONST_REF_PARAM)  // [r"static_assert failed due to requirement 'BindArgument<0>::ForwardedAs<.+?>::ToParamWithType<.+?>::kNonConstRefParamMustBeWrapped' \"Bound argument for non-const reference parameter must be wrapped in std::ref\(\) or base::OwnedRef\(\).\""]
 
 // Binding functions with reference parameters requires `std::ref()` or
 // 'base::OwnedRef()`.
@@ -264,7 +168,7 @@ void WontCompile() {
   auto cb = BindOnce(&TakesIntRef, v);
 }
 
-#elif defined(NCTEST_BIND_REPEATING_WITH_NON_CONST_REF_PARAM)  // [r"static assertion failed due to requirement 'BindArgument<0>::ForwardedAs<.+?>::ToParamWithType<.+?>::kNonConstRefParamMustBeWrapped': Bound argument for non-const reference parameter must be wrapped in std::ref\(\) or base::OwnedRef\(\)."]
+#elif defined(NCTEST_BIND_REPEATING_WITH_NON_CONST_REF_PARAM)  // [r"static_assert failed due to requirement 'BindArgument<0>::ForwardedAs<.+?>::ToParamWithType<.+?>::kNonConstRefParamMustBeWrapped' \"Bound argument for non-const reference parameter must be wrapped in std::ref\(\) or base::OwnedRef\(\).\""]
 
 // Binding functions with reference parameters requires `std::ref()` or
 // 'base::OwnedRef()`.
@@ -273,7 +177,7 @@ void WontCompile() {
   auto cb = BindRepeating(&TakesIntRef, v);
 }
 
-#elif defined(NCTEST_NON_CONST_REF_PARAM_WRONG_TYPE)  // [r"static assertion failed due to requirement 'BindArgument<0>::ForwardedAs<.+?>::ToParamWithType<.+?>::kCanBeForwardedToBoundFunctor': Type mismatch between bound argument and bound functor's parameter."]
+#elif defined(NCTEST_NON_CONST_REF_PARAM_WRONG_TYPE)  // [r"static_assert failed due to requirement 'BindArgument<0>::ForwardedAs<.+?>::ToParamWithType<.+?>::kCanBeForwardedToBoundFunctor' \"Type mismatch between bound argument and bound functor's parameter.\""]
 
 // If the argument and parameter types mismatch then the compile error should be
 // the generic type mismatch error.
@@ -282,7 +186,7 @@ void WontCompile() {
   auto cb = BindOnce(&TakesIntRef, f);
 }
 
-#elif defined(NCTEST_NON_CONST_REF_PARAM_WRONG_TYPE_AND_WRAPPED)  // [r"static assertion failed due to requirement 'BindArgument<0>::ForwardedAs<.+?>::ToParamWithType<.+?>::kCanBeForwardedToBoundFunctor': Type mismatch between bound argument and bound functor's parameter."]
+#elif defined(NCTEST_NON_CONST_REF_PARAM_WRONG_TYPE_AND_WRAPPED)  // [r"static_assert failed due to requirement 'BindArgument<0>::ForwardedAs<.+?>::ToParamWithType<.+?>::kCanBeForwardedToBoundFunctor' \"Type mismatch between bound argument and bound functor's parameter.\""]
 
 // If the argument and parameter types mismatch then the compile error should be
 // the generic type mismatch error even if the argument is wrapped in
@@ -292,7 +196,7 @@ void WontCompile() {
   auto cb = BindOnce(&TakesIntRef, base::OwnedRef(f));
 }
 
-#elif defined(NCTEST_NO_IMPLICIT_ARRAY_PTR_CONVERSION)  // [r"fatal error: static assertion failed due to requirement '!std::is_array_v<base::HasRef\[10\]>': First bound argument to a method cannot be an array."]
+#elif defined(NCTEST_NO_IMPLICIT_ARRAY_PTR_CONVERSION)  // [r"fatal error: static_assert failed due to requirement '!std::is_array<base::HasRef \[10\]>::value' \"First bound argument to a method cannot be an array.\""]
 
 // A method should not be bindable with an array of objects.
 //
@@ -306,21 +210,7 @@ void WontCompile() {
   method_bound_to_array_cb.Run();
 }
 
-#elif defined(NCTEST_NO_RVALUE_RAW_REF_FOR_REFCOUNTED_TYPES)  // [r"fatal error: static assertion failed due to requirement '!HasRefCountedTypeAsRawPtr<.*raw_ref<base::HasRef,.*: A parameter is a refcounted type and needs scoped_refptr."]
-
-// Refcounted types should not be bound as a raw pointer.
-void WontCompile() {
-  HasRef has_ref;
-  raw_ref<HasRef> rr(has_ref);
-  int a;
-  raw_ref<int> rr_a(a);
-  RepeatingCallback<void()> ref_count_as_raw_ptr_a =
-      BindRepeating(&VoidPolymorphic1<raw_ref<int>>, rr_a);
-  RepeatingCallback<void()> ref_count_as_raw_ptr =
-      BindRepeating(&VoidPolymorphic1<raw_ref<HasRef>>, rr);
-}
-
-#elif defined(NCTEST_NO_RVALUE_RAW_PTR_FOR_REFCOUNTED_TYPES)  // [r"fatal error: static assertion failed due to requirement '!HasRefCountedTypeAsRawPtr<base::HasRef \*>::value': A parameter is a refcounted type and needs scoped_refptr."]
+#elif defined(NCTEST_NO_RVALUE_RAW_PTR_FOR_REFCOUNTED_TYPES)  // [r"fatal error: static_assert failed due to requirement '!HasRefCountedTypeAsRawPtr<base::HasRef \*>::value' \"A parameter is a refcounted type and needs scoped_refptr.\""]
 
 // Refcounted types should not be bound as a raw pointer.
 void WontCompile() {
@@ -332,7 +222,7 @@ void WontCompile() {
       BindRepeating(&VoidPolymorphic1<HasRef*>, &for_raw_ptr);
 }
 
-#elif defined(NCTEST_NO_LVALUE_RAW_PTR_FOR_REFCOUNTED_TYPES)  // [r"fatal error: static assertion failed due to requirement '!HasRefCountedTypeAsRawPtr<base::HasRef \*>::value': A parameter is a refcounted type and needs scoped_refptr."]
+#elif defined(NCTEST_NO_LVALUE_RAW_PTR_FOR_REFCOUNTED_TYPES)  // [r"fatal error: static_assert failed due to requirement '!HasRefCountedTypeAsRawPtr<base::HasRef \*>::value' \"A parameter is a refcounted type and needs scoped_refptr.\""]
 
 // Refcounted types should not be bound as a raw pointer.
 void WontCompile() {
@@ -341,7 +231,7 @@ void WontCompile() {
       BindRepeating(&VoidPolymorphic1<HasRef*>, for_raw_ptr);
 }
 
-#elif defined(NCTEST_NO_RVALUE_CONST_RAW_PTR_FOR_REFCOUNTED_TYPES)  // [r"fatal error: static assertion failed due to requirement '!HasRefCountedTypeAsRawPtr<const base::HasRef \*>::value': A parameter is a refcounted type and needs scoped_refptr."]
+#elif defined(NCTEST_NO_RVALUE_CONST_RAW_PTR_FOR_REFCOUNTED_TYPES)  // [r"fatal error: static_assert failed due to requirement '!HasRefCountedTypeAsRawPtr<const base::HasRef \*>::value' \"A parameter is a refcounted type and needs scoped_refptr.\""]
 
 // Refcounted types should not be bound as a raw pointer.
 void WontCompile() {
@@ -350,7 +240,7 @@ void WontCompile() {
       BindRepeating(&VoidPolymorphic1<const HasRef*>, &for_raw_ptr);
 }
 
-#elif defined(NCTEST_NO_LVALUE_CONST_RAW_PTR_FOR_REFCOUNTED_TYPES)  // [r"fatal error: static assertion failed due to requirement '!HasRefCountedTypeAsRawPtr<const base::HasRef \*>::value': A parameter is a refcounted type and needs scoped_refptr."]
+#elif defined(NCTEST_NO_LVALUE_CONST_RAW_PTR_FOR_REFCOUNTED_TYPES)  // [r"fatal error: static_assert failed due to requirement '!HasRefCountedTypeAsRawPtr<const base::HasRef \*>::value' \"A parameter is a refcounted type and needs scoped_refptr.\""]
 
 // Refcounted types should not be bound as a raw pointer.
 void WontCompile() {
@@ -359,7 +249,7 @@ void WontCompile() {
       BindRepeating(&VoidPolymorphic1<const HasRef*>, for_raw_ptr);
 }
 
-#elif defined(NCTEST_WEAKPTR_BIND_MUST_RETURN_VOID)  // [r"fatal error: static assertion failed due to requirement 'std::is_void_v<int>': weak_ptrs can only bind to methods without return values"]
+#elif defined(NCTEST_WEAKPTR_BIND_MUST_RETURN_VOID)  // [r"fatal error: static_assert failed due to requirement 'std::is_void<int>::value' \"weak_ptrs can only bind to methods without return values\""]
 
 // WeakPtrs cannot be bound to methods with return types.
 void WontCompile() {
@@ -378,75 +268,75 @@ void WontCompile() {
       BindRepeating(&VoidPolymorphic1<int>);
 }
 
-#elif defined(NCTEST_DISALLOW_CAPTURING_LAMBDA)  // [r"static assertion failed due to requirement 'FunctorTraits<\(lambda at [^)]+\), void>::is_stateless': Capturing lambdas and stateful lambdas are intentionally not supported\."]
+#elif defined(NCTEST_DISALLOW_CAPTURING_LAMBDA)  // [r"fatal error: implicit instantiation of undefined template 'base::internal::FunctorTraits<\(lambda at (\.\./)+base/bind_unittest.nc:[0-9]+:[0-9]+\)>'"]
 
 void WontCompile() {
   int i = 0, j = 0;
   BindOnce([i,&j]() {j = i;});
 }
 
-#elif defined(NCTEST_DISALLOW_ONCECALLBACK_RUN_ON_LVALUE)  // [r"fatal error: static assertion failed due to requirement '!sizeof \(\*this\)': OnceCallback::Run\(\) may only be invoked on a non-const rvalue, i\.e\. std::move\(callback\).Run\(\)."]
+#elif defined(NCTEST_DISALLOW_ONCECALLBACK_RUN_ON_LVALUE)  // [r"fatal error: static_assert failed due to requirement '!sizeof \(\*this\)' \"OnceCallback::Run\(\) may only be invoked on a non-const rvalue, i\.e\. std::move\(callback\).Run\(\).\""]
 
 void WontCompile() {
   OnceClosure cb = BindOnce([] {});
   cb.Run();
 }
 
-#elif defined(NCTEST_DISALLOW_ONCECALLBACK_RUN_ON_CONST_LVALUE)  // [r"fatal error: static assertion failed due to requirement '!sizeof \(\*this\)': OnceCallback::Run\(\) may only be invoked on a non-const rvalue, i\.e\. std::move\(callback\).Run\(\)."]
+#elif defined(NCTEST_DISALLOW_ONCECALLBACK_RUN_ON_CONST_LVALUE)  // [r"fatal error: static_assert failed due to requirement '!sizeof \(\*this\)' \"OnceCallback::Run\(\) may only be invoked on a non-const rvalue, i\.e\. std::move\(callback\).Run\(\).\""]
 
 void WontCompile() {
   const OnceClosure cb = BindOnce([] {});
   cb.Run();
 }
 
-#elif defined(NCTEST_DISALLOW_ONCECALLBACK_RUN_ON_CONST_RVALUE)  // [r"fatal error: static assertion failed due to requirement '!sizeof \(\*this\)': OnceCallback::Run\(\) may only be invoked on a non-const rvalue, i\.e\. std::move\(callback\).Run\(\)."]
+#elif defined(NCTEST_DISALLOW_ONCECALLBACK_RUN_ON_CONST_RVALUE)  // [r"fatal error: static_assert failed due to requirement '!sizeof \(\*this\)' \"OnceCallback::Run\(\) may only be invoked on a non-const rvalue, i\.e\. std::move\(callback\).Run\(\).\""]
 
 void WontCompile() {
   const OnceClosure cb = BindOnce([] {});
   std::move(cb).Run();
 }
 
-#elif defined(NCTEST_DISALLOW_BIND_ONCECALLBACK)  // [r"fatal error: static assertion failed due to requirement '!base::internal::IsOnceCallback<base::OnceCallback<void \(int\)> ?>\(\)': BindRepeating cannot bind OnceCallback. Use BindOnce with std::move\(\)."]
+#elif defined(NCTEST_DISALLOW_BIND_ONCECALLBACK)  // [r"fatal error: static_assert failed due to requirement '!base::internal::IsOnceCallback<base::OnceCallback<void \(int\)> ?>\(\)' \"BindRepeating cannot bind OnceCallback. Use BindOnce with std::move\(\).\""]
 
 void WontCompile() {
   BindRepeating(BindOnce([](int) {}), 42);
 }
 
-#elif defined(NCTEST_DISALLOW_BINDONCE_LVALUE_ONCECALLBACK)  // [r"fatal error: static assertion failed due to requirement '!internal::IsOnceCallback<std::decay_t<OnceCallback<void (int)> &> >() || (std::is_rvalue_reference<OnceCallback<void (int)> &>() && !std::is_const<std::remove_reference_t<OnceCallback<void (int)> &> >())': BindOnce requires non-const rvalue for OnceCallback binding. I.e.: base::BindOnce(std::move(callback))."]
+#elif defined(NCTEST_DISALLOW_BINDONCE_LVALUE_ONCECALLBACK)  // [r"fatal error: static_assert failed due to requirement '!internal::IsOnceCallback<std::decay_t<OnceCallback<void (int)> &> >() || (std::is_rvalue_reference<OnceCallback<void (int)> &>() && !std::is_const<std::remove_reference_t<OnceCallback<void (int)> &> >())' \"BindOnce requires non-const rvalue for OnceCallback binding. I.e.: base::BindOnce(std::move(callback)).\""]
 void WontCompile() {
   auto cb = BindOnce([](int) {});
   BindOnce(cb, 42);
 }
 
-#elif defined(NCTEST_DISALLOW_BINDONCE_RVALUE_CONST_ONCECALLBACK)  // [r"fatal error: static assertion failed due to requirement '!internal::IsOnceCallback<std::decay_t<const OnceCallback<void (int)> > >() || (std::is_rvalue_reference<const OnceCallback<void (int)> &&>() && !std::is_const<std::remove_reference_t<const OnceCallback<void (int)> > >())': BindOnce requires non-const rvalue for OnceCallback binding. I.e.: base::BindOnce(std::move(callback))."]
+#elif defined(NCTEST_DISALLOW_BINDONCE_RVALUE_CONST_ONCECALLBACK)  // [r"fatal error: static_assert failed due to requirement '!internal::IsOnceCallback<std::decay_t<const OnceCallback<void (int)> > >() || (std::is_rvalue_reference<const OnceCallback<void (int)> &&>() && !std::is_const<std::remove_reference_t<const OnceCallback<void (int)> > >())' \"BindOnce requires non-const rvalue for OnceCallback binding. I.e.: base::BindOnce(std::move(callback)).\""]
 
 void WontCompile() {
   const auto cb = BindOnce([](int) {});
   BindOnce(std::move(cb), 42);
 }
 
-#elif defined(NCTEST_BINDONCE_MOVEONLY_TYPE_BY_VALUE)  // [r"static assertion failed.+?BindArgument<0>::BoundAs<.+?>::StoredAs<.+?>::kMoveOnlyTypeMustUseStdMove.+?Attempting to bind a move-only type\. Use std::move\(\) to transfer ownership to the created callback\."]
+#elif defined(NCTEST_BINDONCE_MOVEONLY_TYPE_BY_VALUE)  // [r"static_assert failed.+?BindArgument<0>::BoundAs<.+?>::StoredAs<.+?>::kMoveOnlyTypeMustUseStdMove.+?Attempting to bind a move-only type\. Use std::move\(\) to transfer ownership to the created callback\."]
 
 void WontCompile() {
   std::unique_ptr<int> x;
   BindOnce(&TakesMoveOnly, x);
 }
 
-#elif defined(NCTEST_BIND_MOVEONLY_TYPE_BY_VALUE)  // [r"static assertion failed.+?BindArgument<0>::ForwardedAs<.+?>::ToParamWithType<.+?>::kMoveOnlyTypeMustUseBasePassed.+?base::BindRepeating\(\) argument is a move-only type\. Use base::Passed\(\) instead of std::move\(\) to transfer ownership from the callback to the bound functor\."]
+#elif defined(NCTEST_BIND_MOVEONLY_TYPE_BY_VALUE)  // [r"static_assert failed.+?BindArgument<0>::ForwardedAs<.+?>::ToParamWithType<.+?>::kMoveOnlyTypeMustUseBasePassed.+?base::BindRepeating\(\) argument is a move-only type\. Use base::Passed\(\) instead of std::move\(\) to transfer ownership from the callback to the bound functor\."]
 
 void WontCompile() {
   std::unique_ptr<int> x;
   BindRepeating(&TakesMoveOnly, x);
 }
 
-#elif defined(NCTEST_BIND_MOVEONLY_TYPE_WITH_STDMOVE)  // [r"static assertion failed.+?BindArgument<0>::ForwardedAs<.+?>::ToParamWithType<.+?>::kMoveOnlyTypeMustUseBasePassed.+?base::BindRepeating\(\) argument is a move-only type\. Use base::Passed\(\) instead of std::move\(\) to transfer ownership from the callback to the bound functor\."]
+#elif defined(NCTEST_BIND_MOVEONLY_TYPE_WITH_STDMOVE)  // [r"static_assert failed.+?BindArgument<0>::ForwardedAs<.+?>::ToParamWithType<.+?>::kMoveOnlyTypeMustUseBasePassed.+?base::BindRepeating\(\) argument is a move-only type\. Use base::Passed\(\) instead of std::move\(\) to transfer ownership from the callback to the bound functor\."]
 
 void WontCompile() {
   std::unique_ptr<int> x;
   BindRepeating(&TakesMoveOnly, std::move(x));
 }
 
-#elif defined(NCTEST_BIND_NON_EMPTY_FUNCTOR)  // [r"static assertion failed due to requirement 'FunctorTraits<base::NonEmptyFunctor, void>::is_stateless': Capturing lambdas and stateful lambdas are intentionally not supported\."]
+#elif defined(NCTEST_BIND_NON_EMPTY_FUNCTOR)  // [r"fatal error: implicit instantiation of undefined template 'base::internal::FunctorTraits<base::NonEmptyFunctor>'"]
 
 void WontCompile() {
   BindRepeating(NonEmptyFunctor());
@@ -467,7 +357,7 @@ void WontCompile() {
   BindLambdaForTesting(std::move(mutable_lambda));
 }
 
-#elif defined(NCTEST_BIND_UNCOPYABLE_AND_UNMOVABLE_TYPE)  // [r"static assertion failed.+?BindArgument<0>::BoundAs<.+?>::StoredAs<.+?>::kBindArgumentCanBeCaptured.+?Cannot capture argument: is the argument copyable or movable\?"]
+#elif defined(NCTEST_BIND_UNCOPYABLE_AND_UNMOVABLE_TYPE)  // [r"static_assert failed.+?BindArgument<0>::BoundAs<.+?>::StoredAs<.+?>::kBindArgumentCanBeCaptured.+?Cannot capture argument: is the argument copyable or movable\?"]
 
 void WontCompile() {
   struct UncopyableUnmovable {
@@ -480,29 +370,11 @@ void WontCompile() {
   BindOnce([] (const UncopyableUnmovable&) {}, u);
 }
 
-#elif defined(NCTEST_BIND_ONCE_WITH_PASSED)  // [r"static assertion failed.+?Use std::move\(\) instead of base::Passed\(\) with base::BindOnce\(\)"]
+#elif defined(NCTEST_BIND_ONCE_WITH_PASSED)  // [r"static_assert failed.+?Use std::move\(\) instead of base::Passed\(\) with base::BindOnce\(\)"]
 
 void WontCompile() {
   std::unique_ptr<int> x;
   BindOnce([] (std::unique_ptr<int>) {}, Passed(&x));
-}
-
-#elif defined(NCTEST_BIND_ONCE_WITH_ADDRESS_OF_OVERLOADED_FUNCTION)  // [r"fatal error: reference to overloaded function could not be resolved; did you mean to call it\?"]
-
-void F(int);
-void F(float);
-
-void WontCompile() {
-  BindOnce(&F, 1, 2, 3);
-}
-
-#elif defined(NCTEST_BIND_REPEATING_WITH_ADDRESS_OF_OVERLOADED_FUNCTION)  // [r"fatal error: reference to overloaded function could not be resolved; did you mean to call it\?"]
-
-void F(int);
-void F(float);
-
-void WontCompile() {
-  BindRepeating(&F, 1, 2, 3);
 }
 
 #endif

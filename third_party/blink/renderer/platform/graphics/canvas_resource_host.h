@@ -31,10 +31,8 @@ class PLATFORM_EXPORT CanvasResourceHost {
   virtual CanvasResourceProvider* GetOrCreateCanvasResourceProviderImpl(
       RasterModeHint hint) = 0;
 
-  virtual void SetFilterQuality(cc::PaintFlags::FilterQuality filter_quality);
-  cc::PaintFlags::FilterQuality FilterQuality() const {
-    return filter_quality_;
-  }
+  virtual void SetFilterQuality(SkFilterQuality filter_quality);
+  SkFilterQuality FilterQuality() const { return filter_quality_; }
   virtual bool LowLatencyEnabled() const { return false; }
 
   CanvasResourceProvider* ResourceProvider() const;
@@ -50,8 +48,7 @@ class PLATFORM_EXPORT CanvasResourceHost {
   void InitializeForRecording(cc::PaintCanvas* canvas);
 
   std::unique_ptr<CanvasResourceProvider> resource_provider_;
-  cc::PaintFlags::FilterQuality filter_quality_ =
-      cc::PaintFlags::FilterQuality::kLow;
+  SkFilterQuality filter_quality_ = kLow_SkFilterQuality;
 };
 
 }  // namespace blink

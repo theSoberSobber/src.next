@@ -1,4 +1,4 @@
-// Copyright 2018 The Chromium Authors
+// Copyright 2018 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -189,8 +189,7 @@ class AboutFlagsBrowserTest : public InProcessBrowserTest,
   }
 
   void NavigateToFlagsPage() {
-    ASSERT_TRUE(
-        ui_test_utils::NavigateToURL(browser(), GURL("chrome://flags")));
+    ui_test_utils::NavigateToURL(browser(), GURL("chrome://flags"));
     WaitForExperimentalFeatures(
         browser()->tab_strip_model()->GetActiveWebContents());
   }
@@ -337,7 +336,7 @@ INSTANTIATE_TEST_SUITE_P(All,
                          ::testing::Values(true));
 
 // Crashes on Win.  http://crbug.com/1108357
-#if BUILDFLAG(IS_WIN)
+#if defined(OS_WIN)
 #define MAYBE_ExpiryHidesFlag DISABLED_ExpiryHidesFlag
 #else
 #define MAYBE_ExpiryHidesFlag ExpiryHidesFlag

@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -9,7 +9,6 @@
 #include <tuple>
 
 #include "base/files/file_path.h"
-#include "base/strings/escape.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "content/public/browser/browser_thread.h"
@@ -17,6 +16,7 @@
 #include "extensions/common/extension_set.h"
 #include "extensions/common/extensions_client.h"
 #include "extensions/strings/grit/extensions_strings.h"
+#include "net/base/escape.h"
 #include "ui/base/l10n/l10n_util.h"
 
 using content::BrowserThread;
@@ -156,7 +156,7 @@ std::string Warning::GetLocalizedMessage(const ExtensionSet* extensions) const {
           extensions->GetByID(extension_id);
       message = extension ? extension->name() : extension_id;
     }
-    final_parameters.push_back(base::UTF8ToUTF16(base::EscapeForHTML(message)));
+    final_parameters.push_back(base::UTF8ToUTF16(net::EscapeForHTML(message)));
   }
 
   static_assert(kMaxNumberOfParameters == 4u,

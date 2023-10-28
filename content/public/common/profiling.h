@@ -1,4 +1,4 @@
-// Copyright 2011 The Chromium Authors
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -8,6 +8,7 @@
 #include "build/build_config.h"
 
 #include "base/debug/profiler.h"
+#include "base/macros.h"
 #include "content/common/content_export.h"
 
 namespace content {
@@ -18,9 +19,6 @@ namespace content {
 // All of the API should only be called from the main thread of the process.
 class CONTENT_EXPORT Profiling {
  public:
-  Profiling(const Profiling&) = delete;
-  Profiling& operator=(const Profiling&) = delete;
-
   // Called early in a process' life to allow profiling of startup time.
   // the presence of kProfilingAtStart is checked.
   static void ProcessStarted();
@@ -40,6 +38,8 @@ class CONTENT_EXPORT Profiling {
  private:
   // Do not instantiate this class.
   Profiling();
+
+  DISALLOW_COPY_AND_ASSIGN(Profiling);
 };
 
 }  // namespace content

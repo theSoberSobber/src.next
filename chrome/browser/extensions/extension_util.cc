@@ -1,4 +1,4 @@
-// Copyright 2013 The Chromium Authors
+// Copyright 2013 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -10,6 +10,7 @@
 #include "base/command_line.h"
 #include "base/feature_list.h"
 #include "base/metrics/field_trial.h"
+#include "base/values.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
 #include "chrome/browser/extensions/extension_service.h"
@@ -54,7 +55,6 @@ namespace extensions {
 namespace util {
 
 namespace {
-
 // Returns |extension_id|. See note below.
 std::string ReloadExtensionIfEnabled(const std::string& extension_id,
                                      content::BrowserContext* context) {
@@ -77,6 +77,16 @@ std::string ReloadExtensionIfEnabled(const std::string& extension_id,
 
 }  // namespace
 
+bool IsExtensionSiteWithIsolatedStorage(const GURL& site_url,
+                                        content::BrowserContext* context) {
+  if (!site_url.SchemeIs(extensions::kExtensionScheme))
+    return false;
+
+  // The host in an extension site URL is the extension_id.
+  DCHECK(site_url.has_host());
+  return HasIsolatedStorage(site_url.host(), context);
+}
+
 bool HasIsolatedStorage(const std::string& extension_id,
                         content::BrowserContext* context) {
   const Extension* extension =
@@ -87,7 +97,7 @@ bool HasIsolatedStorage(const std::string& extension_id,
   const bool is_policy_extension =
       extension && Manifest::IsPolicyLocation(extension->location());
   Profile* profile = Profile::FromBrowserContext(context);
-  if (profile && ash::ProfileHelper::IsSigninProfile(profile) &&
+  if (profile && chromeos::ProfileHelper::IsSigninProfile(profile) &&
       is_policy_extension) {
     return true;
   }
@@ -189,7 +199,7 @@ bool IsAppLaunchable(const std::string& extension_id,
 bool IsAppLaunchableWithoutEnabling(const std::string& extension_id,
                                     content::BrowserContext* context) {
   return ExtensionRegistry::Get(context)->GetExtensionById(
-             extension_id, ExtensionRegistry::ENABLED) != nullptr;
+      extension_id, ExtensionRegistry::ENABLED) != NULL;
 }
 
 bool ShouldSync(const Extension* extension,
@@ -253,18 +263,19 @@ bool IsExtensionIdle(const std::string& extension_id,
   return true;
 }
 
-base::Value::Dict GetExtensionInfo(const Extension* extension) {
+std::unique_ptr<base::DictionaryValue> GetExtensionInfo(
+    const Extension* extension) {
   DCHECK(extension);
-  base::Value::Dict dict;
+  std::unique_ptr<base::DictionaryValue> dict(new base::DictionaryValue);
 
-  dict.Set("id", extension->id());
-  dict.Set("name", extension->name());
+  dict->SetString("id", extension->id());
+  dict->SetString("name", extension->name());
 
   GURL icon = extensions::ExtensionIconSource::GetIconURL(
       extension, extension_misc::EXTENSION_ICON_SMALLISH,
       ExtensionIconSet::MATCH_BIGGER,
       false);  // Not grayscale.
-  dict.Set("icon", icon.spec());
+  dict->SetString("icon", icon.spec());
 
   return dict;
 }

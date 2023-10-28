@@ -1,31 +1,31 @@
-// Copyright 2015 The Chromium Authors
+// Copyright 2015 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 import 'chrome://resources/cr_components/managed_footnote/managed_footnote.js';
 import './item.js';
-import './shared_style.css.js';
+import './shared_style.js';
 
-import {CrContainerShadowMixin} from 'chrome://resources/cr_elements/cr_container_shadow_mixin.js';
-import {I18nMixin} from 'chrome://resources/js/i18n_mixin.js';
+import {CrContainerShadowBehavior} from 'chrome://resources/cr_elements/cr_container_shadow_behavior.m.js';
+import {I18nBehavior} from 'chrome://resources/js/i18n_behavior.m.js';
 import {IronA11yAnnouncer} from 'chrome://resources/polymer/v3_0/iron-a11y-announcer/iron-a11y-announcer.js';
-import {PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
+import {html, mixinBehaviors, PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
 import {ExtensionsItemElement, ItemDelegate} from './item.js';
-import {getTemplate} from './item_list.html.js';
 
 type Filter = (info: chrome.developerPrivate.ExtensionInfo) => boolean;
 
 const ExtensionsItemListElementBase =
-    I18nMixin(CrContainerShadowMixin(PolymerElement));
+    mixinBehaviors([CrContainerShadowBehavior, I18nBehavior], PolymerElement) as
+    {new (): PolymerElement & I18nBehavior};
 
-export class ExtensionsItemListElement extends ExtensionsItemListElementBase {
+class ExtensionsItemListElement extends ExtensionsItemListElementBase {
   static get is() {
     return 'extensions-item-list';
   }
 
   static get template() {
-    return getTemplate();
+    return html`{__html_template__}`;
   }
 
   static get properties() {
@@ -66,8 +66,8 @@ export class ExtensionsItemListElement extends ExtensionsItemListElementBase {
     };
   }
 
-  apps: chrome.developerPrivate.ExtensionInfo[];
-  extensions: chrome.developerPrivate.ExtensionInfo[];
+  apps: Array<chrome.developerPrivate.ExtensionInfo>;
+  extensions: Array<chrome.developerPrivate.ExtensionInfo>;
   delegate: ItemDelegate;
   inDevMode: boolean;
   filter: string;
@@ -138,7 +138,7 @@ export class ExtensionsItemListElement extends ExtensionsItemListElementBase {
                      this.i18n('searchResultsSingular', this.filter) :
                      this.i18n(
                          'searchResultsPlural', total.toString(), this.filter)),
-          },
+          }
         }));
       }, 0);
     }

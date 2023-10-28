@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -8,191 +8,122 @@
 #include "base/files/file_path.h"
 #include "base/strings/string_piece_forward.h"
 #include "build/chromeos_buildflags.h"
-#include "extensions/common/extensions_export.h"
+#include "components/services/app_service/public/mojom/types.mojom-forward.h"
 
 namespace extensions {
 
 // Scheme we serve extension content from.
-EXTENSIONS_EXPORT extern const char kExtensionScheme[];
+extern const char kExtensionScheme[];
 
 // The name of the manifest inside an extension.
-EXTENSIONS_EXPORT extern const base::FilePath::CharType kManifestFilename[];
+extern const base::FilePath::CharType kManifestFilename[];
 
 // The name of the differential fingerprint file inside an extension.
-EXTENSIONS_EXPORT extern const base::FilePath::CharType
-    kDifferentialFingerprintFilename[];
+extern const base::FilePath::CharType kDifferentialFingerprintFilename[];
 
 // The name of locale folder inside an extension.
-EXTENSIONS_EXPORT extern const base::FilePath::CharType kLocaleFolder[];
+extern const base::FilePath::CharType kLocaleFolder[];
 
 // The name of the messages file inside an extension.
-EXTENSIONS_EXPORT extern const base::FilePath::CharType kMessagesFilename[];
+extern const base::FilePath::CharType kMessagesFilename[];
 
 // The name of the gzipped messages file inside an extension.
-EXTENSIONS_EXPORT extern const base::FilePath::CharType
-    kGzippedMessagesFilename[];
+extern const base::FilePath::CharType kGzippedMessagesFilename[];
 
 // The base directory for subdirectories with platform-specific code.
-EXTENSIONS_EXPORT extern const base::FilePath::CharType
-    kPlatformSpecificFolder[];
+extern const base::FilePath::CharType kPlatformSpecificFolder[];
 
 // A directory reserved for metadata, generated either by the webstore
 // or chrome.
-EXTENSIONS_EXPORT extern const base::FilePath::CharType kMetadataFolder[];
+extern const base::FilePath::CharType kMetadataFolder[];
 
 // Name of the verified contents file within the metadata folder.
-EXTENSIONS_EXPORT extern const base::FilePath::CharType
-    kVerifiedContentsFilename[];
+extern const base::FilePath::CharType kVerifiedContentsFilename[];
 
 // Name of the computed hashes file within the metadata folder.
-EXTENSIONS_EXPORT extern const base::FilePath::CharType
-    kComputedHashesFilename[];
+extern const base::FilePath::CharType kComputedHashesFilename[];
 
 // Name of the indexed ruleset directory for the Declarative Net Request API.
-EXTENSIONS_EXPORT extern const base::FilePath::CharType
-    kIndexedRulesetDirectory[];
+extern const base::FilePath::CharType kIndexedRulesetDirectory[];
 
 // The name of the directory inside the profile where extensions are
 // installed to.
-EXTENSIONS_EXPORT extern const char kInstallDirectoryName[];
+extern const char kInstallDirectoryName[];
 
 // The name of a temporary directory to install an extension into for
 // validation before finalizing install.
-EXTENSIONS_EXPORT extern const char kTempExtensionName[];
+extern const char kTempExtensionName[];
 
 // The file to write our decoded message catalogs to, relative to the
 // extension_path.
-EXTENSIONS_EXPORT extern const char kDecodedMessageCatalogsFilename[];
+extern const char kDecodedMessageCatalogsFilename[];
 
 // The filename to use for a background page generated from
 // background.scripts.
-EXTENSIONS_EXPORT extern const char kGeneratedBackgroundPageFilename[];
-
-// The URL piece between the extension ID and favicon URL.
-EXTENSIONS_EXPORT extern const char kFaviconSourcePath[];
+extern const char kGeneratedBackgroundPageFilename[];
 
 // Path to imported modules.
-EXTENSIONS_EXPORT extern const char kModulesDir[];
+extern const char kModulesDir[];
 
 // The file extension (.crx) for extensions.
-EXTENSIONS_EXPORT extern const base::FilePath::CharType
-    kExtensionFileExtension[];
+extern const base::FilePath::CharType kExtensionFileExtension[];
 
 // The file extension (.pem) for private key files.
-EXTENSIONS_EXPORT extern const base::FilePath::CharType
-    kExtensionKeyFileExtension[];
+extern const base::FilePath::CharType kExtensionKeyFileExtension[];
 
 // Default frequency for auto updates, if turned on.
-EXTENSIONS_EXPORT extern const int kDefaultUpdateFrequencySeconds;
+extern const int kDefaultUpdateFrequencySeconds;
 
 // The name of the directory inside the profile where per-app local settings
 // are stored.
-EXTENSIONS_EXPORT extern const base::FilePath::CharType
-    kLocalAppSettingsDirectoryName[];
+extern const char kLocalAppSettingsDirectoryName[];
 
 // The name of the directory inside the profile where per-extension local
 // settings are stored.
-EXTENSIONS_EXPORT extern const base::FilePath::CharType
-    kLocalExtensionSettingsDirectoryName[];
+extern const char kLocalExtensionSettingsDirectoryName[];
 
 // The name of the directory inside the profile where per-app synced settings
 // are stored.
-EXTENSIONS_EXPORT extern const base::FilePath::CharType
-    kSyncAppSettingsDirectoryName[];
+extern const char kSyncAppSettingsDirectoryName[];
 
 // The name of the directory inside the profile where per-extension synced
 // settings are stored.
-EXTENSIONS_EXPORT extern const base::FilePath::CharType
-    kSyncExtensionSettingsDirectoryName[];
+extern const char kSyncExtensionSettingsDirectoryName[];
 
 // The name of the directory inside the profile where per-extension persistent
 // managed settings are stored.
-EXTENSIONS_EXPORT extern const base::FilePath::CharType
-    kManagedSettingsDirectoryName[];
+extern const char kManagedSettingsDirectoryName[];
 
 // The name of the database inside the profile where chrome-internal
 // extension state resides.
-EXTENSIONS_EXPORT extern const base::FilePath::CharType kStateStoreName[];
+extern const char kStateStoreName[];
 
 // The name of the database inside the profile where declarative extension
 // rules are stored.
-EXTENSIONS_EXPORT extern const base::FilePath::CharType kRulesStoreName[];
-
-// The name of the database inside the profile where persistent dynamic user
-// script metadata is stored.
-EXTENSIONS_EXPORT extern const base::FilePath::CharType kScriptsStoreName[];
-
-// Statistics are logged to UMA with these strings as part of histogram name.
-// They can all be found under Extensions.Database.Open.<client>. Changing this
-// needs to synchronize with histograms.xml, AND will also become incompatible
-// with older browsers still reporting the previous values.
-EXTENSIONS_EXPORT extern const char kSettingsDatabaseUMAClientName[];
-EXTENSIONS_EXPORT extern const char kRulesDatabaseUMAClientName[];
-EXTENSIONS_EXPORT extern const char kStateDatabaseUMAClientName[];
-EXTENSIONS_EXPORT extern const char kScriptsDatabaseUMAClientName[];
+extern const char kRulesStoreName[];
 
 // The URL query parameter key corresponding to multi-login user index.
-EXTENSIONS_EXPORT extern const char kAuthUserQueryKey[];
+extern const char kAuthUserQueryKey[];
 
 // Mime type strings
-EXTENSIONS_EXPORT extern const char kMimeTypeJpeg[];
-EXTENSIONS_EXPORT extern const char kMimeTypePng[];
+extern const char kMimeTypeJpeg[];
+extern const char kMimeTypePng[];
 
 // The extension id of the Web Store component application.
-EXTENSIONS_EXPORT extern const char kWebStoreAppId[];
+extern const char kWebStoreAppId[];
 
 // The key used for signing some pieces of data from the webstore.
-EXTENSIONS_EXPORT extern const uint8_t kWebstoreSignaturesPublicKey[];
-EXTENSIONS_EXPORT extern const size_t kWebstoreSignaturesPublicKeySize;
-
-// A preference for storing the extension's update URL data.
-EXTENSIONS_EXPORT extern const char kUpdateURLData[];
+extern const uint8_t kWebstoreSignaturesPublicKey[];
+extern const size_t kWebstoreSignaturesPublicKeySize;
 
 // Thread identifier for the main renderer thread (as opposed to a service
 // worker thread).
 // This is the default thread id used for extension event listeners registered
 // from a non-service worker context
-EXTENSIONS_EXPORT extern const int kMainThreadId;
+extern const int kMainThreadId;
 
-// Enumeration of possible app launch sources.
-// This should be kept in sync with LaunchSource in
-// extensions/common/api/app_runtime.idl, and GetLaunchSourceEnum() in
-// extensions/browser/api/app_runtime/app_runtime_api.cc.
-// Note the enumeration is used in UMA histogram so entries
-// should not be re-ordered or removed.
-enum class AppLaunchSource {
-  kSourceNone = 0,
-  kSourceUntracked = 1,
-  kSourceAppLauncher = 2,
-  kSourceNewTabPage = 3,
-  kSourceReload = 4,
-  kSourceRestart = 5,
-  kSourceLoadAndLaunch = 6,
-  kSourceCommandLine = 7,
-  kSourceFileHandler = 8,
-  kSourceUrlHandler = 9,
-  kSourceSystemTray = 10,
-  kSourceAboutPage = 11,
-  kSourceKeyboard = 12,
-  kSourceExtensionsPage = 13,
-  kSourceManagementApi = 14,
-  kSourceEphemeralAppDeprecated = 15,
-  kSourceBackground = 16,
-  kSourceKiosk = 17,
-  kSourceChromeInternal = 18,
-  kSourceTest = 19,
-  kSourceInstalledNotification = 20,
-  kSourceContextMenu = 21,
-  kSourceArc = 22,
-  kSourceIntentUrl = 23,        // App launch triggered by a URL.
-  kSourceRunOnOsLogin = 24,     // App launched during OS login.
-  kSourceProtocolHandler = 25,  // App launch via protocol handler.
-  kSourceReparenting = 26,      // APP launch via reparenting.
-
-  // Add any new values above this one, and update kMaxValue to the highest
-  // enumerator value.
-  kMaxValue = kSourceReparenting,
-};
+using apps::mojom::AppLaunchSource;
+using apps::mojom::LaunchContainer;
 
 // This enum is used for the launch type the user wants to use for an
 // application.
@@ -218,174 +149,159 @@ enum LaunchType {
 namespace extension_misc {
 
 // Matches chrome.tabs.TAB_ID_NONE.
-EXTENSIONS_EXPORT extern const int kUnknownTabId;
+const int kUnknownTabId = -1;
 
 // Matches chrome.windows.WINDOW_ID_NONE.
-EXTENSIONS_EXPORT extern const int kUnknownWindowId;
+const int kUnknownWindowId = -1;
 
 // Matches chrome.windows.WINDOW_ID_CURRENT.
-EXTENSIONS_EXPORT extern const int kCurrentWindowId;
+const int kCurrentWindowId = -2;
 
-using ExtensionIcons = int;
-constexpr ExtensionIcons EXTENSION_ICON_GIGANTOR = 512;
-constexpr ExtensionIcons EXTENSION_ICON_EXTRA_LARGE = 256;
-constexpr ExtensionIcons EXTENSION_ICON_LARGE = 128;
-constexpr ExtensionIcons EXTENSION_ICON_MEDIUM = 48;
-constexpr ExtensionIcons EXTENSION_ICON_SMALL = 32;
-constexpr ExtensionIcons EXTENSION_ICON_SMALLISH = 24;
-constexpr ExtensionIcons EXTENSION_ICON_BITTY = 16;
-constexpr ExtensionIcons EXTENSION_ICON_INVALID = 0;
+enum ExtensionIcons {
+  EXTENSION_ICON_GIGANTOR = 512,
+  EXTENSION_ICON_EXTRA_LARGE = 256,
+  EXTENSION_ICON_LARGE = 128,
+  EXTENSION_ICON_MEDIUM = 48,
+  EXTENSION_ICON_SMALL = 32,
+  EXTENSION_ICON_SMALLISH = 24,
+  EXTENSION_ICON_BITTY = 16,
+  EXTENSION_ICON_INVALID = 0,
+};
 
 // The extension id of the ChromeVox extension.
-EXTENSIONS_EXPORT extern const char kChromeVoxExtensionId[];
+extern const char kChromeVoxExtensionId[];
+
+// The extension id of the feedback component extension.
+extern const char kFeedbackExtensionId[];
 
 // The extension id of the PDF extension.
-EXTENSIONS_EXPORT extern const char kPdfExtensionId[];
+extern const char kPdfExtensionId[];
 
 // The extension id of the Office Viewer component extension.
-EXTENSIONS_EXPORT extern const char kQuickOfficeComponentExtensionId[];
+extern const char kQuickOfficeComponentExtensionId[];
 
 // The extension id of the Office Viewer extension on the internal webstore.
-EXTENSIONS_EXPORT extern const char kQuickOfficeInternalExtensionId[];
+extern const char kQuickOfficeInternalExtensionId[];
 
 // The extension id of the Office Viewer extension.
-EXTENSIONS_EXPORT extern const char kQuickOfficeExtensionId[];
+extern const char kQuickOfficeExtensionId[];
 
 // The extension id used for testing mimeHandlerPrivate.
-EXTENSIONS_EXPORT extern const char kMimeHandlerPrivateTestExtensionId[];
+extern const char kMimeHandlerPrivateTestExtensionId[];
+
+// The extension id of the Camera application.
+extern const char kCameraAppId[];
+
+// The extension id of the devoloper version of Camera application.
+extern const char kCameraAppDevId[];
+
+// The extension id of the Chrome component application.
+extern const char kChromeAppId[];
+
+// Fake extension ID for the Lacros chrome browser application.
+extern const char kLacrosAppId[];
 
 // The extension id of the Files Manager application.
-EXTENSIONS_EXPORT extern const char kFilesManagerAppId[];
+extern const char kFilesManagerAppId[];
 
 // The extension id of the Calculator application.
-EXTENSIONS_EXPORT extern const char kCalculatorAppId[];
+extern const char kCalculatorAppId[];
 
 // The extension id of the demo Calendar application.
-EXTENSIONS_EXPORT extern const char kCalendarDemoAppId[];
+extern const char kCalendarDemoAppId[];
 
 // The extension id of the GMail application.
-EXTENSIONS_EXPORT extern const char kGmailAppId[];
+extern const char kGMailAppId[];
 
 // The extension id of the demo Google Docs application.
-EXTENSIONS_EXPORT extern const char kGoogleDocsDemoAppId[];
+extern const char kGoogleDocsDemoAppId[];
 
 // The extension id of the Google Docs PWA.
-EXTENSIONS_EXPORT extern const char kGoogleDocsPwaAppId[];
+extern const char kGoogleDocsPwaAppId[];
 
 // The extension id of the Google Drive application.
-EXTENSIONS_EXPORT extern const char kGoogleDriveAppId[];
+extern const char kGoogleDriveAppId[];
 
 // The extension id of the Google Meet PWA.
-EXTENSIONS_EXPORT extern const char kGoogleMeetPwaAppId[];
+extern const char kGoogleMeetPwaAppId[];
 
 // The extension id of the demo Google Sheets application.
-EXTENSIONS_EXPORT extern const char kGoogleSheetsDemoAppId[];
+extern const char kGoogleSheetsDemoAppId[];
 
 // The extension id of the Google Sheets PWA.
-EXTENSIONS_EXPORT extern const char kGoogleSheetsPwaAppId[];
+extern const char kGoogleSheetsPwaAppId[];
 
 // The extension id of the demo Google Slides application.
-EXTENSIONS_EXPORT extern const char kGoogleSlidesDemoAppId[];
+extern const char kGoogleSlidesDemoAppId[];
 
 // The extension id of the Google Keep application.
-EXTENSIONS_EXPORT extern const char kGoogleKeepAppId[];
+extern const char kGoogleKeepAppId[];
 
 // The extension id of the Youtube application.
-EXTENSIONS_EXPORT extern const char kYoutubeAppId[];
+extern const char kYoutubeAppId[];
 
 // The extension id of the Youtube PWA.
-EXTENSIONS_EXPORT extern const char kYoutubePwaAppId[];
+extern const char kYoutubePwaAppId[];
 
 // The extension id of the Spotify PWA.
-EXTENSIONS_EXPORT extern const char kSpotifyAppId[];
+extern const char kSpotifyAppId[];
 
 // The extension id of the BeFunky PWA.
-EXTENSIONS_EXPORT extern const char kBeFunkyAppId[];
+extern const char kBeFunkyAppId[];
 
 // The extension id of the Clipchamp PWA.
-EXTENSIONS_EXPORT extern const char kClipchampAppId[];
+extern const char kClipchampAppId[];
 
 // The extension id of the GeForce NOW PWA.
-EXTENSIONS_EXPORT extern const char kGeForceNowAppId[];
+extern const char kGeForceNowAppId[];
 
 // The extension id of the Zoom PWA.
-EXTENSIONS_EXPORT extern const char kZoomAppId[];
-
-// The extension id of the Sumo PWA.
-EXTENSIONS_EXPORT extern const char kSumoAppId[];
-
-// The extension id of the Sumo PWA.
-EXTENSIONS_EXPORT extern const char kAdobeSparkAppId[];
-
-// The extension id of the Google Docs application.
-EXTENSIONS_EXPORT extern const char kGoogleDocsAppId[];
-
-// The extension id of the Google Sheets application.
-EXTENSIONS_EXPORT extern const char kGoogleSheetsAppId[];
-
-// The extension id of the Google Slides application.
-EXTENSIONS_EXPORT extern const char kGoogleSlidesAppId[];
+extern const char kZoomAppId[];
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 // The extension id of the default Demo Mode Highlights app.
-EXTENSIONS_EXPORT extern const char kHighlightsAppId[];
+extern const char kHighlightsAppId[];
+
+// The extension id of the atlas Demo Mode Highlights app.
+extern const char kHighlightsAtlasAppId[];
 
 // The extension id of the default Demo Mode screensaver app.
-EXTENSIONS_EXPORT extern const char kScreensaverAppId[];
+extern const char kScreensaverAppId[];
+
+// The extension id of the atlas Demo Mode screensaver app.
+extern const char kScreensaverAtlasAppId[];
+
+// The extension id of the krane Demo Mode screensaver app. That app is only
+// run on KRANE-ZDKS devices.
+extern const char kScreensaverKraneZdksAppId[];
 
 // The id of the testing extension allowed in the signin profile.
-EXTENSIONS_EXPORT extern const char kSigninProfileTestExtensionId[];
+extern const char kSigninProfileTestExtensionId[];
 
 // The id of the testing extension allowed in guest mode.
-EXTENSIONS_EXPORT extern const char kGuestModeTestExtensionId[];
+extern const char kGuestModeTestExtensionId[];
 
-// The extension id of 2022 Demo Mode Highlights app.
-EXTENSIONS_EXPORT extern const char kNewAttractLoopAppId[];
-
-// The extension id of 2022 Demo Mode screensaver app.
-EXTENSIONS_EXPORT extern const char kNewHighlightsAppId[];
 // Returns true if this app is part of the "system UI". Generally this is UI
 // that that on other operating systems would be considered part of the OS,
 // for example the file manager.
-EXTENSIONS_EXPORT bool IsSystemUIApp(base::StringPiece extension_id);
-
-// Returns true if this app is one of Demo Mode Chrome Apps, including
-// attract loop and highlights apps.
-EXTENSIONS_EXPORT bool IsDemoModeChromeApp(base::StringPiece extension_id);
+bool IsSystemUIApp(base::StringPiece extension_id);
 #endif
 
-// True if the id matches any of the QuickOffice extension ids.
-EXTENSIONS_EXPORT bool IsQuickOfficeExtension(const std::string& id);
-
-// Returns if the app is managed by extension default apps. This is a hardcoded
-// list of default apps for Windows/Linux/MacOS platforms that should be
-// migrated from extension to web app.
-// TODO(https://crbug.com/1257275): remove after deault app migration is done.
-// This function is copied from
-// chrome/browser/web_applications/extension_status_utils.h.
-EXTENSIONS_EXPORT bool IsPreinstalledAppId(const std::string& app_id);
-
 // The extension id for the production version of Hangouts.
-EXTENSIONS_EXPORT extern const char kProdHangoutsExtensionId[];
+extern const char kProdHangoutsExtensionId[];
 
 // Extension ids used by Hangouts.
-EXTENSIONS_EXPORT extern const char* const kHangoutsExtensionIds[6];
+extern const char* const kHangoutsExtensionIds[6];
 
 // Error message when enterprise policy blocks scripting of webpage.
-EXTENSIONS_EXPORT extern const char kPolicyBlockedScripting[];
+extern const char kPolicyBlockedScripting[];
 
 // The default block size for hashing used in content verification.
-EXTENSIONS_EXPORT extern const int kContentVerificationDefaultBlockSize;
+extern const int kContentVerificationDefaultBlockSize;
 
-// The origin of the CryptoToken component extension, which implements the
-// deprecated U2F Security Key API.
-// TODO(1224886): Delete together with CryptoToken code.
-EXTENSIONS_EXPORT extern const char kCryptotokenExtensionId[];
-
-// The name of the CryptoToken component extension deprecation trial, which
-// allows making requests to the extension after it has been default disabled.
-// TODO(1224886): Delete together with CryptoToken code.
-EXTENSIONS_EXPORT extern const char kCryptotokenDeprecationTrialName[];
+// IDs for the Media Router Component Extension.
+extern const char kCastExtensionIdRelease[];
+extern const char kCastExtensionIdDev[];
 
 }  // namespace extension_misc
 

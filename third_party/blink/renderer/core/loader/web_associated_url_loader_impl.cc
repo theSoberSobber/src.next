@@ -53,7 +53,6 @@
 #include "third_party/blink/renderer/core/loader/threadable_loader_client.h"
 #include "third_party/blink/renderer/platform/exported/wrapped_resource_request.h"
 #include "third_party/blink/renderer/platform/exported/wrapped_resource_response.h"
-#include "third_party/blink/renderer/platform/heap/thread_state.h"
 #include "third_party/blink/renderer/platform/loader/cors/cors.h"
 #include "third_party/blink/renderer/platform/loader/fetch/fetch_initiator_type_names.h"
 #include "third_party/blink/renderer/platform/loader/fetch/fetch_utils.h"
@@ -397,7 +396,7 @@ void WebAssociatedURLLoaderImpl::LoadAsynchronously(
     task_runner = observer_->GetExecutionContext()->GetTaskRunner(
         TaskType::kInternalLoading);
   } else {
-    task_runner = Thread::Current()->GetDeprecatedTaskRunner();
+    task_runner = Thread::Current()->GetTaskRunner();
   }
   client_ = client;
   client_adapter_ = MakeGarbageCollected<ClientAdapter>(

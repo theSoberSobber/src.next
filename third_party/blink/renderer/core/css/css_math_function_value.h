@@ -5,7 +5,6 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_CORE_CSS_CSS_MATH_FUNCTION_VALUE_H_
 #define THIRD_PARTY_BLINK_RENDERER_CORE_CSS_CSS_MATH_FUNCTION_VALUE_H_
 
-#include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/css/css_math_expression_node.h"
 #include "third_party/blink/renderer/core/css/css_primitive_value.h"
 
@@ -18,7 +17,7 @@ class CORE_EXPORT CSSMathFunctionValue : public CSSPrimitiveValue {
  public:
   static CSSMathFunctionValue* Create(const Length&, float zoom);
   static CSSMathFunctionValue* Create(const CSSMathExpressionNode*,
-                                      ValueRange = ValueRange::kAll);
+                                      ValueRange = kValueRangeAll);
 
   CSSMathFunctionValue(const CSSMathExpressionNode* expression,
                        ValueRange range);
@@ -26,7 +25,7 @@ class CORE_EXPORT CSSMathFunctionValue : public CSSPrimitiveValue {
   const CSSMathExpressionNode* ExpressionNode() const { return expression_; }
 
   scoped_refptr<const CalculationValue> ToCalcValue(
-      const CSSLengthResolver&) const;
+      const CSSToLengthConversionData& conversion_data) const;
 
   bool MayHaveRelativeUnit() const;
 
@@ -39,8 +38,10 @@ class CORE_EXPORT CSSMathFunctionValue : public CSSPrimitiveValue {
 
   bool IsPx() const;
 
+  bool IsInt() const { return expression_->IsInteger(); }
+  bool IsNegative() const { return expression_->DoubleValue() < 0; }
   ValueRange PermittedValueRange() const {
-    return value_range_in_target_context_;
+    return IsNonNegative() ? kValueRangeNonNegative : kValueRangeAll;
   }
 
   // When |false|, comparisons between percentage values can be resolved without
@@ -72,11 +73,13 @@ class CORE_EXPORT CSSMathFunctionValue : public CSSPrimitiveValue {
 
   double ComputeSeconds() const;
   double ComputeDegrees() const;
-  double ComputeLengthPx(const CSSLengthResolver&) const;
+  double ComputeLengthPx(
+      const CSSToLengthConversionData& conversion_data) const;
 
   bool AccumulateLengthArray(CSSLengthArray& length_array,
                              double multiplier) const;
-  Length ConvertToLength(const CSSLengthResolver&) const;
+  Length ConvertToLength(
+      const CSSToLengthConversionData& conversion_data) const;
 
   void AccumulateLengthUnitTypes(LengthTypeFlags& types) const {
     expression_->AccumulateLengthUnitTypes(types);
@@ -90,10 +93,11 @@ class CORE_EXPORT CSSMathFunctionValue : public CSSPrimitiveValue {
   void TraceAfterDispatch(blink::Visitor* visitor) const;
 
  private:
+  bool IsNonNegative() const { return is_non_negative_math_function_; }
+
   double ClampToPermittedRange(double) const;
 
   Member<const CSSMathExpressionNode> expression_;
-  ValueRange value_range_in_target_context_;
 };
 
 template <>

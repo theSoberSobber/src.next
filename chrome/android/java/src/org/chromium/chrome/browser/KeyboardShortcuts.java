@@ -1,17 +1,17 @@
-// Copyright 2015 The Chromium Authors
+// Copyright 2015 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 package org.chromium.chrome.browser;
 
+import android.annotation.TargetApi;
 import android.content.Context;
 import android.os.Build;
 import android.view.KeyEvent;
 import android.view.KeyboardShortcutGroup;
 import android.view.KeyboardShortcutInfo;
 
-import androidx.annotation.RequiresApi;
-
+import org.chromium.base.annotations.VerifiesOnN;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.fullscreen.FullscreenManager;
 import org.chromium.chrome.browser.tab.Tab;
@@ -121,7 +121,8 @@ public class KeyboardShortcuts {
      *            resource.
      * @return a list of shortcuts organized into groups.
      */
-    @RequiresApi(Build.VERSION_CODES.N)
+    @TargetApi(Build.VERSION_CODES.N)
+    @VerifiesOnN
     public static List<KeyboardShortcutGroup> createShortcutGroup(Context context) {
         final int ctrlShift = KeyEvent.META_CTRL_ON | KeyEvent.META_SHIFT_ON;
 
@@ -180,9 +181,9 @@ public class KeyboardShortcuts {
         return shortcutGroups;
     }
 
-    @RequiresApi(Build.VERSION_CODES.N)
-    private static void addShortcut(Context context, KeyboardShortcutGroup shortcutGroup, int resId,
-            int keyCode, int keyModifier) {
+    @TargetApi(Build.VERSION_CODES.N)
+    private static void addShortcut(Context context,
+            KeyboardShortcutGroup shortcutGroup, int resId, int keyCode, int keyModifier) {
         shortcutGroup.addItem(new KeyboardShortcutInfo(context.getString(resId), keyCode,
                 keyModifier));
     }
@@ -261,11 +262,11 @@ public class KeyboardShortcuts {
                 int numCode = keyCode - KeyEvent.KEYCODE_0;
                 if (numCode > 0 && numCode <= Math.min(tabCount, 8)) {
                     // Ctrl+1 to Ctrl+8: select tab by index
-                    TabModelUtils.setIndex(currentTabModel, numCode - 1, false);
+                    TabModelUtils.setIndex(currentTabModel, numCode - 1);
                     return true;
                 } else if (numCode == 9 && tabCount != 0) {
                     // Ctrl+9: select last tab
-                    TabModelUtils.setIndex(currentTabModel, tabCount - 1, false);
+                    TabModelUtils.setIndex(currentTabModel, tabCount - 1);
                     return true;
                 }
             }
@@ -276,7 +277,7 @@ public class KeyboardShortcuts {
                 case KeyEvent.KEYCODE_BUTTON_R1:
                     if (tabSwitchingEnabled && tabCount > 1) {
                         TabModelUtils.setIndex(
-                                currentTabModel, (currentTabModel.index() + 1) % tabCount, false);
+                                currentTabModel, (currentTabModel.index() + 1) % tabCount);
                     }
                     return true;
                 case CTRL | SHIFT | KeyEvent.KEYCODE_TAB:
@@ -284,7 +285,7 @@ public class KeyboardShortcuts {
                 case KeyEvent.KEYCODE_BUTTON_L1:
                     if (tabSwitchingEnabled && tabCount > 1) {
                         TabModelUtils.setIndex(currentTabModel,
-                                (currentTabModel.index() + tabCount - 1) % tabCount, false);
+                                (currentTabModel.index() + tabCount - 1) % tabCount);
                     }
                     return true;
                 case CTRL | KeyEvent.KEYCODE_W:

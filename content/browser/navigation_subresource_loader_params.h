@@ -1,4 +1,4 @@
-// Copyright 2017 The Chromium Authors
+// Copyright 2017 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -27,6 +27,12 @@ struct CONTENT_EXPORT SubresourceLoaderParams {
   SubresourceLoaderParams(SubresourceLoaderParams&& other);
   SubresourceLoaderParams& operator=(SubresourceLoaderParams&& other);
 
+  // For AppCache.
+  // Subresource loader factory info for appcache, that is to be used to
+  // create a subresource loader in the renderer.
+  mojo::PendingRemote<network::mojom::URLLoaderFactory>
+      pending_appcache_loader_factory;
+
   // For ServiceWorkers.
   // The controller service worker, non-null if the frame is to be
   // controlled by the service worker.
@@ -38,6 +44,7 @@ struct CONTENT_EXPORT SubresourceLoaderParams {
   blink::mojom::ControllerServiceWorkerInfoPtr controller_service_worker_info;
   base::WeakPtr<ServiceWorkerObjectHost> controller_service_worker_object_host;
 
+  // For SignedExchangeSubresourcePrefetch.
   // When signed exchanges were prefetched in the previous page and were stored
   // to the PrefetchedSignedExchangeCache, and the main resource for the
   // navigation was served from the cache, |prefetched_signed_exchanges|

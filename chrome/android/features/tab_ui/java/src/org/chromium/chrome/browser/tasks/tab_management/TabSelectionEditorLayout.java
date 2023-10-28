@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium Authors
+// Copyright 2019 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -50,8 +50,9 @@ class TabSelectionEditorLayout extends SelectableListLayout<Integer> {
             SelectionDelegate<Integer> selectionDelegate) {
         mIsInitialized = true;
         initializeRecyclerView(adapter, recyclerView);
-        mToolbar = (TabSelectionEditorToolbar) initializeToolbar(
-                R.layout.tab_selection_editor_toolbar, selectionDelegate, 0, 0, 0, null, true);
+        mToolbar =
+                (TabSelectionEditorToolbar) initializeToolbar(R.layout.tab_selection_editor_toolbar,
+                        selectionDelegate, 0, 0, 0, null, false, true);
         mParentView = parentView;
     }
 

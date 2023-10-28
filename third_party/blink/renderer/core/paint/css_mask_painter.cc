@@ -11,7 +11,7 @@
 
 namespace blink {
 
-absl::optional<gfx::RectF> CSSMaskPainter::MaskBoundingBox(
+absl::optional<IntRect> CSSMaskPainter::MaskBoundingBox(
     const LayoutObject& object,
     const PhysicalOffset& paint_offset) {
   if (!object.IsBoxModelObject() && !object.IsSVGChild())
@@ -23,17 +23,17 @@ absl::optional<gfx::RectF> CSSMaskPainter::MaskBoundingBox(
       auto* masker = GetSVGResourceAsType<LayoutSVGResourceMasker>(
           *client, style.MaskerResource());
       if (masker) {
-        const gfx::RectF reference_box =
+        const FloatRect reference_box =
             SVGResources::ReferenceBoxForEffects(object);
-        const float reference_box_zoom = object.IsSVGForeignObjectIncludingNG()
-                                             ? object.StyleRef().EffectiveZoom()
-                                             : 1;
-        return masker->ResourceBoundingBox(reference_box, reference_box_zoom);
+        const float reference_box_zoom =
+            object.IsSVGForeignObject() ? object.StyleRef().EffectiveZoom() : 1;
+        return EnclosingIntRect(
+            masker->ResourceBoundingBox(reference_box, reference_box_zoom));
       }
     }
   }
 
-  if (object.IsSVGChild() && !object.IsSVGForeignObjectIncludingNG())
+  if (object.IsSVGChild() && !object.IsSVGForeignObject())
     return absl::nullopt;
 
   if (!style.HasMask())
@@ -55,7 +55,7 @@ absl::optional<gfx::RectF> CSSMaskPainter::MaskBoundingBox(
   if (style.HasMaskBoxImageOutsets())
     maximum_mask_region.Expand(style.MaskBoxImageOutsets());
   maximum_mask_region.offset += paint_offset;
-  return gfx::RectF(maximum_mask_region);
+  return PixelSnappedIntRect(maximum_mask_region);
 }
 
 }  // namespace blink

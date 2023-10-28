@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium Authors
+// Copyright 2019 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -58,5 +58,10 @@ public class EmptyTabModelFilter extends TabModelFilter {
     @Override
     public int indexOf(Tab tab) {
         return getTabModel().indexOf(tab);
+    }
+
+    @Override
+    public boolean isClosurePending(int tabId) {
+        return getTabModel().isClosurePending(tabId);
     }
 }

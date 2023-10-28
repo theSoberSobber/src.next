@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium Authors
+// Copyright 2019 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,10 +7,9 @@ package org.chromium.chrome.browser.omnibox;
 import static org.mockito.Mockito.verify;
 
 import android.app.Activity;
+import android.support.test.filters.SmallTest;
 import android.text.SpannableStringBuilder;
 import android.view.ViewStructure;
-
-import androidx.test.filters.SmallTest;
 
 import org.junit.Assert;
 import org.junit.Before;
@@ -21,14 +20,14 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.robolectric.Robolectric;
 
-import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Feature;
 import org.chromium.chrome.browser.omnibox.UrlBar.UrlBarDelegate;
+import org.chromium.testing.local.LocalRobolectricTestRunner;
 
 /**
  * Unit tests for the URL bar UI component.
  */
-@RunWith(BaseRobolectricTestRunner.class)
+@RunWith(LocalRobolectricTestRunner.class)
 public class UrlBarUnitTest {
     private UrlBar mUrlBar;
     @Mock

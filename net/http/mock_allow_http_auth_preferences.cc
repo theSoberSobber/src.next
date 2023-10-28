@@ -1,4 +1,4 @@
-// Copyright 2011 The Chromium Authors
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -12,12 +12,12 @@ MockAllowHttpAuthPreferences::MockAllowHttpAuthPreferences() = default;
 MockAllowHttpAuthPreferences::~MockAllowHttpAuthPreferences() = default;
 
 bool MockAllowHttpAuthPreferences::CanUseDefaultCredentials(
-    const url::SchemeHostPort& auth_scheme_host_port) const {
+    const GURL& auth_origin) const {
   return true;
 }
 
 HttpAuth::DelegationType MockAllowHttpAuthPreferences::GetDelegationType(
-    const url::SchemeHostPort& auth_scheme_host_port) const {
+    const GURL& auth_origin) const {
   return HttpAuth::DelegationType::kUnconstrained;
 }
 

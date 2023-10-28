@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -12,58 +12,42 @@
 #include "base/strings/string_piece.h"
 #include "build/build_config.h"
 
-#if BUILDFLAG(IS_IOS)
+#if defined(OS_IOS)
 #include "base/bind.h"
 #include "base/ios/scoped_critical_action.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 #endif
 
 namespace base {
 
 namespace internal {
 
-#if BUILDFLAG(IS_IOS)
+#if defined(OS_IOS)
+// Returns true if multi-tasking is supported on this iOS device.
+bool IsMultiTaskingSupported();
+
 // This class wraps a closure so it can continue to run for a period of time
 // when the application goes to the background by using
 // |ios::ScopedCriticalAction|.
-class ImmediateCriticalClosure {
+class CriticalClosure {
  public:
-  explicit ImmediateCriticalClosure(StringPiece task_name, OnceClosure closure);
-  ImmediateCriticalClosure(const ImmediateCriticalClosure&) = delete;
-  ImmediateCriticalClosure& operator=(const ImmediateCriticalClosure&) = delete;
-  ~ImmediateCriticalClosure();
+  explicit CriticalClosure(StringPiece task_name, OnceClosure closure);
+  CriticalClosure(const CriticalClosure&) = delete;
+  CriticalClosure& operator=(const CriticalClosure&) = delete;
+  ~CriticalClosure();
   void Run();
 
  private:
   ios::ScopedCriticalAction critical_action_;
   OnceClosure closure_;
 };
-
-// This class is identical to ImmediateCriticalClosure, but the critical action
-// is started when the action runs, not when the CriticalAction is created.
-class PendingCriticalClosure {
- public:
-  explicit PendingCriticalClosure(StringPiece task_name, OnceClosure closure);
-  PendingCriticalClosure(const PendingCriticalClosure&) = delete;
-  PendingCriticalClosure& operator=(const PendingCriticalClosure&) = delete;
-  ~PendingCriticalClosure();
-  void Run();
-
- private:
-  absl::optional<ios::ScopedCriticalAction> critical_action_;
-  std::string task_name_;
-  OnceClosure closure_;
-};
-#endif  // BUILDFLAG(IS_IOS)
+#endif  // defined(OS_IOS)
 
 }  // namespace internal
 
 // Returns a closure that will continue to run for a period of time when the
 // application goes to the background if possible on platforms where
 // applications don't execute while backgrounded, otherwise the original task is
-// returned. If |is_immediate| is true, the closure will immediately prevent
-// background suspension. Otherwise, the closure will wait to request background
-// permission until it is run.
+// returned.
 //
 // Example:
 //   file_task_runner_->PostTask(
@@ -75,45 +59,34 @@ class PendingCriticalClosure {
 // background running time, |MakeCriticalClosure| should be applied on them
 // before posting. |task_name| is used by the platform to identify any tasks
 // that do not complete in time for suspension.
-#if BUILDFLAG(IS_IOS)
+#if defined(OS_IOS)
 inline OnceClosure MakeCriticalClosure(StringPiece task_name,
-                                       OnceClosure closure,
-                                       bool is_immediate) {
-  if (is_immediate) {
-    return base::BindOnce(&internal::ImmediateCriticalClosure::Run,
-                          Owned(new internal::ImmediateCriticalClosure(
-                              task_name, std::move(closure))));
-  } else {
-    return base::BindOnce(&internal::PendingCriticalClosure::Run,
-                          Owned(new internal::PendingCriticalClosure(
-                              task_name, std::move(closure))));
-  }
+                                       OnceClosure closure) {
+  DCHECK(internal::IsMultiTaskingSupported());
+  return base::BindOnce(
+      &internal::CriticalClosure::Run,
+      Owned(new internal::CriticalClosure(task_name, std::move(closure))));
 }
 
 inline OnceClosure MakeCriticalClosure(const Location& posted_from,
-                                       OnceClosure closure,
-                                       bool is_immediate) {
-  return MakeCriticalClosure(posted_from.ToString(), std::move(closure),
-                             is_immediate);
+                                       OnceClosure closure) {
+  return MakeCriticalClosure(posted_from.ToString(), std::move(closure));
 }
 
-#else  // BUILDFLAG(IS_IOS)
-
+#else  // defined(OS_IOS)
 inline OnceClosure MakeCriticalClosure(StringPiece task_name,
-                                       OnceClosure closure,
-                                       bool is_immediate) {
+                                       OnceClosure closure) {
   // No-op for platforms where the application does not need to acquire
   // background time for closures to finish when it goes into the background.
   return closure;
 }
 
 inline OnceClosure MakeCriticalClosure(const Location& posted_from,
-                                       OnceClosure closure,
-                                       bool is_immediate) {
+                                       OnceClosure closure) {
   return closure;
 }
 
-#endif  // BUILDFLAG(IS_IOS)
+#endif  // defined(OS_IOS)
 
 }  // namespace base
 

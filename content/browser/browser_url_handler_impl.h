@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -9,8 +9,8 @@
 #include <vector>
 
 #include "base/gtest_prod_util.h"
+#include "base/macros.h"
 #include "base/memory/singleton.h"
-#include "content/common/content_export.h"
 #include "content/public/browser/browser_url_handler.h"
 
 class GURL;
@@ -22,9 +22,6 @@ class CONTENT_EXPORT BrowserURLHandlerImpl : public BrowserURLHandler {
  public:
   // Returns the singleton instance.
   static BrowserURLHandlerImpl* GetInstance();
-
-  BrowserURLHandlerImpl(const BrowserURLHandlerImpl&) = delete;
-  BrowserURLHandlerImpl& operator=(const BrowserURLHandlerImpl&) = delete;
 
   // BrowserURLHandler implementation:
   void RewriteURLIfNecessary(GURL* url,
@@ -62,6 +59,8 @@ class CONTENT_EXPORT BrowserURLHandlerImpl : public BrowserURLHandler {
   FRIEND_TEST_ALL_PREFIXES(BrowserURLHandlerImplTest, NullHandlerReverse);
   FRIEND_TEST_ALL_PREFIXES(BrowserURLHandlerImplTest, ViewSourceReverse);
   FRIEND_TEST_ALL_PREFIXES(BrowserURLHandlerImplTest, GetPossibleRewrites);
+
+  DISALLOW_COPY_AND_ASSIGN(BrowserURLHandlerImpl);
 };
 
 }  // namespace content

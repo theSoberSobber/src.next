@@ -1,9 +1,10 @@
-// Copyright 2013 The Chromium Authors
+// Copyright 2013 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 package org.chromium.chrome.browser;
 
+import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.net.Uri;
@@ -14,9 +15,10 @@ import androidx.annotation.VisibleForTesting;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.annotations.CalledByNative;
 import org.chromium.base.task.AsyncTask;
-import org.chromium.blink.mojom.DisplayMode;
+import org.chromium.chrome.R;
 import org.chromium.chrome.browser.browserservices.intents.BitmapHelper;
 import org.chromium.chrome.browser.browserservices.intents.BrowserServicesIntentDataProvider;
+import org.chromium.chrome.browser.browserservices.intents.WebDisplayMode;
 import org.chromium.chrome.browser.browserservices.intents.WebappConstants;
 import org.chromium.chrome.browser.webapps.WebappActivity;
 import org.chromium.chrome.browser.webapps.WebappAuthenticator;
@@ -86,7 +88,7 @@ public class ShortcutHelper {
     @CalledByNative
     private static void addWebapp(final String id, final String url, final String scopeUrl,
             final String userTitle, final String name, final String shortName, final String iconUrl,
-            final Bitmap icon, boolean isIconAdaptive, @DisplayMode.EnumType final int displayMode,
+            final Bitmap icon, boolean isIconAdaptive, @WebDisplayMode final int displayMode,
             final int orientation, final int source, final long themeColor,
             final long backgroundColor) {
         new AsyncTask<Intent>() {
@@ -143,6 +145,18 @@ public class ShortcutHelper {
     }
 
     /**
+     * Shows toast notifying user that a WebAPK install is already in progress when user tries to
+     * queue a new install for the same WebAPK.
+     */
+    @SuppressWarnings("unused")
+    @CalledByNative
+    private static void showWebApkInstallInProgressToast() {
+        Context applicationContext = ContextUtils.getApplicationContext();
+        String toastText = applicationContext.getString(R.string.webapk_install_in_progress);
+        WebappsUtils.showToast(toastText);
+    }
+
+    /**
      * Stores the specified bitmap as the splash screen for a web app.
      * @param id          ID of the web app which is storing data.
      * @param splashImage Image which should be displayed on the splash screen of
@@ -191,8 +205,8 @@ public class ShortcutHelper {
      */
     public static Intent createWebappShortcutIntent(String id, String url, String scope,
             String name, String shortName, String encodedIcon, int version,
-            @DisplayMode.EnumType int displayMode, int orientation, long themeColor,
-            long backgroundColor, boolean isIconGenerated, boolean isIconAdaptive) {
+            @WebDisplayMode int displayMode, int orientation, long themeColor, long backgroundColor,
+            boolean isIconGenerated, boolean isIconAdaptive) {
         // Create an intent as a launcher icon for a full-screen Activity.
         Intent shortcutIntent = new Intent();
         shortcutIntent.setPackage(ContextUtils.getApplicationContext().getPackageName())
@@ -222,7 +236,7 @@ public class ShortcutHelper {
      */
     public static Intent createWebappShortcutIntentForTesting(String id, String url) {
         return createWebappShortcutIntent(id, url, getScopeFromUrl(url), null, null, null,
-                WebappConstants.WEBAPP_SHORTCUT_VERSION, DisplayMode.STANDALONE, 0, 0, 0, false,
+                WebappConstants.WEBAPP_SHORTCUT_VERSION, WebDisplayMode.STANDALONE, 0, 0, 0, false,
                 false);
     }
 
@@ -257,7 +271,8 @@ public class ShortcutHelper {
     @CalledByNative
     @VisibleForTesting
     public static boolean doesOriginContainAnyInstalledTwa(String origin) {
-        return WebappRegistry.getInstance().isTwaInstalled(origin.toLowerCase(Locale.getDefault()));
+        return WebappRegistry.getInstance().getTrustedWebActivityPermissionStore().isTwaInstalled(
+                origin.toLowerCase(Locale.getDefault()));
     }
 
     @CalledByNative

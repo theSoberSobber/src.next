@@ -1,4 +1,4 @@
-// Copyright 2010 The Chromium Authors
+// Copyright (c) 2010 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -10,6 +10,7 @@
 #include <memory>
 #include <string>
 
+#include "base/macros.h"
 #include "extensions/common/extension_id.h"
 #include "ui/gfx/native_widget_types.h"
 
@@ -32,10 +33,6 @@ class ExtensionActionTestHelper {
   static std::unique_ptr<ExtensionActionTestHelper> Create(
       Browser* browser,
       bool is_real_window = true);
-
-  ExtensionActionTestHelper(const ExtensionActionTestHelper&) = delete;
-  ExtensionActionTestHelper& operator=(const ExtensionActionTestHelper&) =
-      delete;
 
   virtual ~ExtensionActionTestHelper() {}
 
@@ -117,6 +114,9 @@ class ExtensionActionTestHelper {
 
  protected:
   ExtensionActionTestHelper() {}
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(ExtensionActionTestHelper);
 };
 
 #endif  // CHROME_BROWSER_UI_EXTENSIONS_EXTENSION_ACTION_TEST_HELPER_H_

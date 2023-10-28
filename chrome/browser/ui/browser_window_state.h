@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -15,7 +15,7 @@ class Browser;
 
 namespace base {
 class CommandLine;
-class Value;
+class DictionaryValue;
 }  // namespace base
 
 namespace gfx {
@@ -36,7 +36,7 @@ std::unique_ptr<DictionaryPrefUpdate> GetWindowPlacementDictionaryReadWrite(
     PrefService* prefs);
 // Returns NULL if the window corresponds to an app that doesn't have placement
 // information stored in the preferences system.
-const base::Value::Dict* GetWindowPlacementDictionaryReadOnly(
+const base::DictionaryValue* GetWindowPlacementDictionaryReadOnly(
     const std::string& window_name,
     PrefService* prefs);
 

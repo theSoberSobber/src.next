@@ -21,7 +21,6 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_CORE_CSS_CSS_PROPERTY_VALUE_H_
 #define THIRD_PARTY_BLINK_RENDERER_CORE_CSS_CSS_PROPERTY_VALUE_H_
 
-#include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/css/css_property_name.h"
 #include "third_party/blink/renderer/core/css/css_property_names.h"
 #include "third_party/blink/renderer/core/css/css_value.h"
@@ -39,10 +38,7 @@ struct CORE_EXPORT CSSPropertyValueMetadata {
                            bool implicit);
 
   CSSPropertyID ShorthandID() const;
-  CSSPropertyID PropertyID() const {
-    return ConvertToCSSPropertyID(property_id_);
-  }
-
+  CSSPropertyID PropertyID() const;
   CSSPropertyName Name() const;
 
   AtomicString custom_name_;

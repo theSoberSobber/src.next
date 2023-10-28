@@ -1,31 +1,29 @@
-// Copyright 2017 The Chromium Authors
+// Copyright 2017 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import 'chrome://resources/cr_elements/cr_button/cr_button.js';
-import 'chrome://resources/cr_elements/cr_dialog/cr_dialog.js';
-import 'chrome://resources/cr_elements/cr_shared_style.css.js';
+import 'chrome://resources/cr_elements/cr_button/cr_button.m.js';
+import 'chrome://resources/cr_elements/cr_dialog/cr_dialog.m.js';
+import 'chrome://resources/cr_elements/shared_style_css.m.js';
 
-import {CrDialogElement} from 'chrome://resources/cr_elements/cr_dialog/cr_dialog.js';
-import {assert, assertNotReached} from 'chrome://resources/js/assert_ts.js';
+import {CrDialogElement} from 'chrome://resources/cr_elements/cr_dialog/cr_dialog.m.js';
+import {assert, assertNotReached} from 'chrome://resources/js/assert.m.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.m.js';
-import {PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
+import {html, PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
-import {getTemplate} from './pack_dialog_alert.html.js';
-
-export interface ExtensionsPackDialogAlertElement {
+interface ExtensionsPackDialogAlertElement {
   $: {
     dialog: CrDialogElement,
   };
 }
 
-export class ExtensionsPackDialogAlertElement extends PolymerElement {
+class ExtensionsPackDialogAlertElement extends PolymerElement {
   static get is() {
     return 'extensions-pack-dialog-alert';
   }
 
   static get template() {
-    return getTemplate();
+    return html`{__html_template__}`;
   }
 
   static get properties() {
@@ -49,7 +47,7 @@ export class ExtensionsPackDialogAlertElement extends PolymerElement {
     return this.$.dialog.getNative().returnValue;
   }
 
-  override ready() {
+  ready() {
     super.ready();
 
     // Initialize button label values for initial html binding.
@@ -72,10 +70,11 @@ export class ExtensionsPackDialogAlertElement extends PolymerElement {
         break;
       default:
         assertNotReached();
+        return;
     }
   }
 
-  override connectedCallback() {
+  connectedCallback() {
     super.connectedCallback();
     this.$.dialog.showModal();
   }
@@ -92,12 +91,6 @@ export class ExtensionsPackDialogAlertElement extends PolymerElement {
     // The confirm button should only be available in WARNING state.
     assert(this.model.status === chrome.developerPrivate.PackStatus.WARNING);
     this.$.dialog.close();
-  }
-}
-
-declare global {
-  interface HTMLElementTagNameMap {
-    'extensions-pack-dialog-alert': ExtensionsPackDialogAlertElement;
   }
 }
 

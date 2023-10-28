@@ -1,4 +1,4 @@
-// Copyright 2017 The Chromium Authors
+// Copyright 2017 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -65,13 +65,7 @@ void TestMirrorRequestForProfile(net::EmbeddedTestServer* test_server,
 
 // This is a Chrome OS-only test ensuring that mirror account consistency is
 // enabled for child accounts, but not enabled for other account types.
-class ChromeOsMirrorAccountConsistencyTest : public ash::LoginManagerTest {
- public:
-  ChromeOsMirrorAccountConsistencyTest(
-      const ChromeOsMirrorAccountConsistencyTest&) = delete;
-  ChromeOsMirrorAccountConsistencyTest& operator=(
-      const ChromeOsMirrorAccountConsistencyTest&) = delete;
-
+class ChromeOsMirrorAccountConsistencyTest : public chromeos::LoginManagerTest {
  protected:
   ~ChromeOsMirrorAccountConsistencyTest() override {}
 
@@ -81,7 +75,7 @@ class ChromeOsMirrorAccountConsistencyTest : public ash::LoginManagerTest {
   }
 
   void SetUpCommandLine(base::CommandLine* command_line) override {
-    ash::LoginManagerTest::SetUpCommandLine(command_line);
+    chromeos::LoginManagerTest::SetUpCommandLine(command_line);
 
     // HTTPS server only serves a valid cert for localhost, so this is needed to
     // load pages from "www.google.com" without an interstitial.
@@ -100,14 +94,17 @@ class ChromeOsMirrorAccountConsistencyTest : public ash::LoginManagerTest {
     net::test_server::RegisterDefaultHandlers(test_server_.get());
     ASSERT_TRUE(test_server_->Start());
 
-    ash::LoginManagerTest::SetUpOnMainThread();
+    chromeos::LoginManagerTest::SetUpOnMainThread();
   }
 
   AccountId account_id_;
-  ash::LoginManagerMixin login_mixin_{&mixin_host_};
+  chromeos::LoginManagerMixin login_mixin_{&mixin_host_};
 
  protected:
   std::unique_ptr<net::EmbeddedTestServer> test_server_;
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(ChromeOsMirrorAccountConsistencyTest);
 };
 
 // Mirror is enabled for child accounts.
@@ -119,7 +116,7 @@ IN_PROC_BROWSER_TEST_F(ChromeOsMirrorAccountConsistencyTest,
   user_manager::User* user = user_manager::UserManager::Get()->GetActiveUser();
   ASSERT_EQ(user, user_manager::UserManager::Get()->GetPrimaryUser());
   ASSERT_EQ(user, user_manager::UserManager::Get()->FindUser(account_id_));
-  Profile* profile = ash::ProfileHelper::Get()->GetProfileByUser(user);
+  Profile* profile = chromeos::ProfileHelper::Get()->GetProfileByUser(user);
 
   // Supervised flag uses `FindExtendedAccountInfoForAccountWithRefreshToken`,
   // so wait for tokens to be loaded.
@@ -132,9 +129,8 @@ IN_PROC_BROWSER_TEST_F(ChromeOsMirrorAccountConsistencyTest,
 
   // Incognito is always disabled for child accounts.
   PrefService* prefs = profile->GetPrefs();
-  prefs->SetInteger(
-      prefs::kIncognitoModeAvailability,
-      static_cast<int>(IncognitoModePrefs::Availability::kDisabled));
+  prefs->SetInteger(prefs::kIncognitoModeAvailability,
+                    IncognitoModePrefs::DISABLED);
   ASSERT_EQ(1, signin::PROFILE_MODE_INCOGNITO_DISABLED);
 
   // TODO(http://crbug.com/1134144): This test seems to test supervised profiles
@@ -157,7 +153,7 @@ IN_PROC_BROWSER_TEST_F(ChromeOsMirrorAccountConsistencyTest,
   user_manager::User* user = user_manager::UserManager::Get()->GetActiveUser();
   ASSERT_EQ(user, user_manager::UserManager::Get()->GetPrimaryUser());
   ASSERT_EQ(user, user_manager::UserManager::Get()->FindUser(account_id_));
-  Profile* profile = ash::ProfileHelper::Get()->GetProfileByUser(user);
+  Profile* profile = chromeos::ProfileHelper::Get()->GetProfileByUser(user);
 
   // Supervised flag uses `FindExtendedAccountInfoForAccountWithRefreshToken`,
   // so wait for tokens to be loaded.

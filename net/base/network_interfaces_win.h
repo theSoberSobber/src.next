@@ -1,4 +1,4 @@
-// Copyright 2014 The Chromium Authors
+// Copyright (c) 2014 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -16,7 +16,8 @@
 #include "net/base/net_export.h"
 #include "net/base/network_interfaces.h"
 
-namespace net::internal {
+namespace net {
+namespace internal {
 
 struct NET_EXPORT WlanApi {
   typedef DWORD (WINAPI *WlanOpenHandleFunc)(
@@ -45,6 +46,7 @@ struct NET_EXPORT WlanApi {
     return ERROR_SUCCESS;
   }
 
+  HMODULE module;
   WlanOpenHandleFunc open_handle_func;
   WlanEnumInterfacesFunc enum_interfaces_func;
   WlanQueryInterfaceFunc query_interface_func;
@@ -84,6 +86,8 @@ NET_EXPORT bool GetNetworkListImpl(
     int policy,
     const IP_ADAPTER_ADDRESSES* ip_adapter_addresses);
 
-}  // namespace net::internal
+}  // namespace internal
+
+}  // namespace net
 
 #endif   // NET_BASE_NETWORK_INTERFACES_WIN_H_

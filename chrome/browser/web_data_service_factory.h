@@ -1,10 +1,11 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_WEB_DATA_SERVICE_FACTORY_H_
 #define CHROME_BROWSER_WEB_DATA_SERVICE_FACTORY_H_
 
+#include "base/macros.h"
 #include "base/memory/ref_counted.h"
 #include "build/build_config.h"
 #include "components/keyed_service/core/service_access_type.h"
@@ -37,9 +38,6 @@ class WebDataServiceFactory
       Profile* profile,
       ServiceAccessType access_type);
 
-  WebDataServiceFactory(const WebDataServiceFactory&) = delete;
-  WebDataServiceFactory& operator=(const WebDataServiceFactory&) = delete;
-
   // Returns the AutofillWebDataService associated with the |profile|.
   static scoped_refptr<autofill::AutofillWebDataService>
   GetAutofillWebDataForProfile(Profile* profile, ServiceAccessType access_type);
@@ -61,9 +59,6 @@ class WebDataServiceFactory
 
   static WebDataServiceFactory* GetInstance();
 
-  // Returns the default factory, useful in tests where it's null by default.
-  static TestingFactory GetDefaultFactory();
-
  private:
   friend struct base::DefaultSingletonTraits<WebDataServiceFactory>;
 
@@ -76,6 +71,8 @@ class WebDataServiceFactory
   KeyedService* BuildServiceInstanceFor(
       content::BrowserContext* profile) const override;
   bool ServiceIsNULLWhileTesting() const override;
+
+  DISALLOW_COPY_AND_ASSIGN(WebDataServiceFactory);
 };
 
 #endif  // CHROME_BROWSER_WEB_DATA_SERVICE_FACTORY_H_

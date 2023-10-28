@@ -1,4 +1,4 @@
-// Copyright 2014 The Chromium Authors
+// Copyright 2014 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -8,6 +8,7 @@
 #include <memory>
 #include <string>
 
+#include "base/macros.h"
 #include "extensions/common/extension.h"
 #include "extensions/common/manifest_handler.h"
 #include "extensions/common/url_pattern_set.h"
@@ -43,10 +44,6 @@ struct AutomationInfo : public Extension::ManifestData {
       std::u16string* error);
 
   static std::unique_ptr<base::Value> ToValue(const AutomationInfo& info);
-
-  AutomationInfo(const AutomationInfo&) = delete;
-  AutomationInfo& operator=(const AutomationInfo&) = delete;
-
   ~AutomationInfo() override;
 
   // true if the extension has requested 'desktop' permission.
@@ -66,6 +63,8 @@ struct AutomationInfo : public Extension::ManifestData {
 
   static std::unique_ptr<api::extensions_manifest_types::Automation>
   AsManifestType(const AutomationInfo& info);
+
+  DISALLOW_COPY_AND_ASSIGN(AutomationInfo);
   friend class AutomationManifestPermission;
   friend class AutomationHandler;
 };
@@ -74,10 +73,6 @@ struct AutomationInfo : public Extension::ManifestData {
 class AutomationHandler : public ManifestHandler {
  public:
   AutomationHandler();
-
-  AutomationHandler(const AutomationHandler&) = delete;
-  AutomationHandler& operator=(const AutomationHandler&) = delete;
-
   ~AutomationHandler() override;
 
  private:
@@ -88,6 +83,8 @@ class AutomationHandler : public ManifestHandler {
   ManifestPermission* CreateInitialRequiredPermission(
       const Extension* extension) override;
   base::span<const char* const> Keys() const override;
+
+  DISALLOW_COPY_AND_ASSIGN(AutomationHandler);
 };
 
 }  // namespace extensions

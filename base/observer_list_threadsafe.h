@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -10,17 +10,14 @@
 
 #include "base/base_export.h"
 #include "base/bind.h"
-#include "base/check.h"
 #include "base/check_op.h"
 #include "base/containers/contains.h"
-#include "base/dcheck_is_on.h"
 #include "base/lazy_instance.h"
 #include "base/location.h"
-#include "base/memory/raw_ptr.h"
 #include "base/memory/ref_counted.h"
 #include "base/observer_list.h"
+#include "base/sequenced_task_runner.h"
 #include "base/synchronization/lock.h"
-#include "base/task/sequenced_task_runner.h"
 #include "base/threading/sequenced_task_runner_handle.h"
 #include "base/threading/thread_local.h"
 #include "build/build_config.h"
@@ -82,7 +79,7 @@ class BASE_EXPORT ObserverListThreadSafeBase
     NotificationDataBase(void* observer_list_in, const Location& from_here_in)
         : observer_list(observer_list_in), from_here(from_here_in) {}
 
-    raw_ptr<void> observer_list;
+    void* observer_list;
     Location from_here;
   };
 

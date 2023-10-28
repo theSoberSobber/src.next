@@ -1,4 +1,4 @@
-// Copyright 2017 The Chromium Authors
+// Copyright 2017 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -51,11 +51,15 @@ class TestDiceWebSigninInterceptorDelegate
     return nullptr;
   }
 
-  void ShowFirstRunExperienceInNewProfile(
+  void ShowEnterpriseProfileInterceptionDialog(
       Browser* browser,
-      const CoreAccountId& account_id,
-      DiceWebSigninInterceptor::SigninInterceptionType interception_type)
-      override {}
+      const std::string& email,
+      SkColor profile_color,
+      base::OnceCallback<void(bool)> callback) override {
+    std::move(callback).Run(false);
+  }
+
+  void ShowProfileCustomizationBubble(Browser* browser) override {}
 };
 
 class MockDiceWebSigninInterceptor : public DiceWebSigninInterceptor {

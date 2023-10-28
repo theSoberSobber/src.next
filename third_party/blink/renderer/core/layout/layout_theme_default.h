@@ -38,6 +38,7 @@ namespace blink {
 class CORE_EXPORT LayoutThemeDefault : public LayoutTheme {
  public:
   String ExtraDefaultStyleSheet() override;
+  String ExtraQuirksStyleSheet() override;
 
   Color PlatformActiveSelectionBackgroundColor(
       mojom::blink::ColorScheme color_scheme) const override;
@@ -48,24 +49,17 @@ class CORE_EXPORT LayoutThemeDefault : public LayoutTheme {
   Color PlatformInactiveSelectionForegroundColor(
       mojom::blink::ColorScheme color_scheme) const override;
 
-  Color PlatformActiveListBoxSelectionBackgroundColor(
-      mojom::blink::ColorScheme color_scheme) const override;
-  Color PlatformInactiveListBoxSelectionBackgroundColor(
-      mojom::blink::ColorScheme color_scheme) const override;
-  Color PlatformActiveListBoxSelectionForegroundColor(
-      mojom::blink::ColorScheme color_scheme) const override;
-  Color PlatformInactiveListBoxSelectionForegroundColor(
-      mojom::blink::ColorScheme color_scheme) const override;
-
-  gfx::Size SliderTickSize() const override;
+  IntSize SliderTickSize() const override;
   int SliderTickOffsetFromTrackCenter() const override;
   void AdjustSliderThumbSize(ComputedStyle&) const override;
 
+  void SetCheckboxSize(ComputedStyle&) const override;
+  void SetRadioSize(ComputedStyle&) const override;
   void AdjustInnerSpinButtonStyle(ComputedStyle&) const override;
   void AdjustButtonStyle(ComputedStyle&) const override;
 
   Color PlatformTapHighlightColor() const override {
-    return kDefaultTapHighlightColor;
+    return Color(kDefaultTapHighlightColor);
   }
 
   void SetSelectionColors(Color active_background_color,
@@ -74,6 +68,7 @@ class CORE_EXPORT LayoutThemeDefault : public LayoutTheme {
                           Color inactive_foreground_color) override;
   Color PlatformFocusRingColor() const override;
 
+  void AdjustSearchFieldStyle(ComputedStyle&) const override;
   void AdjustSearchFieldCancelButtonStyle(ComputedStyle&) const override;
 
   // MenuList refers to an unstyled menulist (meaning a menulist without
@@ -110,17 +105,12 @@ class CORE_EXPORT LayoutThemeDefault : public LayoutTheme {
 
   int MenuListInternalPadding(const ComputedStyle&, int padding) const;
 
-  static constexpr Color kDefaultTapHighlightColor =
-      Color::FromRGBA32(0x2e000000);  // 18% black.
+  static const RGBA32 kDefaultTapHighlightColor = 0x2e000000;  // 18% black.
 
   static Color active_selection_background_color_;
   static Color active_selection_foreground_color_;
   static Color inactive_selection_background_color_;
   static Color inactive_selection_foreground_color_;
-  static Color active_list_box_selection_background_color_dark_mode_;
-  static Color active_list_box_selection_foreground_color_dark_mode_;
-  static Color inactive_list_box_selection_background_color_dark_mode_;
-  static Color inactive_list_box_selection_foreground_color_dark_mode_;
 
   ThemePainterDefault painter_;
   // Cached values for crbug.com/673754.

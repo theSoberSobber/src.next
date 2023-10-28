@@ -13,7 +13,6 @@
 #include "third_party/blink/renderer/core/layout/line/line_box_list.h"
 #include "third_party/blink/renderer/core/layout/line/root_inline_box.h"
 #include "third_party/blink/renderer/core/paint/object_painter.h"
-#include "third_party/blink/renderer/core/paint/paint_auto_dark_mode.h"
 #include "third_party/blink/renderer/core/paint/paint_info.h"
 #include "third_party/blink/renderer/core/paint/paint_timing_detector.h"
 #include "third_party/blink/renderer/core/paint/url_metadata_utils.h"
@@ -155,7 +154,7 @@ void LineBoxListPainter::PaintBackplate(
   // element is visible.
   const ComputedStyle& style =
       line_box_list_.First()->GetLineLayoutItem().StyleRef();
-  if (style.ForcedColorAdjust() != EForcedColorAdjust::kAuto ||
+  if (style.ForcedColorAdjust() == EForcedColorAdjust::kNone ||
       style.Visibility() != EVisibility::kVisible)
     return;
 
@@ -165,17 +164,14 @@ void LineBoxListPainter::PaintBackplate(
     return;
 
   const auto& backplates = GetBackplates(paint_offset);
-  gfx::Rect visual_rect = ToEnclosingRect(UnionRect(backplates));
+  IntRect visual_rect = EnclosingIntRect(UnionRect(backplates));
   DrawingRecorder recorder(paint_info.context, layout_object,
                            DisplayItem::kForcedColorsModeBackplate,
                            visual_rect);
   Color backplate_color =
       layout_object.GetDocument().GetStyleEngine().ForcedBackgroundColor();
-  for (const auto backplate : backplates) {
-    paint_info.context.FillRect(
-        gfx::RectF(backplate), backplate_color,
-        PaintAutoDarkMode(style, DarkModeFilter::ElementRole::kBackground));
-  }
+  for (const auto backplate : backplates)
+    paint_info.context.FillRect(FloatRect(backplate), backplate_color);
 }
 
 Vector<PhysicalRect> LineBoxListPainter::GetBackplates(

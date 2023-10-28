@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,6 +7,7 @@
 
 #include <map>
 
+#include "base/macros.h"
 #include "base/observer_list.h"
 #include "content/common/content_export.h"
 #include "content/public/browser/notification_service.h"
@@ -23,10 +24,6 @@ class CONTENT_EXPORT NotificationServiceImpl : public NotificationService {
   // Normally instantiated when the thread is created.  Not all threads have
   // a NotificationService.  Only one instance should be created per thread.
   NotificationServiceImpl();
-
-  NotificationServiceImpl(const NotificationServiceImpl&) = delete;
-  NotificationServiceImpl& operator=(const NotificationServiceImpl&) = delete;
-
   ~NotificationServiceImpl() override;
 
   // NotificationService:
@@ -91,6 +88,8 @@ class CONTENT_EXPORT NotificationServiceImpl : public NotificationService {
   // balanced.
   NotificationObserverCount observer_counts_;
 #endif
+
+  DISALLOW_COPY_AND_ASSIGN(NotificationServiceImpl);
 };
 
 }  // namespace content

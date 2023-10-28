@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -10,10 +10,9 @@
 #include "base/callback_helpers.h"
 #include "base/compiler_specific.h"
 #include "base/location.h"
-#include "base/memory/raw_ptr.h"
 #include "base/metrics/histogram_macros.h"
+#include "base/single_thread_task_runner.h"
 #include "base/strings/string_number_conversions.h"
-#include "base/task/single_thread_task_runner.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "base/values.h"
 #include "net/base/auth.h"
@@ -24,13 +23,11 @@
 #include "net/base/net_errors.h"
 #include "net/base/network_delegate.h"
 #include "net/base/proxy_server.h"
-#include "net/cert/x509_certificate.h"
 #include "net/log/net_log.h"
 #include "net/log/net_log_capture_mode.h"
 #include "net/log/net_log_event_type.h"
 #include "net/log/net_log_with_source.h"
 #include "net/nqe/network_quality_estimator.h"
-#include "net/ssl/ssl_private_key.h"
 #include "net/url_request/redirect_util.h"
 #include "net/url_request/url_request_context.h"
 
@@ -40,9 +37,9 @@ namespace {
 
 // Callback for TYPE_URL_REQUEST_FILTERS_SET net-internals event.
 base::Value SourceStreamSetParams(SourceStream* source_stream) {
-  base::Value::Dict event_params;
-  event_params.Set("filters", source_stream->Description());
-  return base::Value(std::move(event_params));
+  base::Value event_params(base::Value::Type::DICTIONARY);
+  event_params.SetStringKey("filters", source_stream->Description());
+  return event_params;
 }
 
 }  // namespace
@@ -57,10 +54,6 @@ class URLRequestJob::URLRequestJobSourceStream : public SourceStream {
       : SourceStream(SourceStream::TYPE_NONE), job_(job) {
     DCHECK(job_);
   }
-
-  URLRequestJobSourceStream(const URLRequestJobSourceStream&) = delete;
-  URLRequestJobSourceStream& operator=(const URLRequestJobSourceStream&) =
-      delete;
 
   ~URLRequestJobSourceStream() override = default;
 
@@ -81,12 +74,21 @@ class URLRequestJob::URLRequestJobSourceStream : public SourceStream {
   // It is safe to keep a raw pointer because |job_| owns the last stream which
   // indirectly owns |this|. Therefore, |job_| will not be destroyed when |this|
   // is alive.
-  const raw_ptr<URLRequestJob> job_;
+  URLRequestJob* const job_;
+
+  DISALLOW_COPY_AND_ASSIGN(URLRequestJobSourceStream);
 };
 
-URLRequestJob::URLRequestJob(URLRequest* request) : request_(request) {}
+URLRequestJob::URLRequestJob(URLRequest* request)
+    : request_(request),
+      done_(false),
+      prefilter_bytes_read_(0),
+      postfilter_bytes_read_(0),
+      has_handled_response_(false),
+      expected_content_size_(-1) {}
 
-URLRequestJob::~URLRequestJob() = default;
+URLRequestJob::~URLRequestJob() {
+}
 
 void URLRequestJob::SetUpload(UploadDataStream* upload) {
 }
@@ -264,8 +266,8 @@ IPEndPoint URLRequestJob::GetResponseRemoteEndpoint() const {
 void URLRequestJob::NotifyURLRequestDestroyed() {
 }
 
-ConnectionAttempts URLRequestJob::GetConnectionAttempts() const {
-  return {};
+void URLRequestJob::GetConnectionAttempts(ConnectionAttempts* out) const {
+  out->clear();
 }
 
 void URLRequestJob::CloseConnectionOnDestruction() {}
@@ -281,7 +283,7 @@ GURL MaybeStripToOrigin(GURL url, bool should_strip_to_origin) {
   if (!should_strip_to_origin)
     return url;
 
-  return url.DeprecatedGetOriginAsURL();
+  return url.GetOrigin();
 }
 
 }  // namespace
@@ -312,7 +314,8 @@ GURL URLRequestJob::ComputeReferrerForPolicy(
   if (stripped_referrer.spec().size() > 4096)
     should_strip_to_origin = true;
 
-  bool same_origin = url::IsSameOriginWith(original_referrer, destination);
+  bool same_origin = url::Origin::Create(original_referrer)
+                         .IsSameOriginWith(url::Origin::Create(destination));
 
   if (same_origin_out_for_metrics)
     *same_origin_out_for_metrics = same_origin;
@@ -398,14 +401,30 @@ void URLRequestJob::NotifySSLCertificateError(int net_error,
   request_->NotifySSLCertificateError(net_error, ssl_info, fatal);
 }
 
+void URLRequestJob::AnnotateAndMoveUserBlockedCookies(
+    CookieAccessResultList& maybe_included_cookies,
+    CookieAccessResultList& excluded_cookies) const {
+  request_->AnnotateAndMoveUserBlockedCookies(maybe_included_cookies,
+                                              excluded_cookies);
+}
+
 bool URLRequestJob::CanSetCookie(const net::CanonicalCookie& cookie,
                                  CookieOptions* options) const {
   return request_->CanSetCookie(cookie, options);
 }
 
+PrivacyMode URLRequestJob::privacy_mode() const {
+  return request_->privacy_mode();
+}
+
 void URLRequestJob::NotifyHeadersComplete() {
   if (has_handled_response_)
     return;
+
+  // The URLRequest status should still be IO_PENDING, which it was set to
+  // before the URLRequestJob was started.  On error or cancellation, this
+  // method should not be called.
+  DCHECK_EQ(ERR_IO_PENDING, request_->status());
 
   // Initialize to the current time, and let the subclass optionally override
   // the time stamps if it has that information.  The default request_time is
@@ -466,6 +485,8 @@ void URLRequestJob::NotifyHeadersComplete() {
   }
 
   if (NeedsAuth()) {
+    request_->net_log().AddEvent(
+        NetLogEventType::URL_REQUEST_JOB_NOTIFY_HEADERS_COMPLETE_NEEDS_AUTH);
     std::unique_ptr<AuthChallengeInfo> auth_info = GetAuthChallengeInfo();
     // Need to check for a NULL auth_info because the server may have failed
     // to send a challenge with the 401 response.

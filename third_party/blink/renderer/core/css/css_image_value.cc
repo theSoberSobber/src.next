@@ -24,9 +24,7 @@
 #include "third_party/blink/public/common/loader/referrer_utils.h"
 #include "third_party/blink/public/web/web_local_frame_client.h"
 #include "third_party/blink/renderer/core/css/css_markup.h"
-#include "third_party/blink/renderer/core/css/style_engine.h"
 #include "third_party/blink/renderer/core/dom/document.h"
-#include "third_party/blink/renderer/core/execution_context/execution_context.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/local_frame_client.h"
 #include "third_party/blink/renderer/core/loader/resource/image_resource_content.h"
@@ -53,8 +51,7 @@ CSSImageValue::CSSImageValue(const AtomicString& raw_value,
       absolute_url_(url.GetString()),
       cached_image_(image),
       origin_clean_(origin_clean),
-      is_ad_related_(is_ad_related),
-      potentially_dangling_markup_(url.PotentiallyDanglingMarkup()) {}
+      is_ad_related_(is_ad_related) {}
 
 CSSImageValue::~CSSImageValue() = default;
 
@@ -62,28 +59,7 @@ FetchParameters CSSImageValue::PrepareFetch(
     const Document& document,
     FetchParameters::ImageRequestBehavior image_request_behavior,
     CrossOriginAttributeValue cross_origin) const {
-  KURL request_url;
-  if (potentially_dangling_markup_) {
-    // The PotentiallyDanglingMarkup() flag is lost when storing the absolute
-    // url as a string from which the KURL is constructed here. The url passed
-    // into the constructor had the PotentiallyDanglingMarkup flag set. That
-    // information needs to be passed on to the fetch code to block such
-    // resources from loading.
-    request_url = document.CompleteURL(relative_url_);
-
-    // Note: the PotentiallyDanglingMarkup() state on the base url may have
-    // changed if the base url for the document changed since last time the url
-    // was resolved. This change in base url resolving is different from the
-    // typical behavior for base url changes. CSS urls are typically not re-
-    // resolved. This is mentioned in the "What “browser eccentricities”?" note
-    // in https://www.w3.org/TR/css-values-3/#local-urls
-    //
-    // Having the more spec-compliant behavior for the dangling markup edge case
-    // should be fine.
-  } else {
-    request_url = KURL(absolute_url_);
-  }
-  ResourceRequest resource_request(request_url);
+  ResourceRequest resource_request(absolute_url_);
   resource_request.SetReferrerPolicy(
       ReferrerUtils::MojoReferrerPolicyResolveDefault(
           referrer_.referrer_policy));
@@ -105,12 +81,25 @@ FetchParameters CSSImageValue::PrepareFetch(
   }
 
   bool is_lazily_loaded =
-      image_request_behavior ==
-          FetchParameters::ImageRequestBehavior::kDeferImageLoad &&
+      image_request_behavior == FetchParameters::kDeferImageLoad &&
       // Only http/https images are eligible to be lazily loaded.
       params.Url().ProtocolIsInHTTPFamily();
-  if (is_lazily_loaded)
+  if (is_lazily_loaded) {
+    if (document.GetFrame() && document.GetFrame()->Client()) {
+      document.GetFrame()->Client()->DidObserveLazyLoadBehavior(
+          WebLocalFrameClient::LazyLoadBehavior::kDeferredImage);
+    }
     params.SetLazyImageDeferred();
+  }
+
+  if (base::FeatureList::IsEnabled(blink::features::kSubresourceRedirect) &&
+      params.Url().ProtocolIsInHTTPFamily() &&
+      GetNetworkStateNotifier().SaveDataEnabled()) {
+    auto& subresource_request = params.MutableResourceRequest();
+    subresource_request.SetPreviewsState(
+        subresource_request.GetPreviewsState() |
+        PreviewsTypes::kSubresourceRedirectOn);
+  }
 
   if (origin_clean_ != OriginClean::kTrue)
     params.SetFromOriginDirtyStyleSheet(true);
@@ -128,8 +117,10 @@ StyleImage* CSSImageValue::CacheImage(
 
     FetchParameters params =
         PrepareFetch(document, image_request_behavior, cross_origin);
-    cached_image_ = document.GetStyleEngine().CacheStyleImage(
-        params, origin_clean_, is_ad_related_);
+    cached_image_ = MakeGarbageCollected<StyleFetchedImage>(
+        ImageResourceContent::Fetch(params, document.Fetcher()), document,
+        params.GetImageRequestBehavior() == FetchParameters::kDeferImageLoad,
+        origin_clean_ == OriginClean::kTrue, is_ad_related_, params.Url());
   }
   return cached_image_.Get();
 }

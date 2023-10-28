@@ -1,4 +1,4 @@
-// Copyright 2015 The Chromium Authors
+// Copyright 2015 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -23,11 +23,11 @@ import androidx.annotation.VisibleForTesting;
 import androidx.core.view.MarginLayoutParamsCompat;
 
 import org.chromium.base.ApiCompatibilityUtils;
+import org.chromium.chrome.browser.lens.LensFeature;
 import org.chromium.chrome.browser.omnibox.status.StatusCoordinator;
 import org.chromium.chrome.browser.omnibox.status.StatusView;
 import org.chromium.chrome.browser.omnibox.suggestions.AutocompleteCoordinator;
 import org.chromium.components.browser_ui.widget.CompositeTouchDelegate;
-import org.chromium.ui.base.DeviceFormFactor;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -71,7 +71,9 @@ public class LocationBarLayout extends FrameLayout {
         mDeleteButton = findViewById(R.id.delete_button);
         mUrlBar = findViewById(R.id.url_bar);
         mMicButton = findViewById(R.id.mic_button);
-        mLensButton = findViewById(R.id.lens_camera_button);
+        mLensButton = LensFeature.SEARCH_BOX_START_VARIANT_LENS_CAMERA_ASSISTED_SEARCH.getValue()
+                ? findViewById(R.id.lens_camera_button_start)
+                : findViewById(R.id.lens_camera_button_end);
         mUrlActionContainer = (LinearLayout) findViewById(R.id.url_action_container);
     }
 
@@ -168,6 +170,12 @@ public class LocationBarLayout extends FrameLayout {
     }
 
     /**
+     * Specify whether location bar should present icons when focused.
+     * @param showIcon True if we should show the icons when the url is focused.
+     */
+    protected void setShowIconsWhenUrlFocused(boolean showIcon) {}
+
+    /**
      * @return The margin to be applied to the URL bar based on the buttons currently visible next
      *         to it, used to avoid text overlapping the buttons and vice versa.
      */
@@ -188,11 +196,6 @@ public class LocationBarLayout extends FrameLayout {
                     + MarginLayoutParamsCompat.getMarginEnd(urlActionContainerLayoutParams);
         }
         urlContainerMarginEnd += mStatusCoordinator.getAdditionalUrlContainerMarginEnd();
-        // Account for the URL action container end padding on tablets.
-        if (DeviceFormFactor.isNonMultiDisplayContextOnTablet(getContext())) {
-            urlContainerMarginEnd +=
-                    getResources().getDimensionPixelSize(R.dimen.location_bar_url_action_padding);
-        }
         return urlContainerMarginEnd;
     }
 
@@ -289,14 +292,7 @@ public class LocationBarLayout extends FrameLayout {
         return mStatusCoordinator;
     }
 
-    @VisibleForTesting
-    public void setStatusCoordinatorForTesting(StatusCoordinator statusCoordinator) {
-        mStatusCoordinator = statusCoordinator;
-    }
-
     /* package */ void setUrlActionContainerVisibility(int visibility) {
         mUrlActionContainer.setVisibility(visibility);
     }
-
-    public void notifyVoiceRecognitionCanceled() {}
 }

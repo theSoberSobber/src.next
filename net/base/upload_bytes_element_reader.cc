@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -64,10 +64,10 @@ UploadOwnedBytesElementReader::UploadOwnedBytesElementReader(
 
 UploadOwnedBytesElementReader::~UploadOwnedBytesElementReader() = default;
 
-std::unique_ptr<UploadOwnedBytesElementReader>
+UploadOwnedBytesElementReader*
 UploadOwnedBytesElementReader::CreateWithString(const std::string& string) {
   std::vector<char> data(string.begin(), string.end());
-  return std::make_unique<UploadOwnedBytesElementReader>(&data);
+  return new UploadOwnedBytesElementReader(&data);
 }
 
 }  // namespace net

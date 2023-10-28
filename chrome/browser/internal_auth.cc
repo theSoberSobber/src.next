@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -15,9 +15,10 @@
 #include "base/check.h"
 #include "base/containers/circular_deque.h"
 #include "base/containers/contains.h"
-#include "base/cxx17_backports.h"
 #include "base/lazy_instance.h"
+#include "base/macros.h"
 #include "base/notreached.h"
+#include "base/numerics/ranges.h"
 #include "base/rand_util.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_split.h"
@@ -200,11 +201,6 @@ class InternalAuthVerificationService {
         dark_tick_(0) {
   }
 
-  InternalAuthVerificationService(const InternalAuthVerificationService&) =
-      delete;
-  InternalAuthVerificationService& operator=(
-      const InternalAuthVerificationService&) = delete;
-
   bool VerifyPassport(
       const std::string& passport,
       const std::string& domain,
@@ -222,7 +218,7 @@ class InternalAuthVerificationService {
       if (key_change_tick_ + get_verification_window_ticks() < tick) {
         return false;
       }
-      if (old_key_.empty() || old_engine_ == nullptr)
+      if (old_key_.empty() || old_engine_ == NULL)
         return false;
       CreatePassport(domain, map, tick, old_engine_.get(), &reference_passport);
       if (passport != reference_passport)
@@ -251,7 +247,7 @@ class InternalAuthVerificationService {
     old_key_.swap(key_);
     key_.clear();
     old_engine_.swap(engine_);
-    engine_.reset();
+    engine_.reset(NULL);
 
     if (key.size() != kKeySizeInBytes)
       return;
@@ -273,10 +269,13 @@ class InternalAuthVerificationService {
   int64_t PreVerifyPassport(const std::string& passport,
                             const std::string& domain,
                             int64_t current_tick) {
-    if (passport.size() != kPassportSize || !base::IsStringASCII(passport) ||
-        !IsDomainSane(domain) || current_tick <= dark_tick_ ||
-        current_tick > key_change_tick_ + kKeyRegenerationHardTicks ||
-        key_.empty() || engine_ == nullptr) {
+    if (passport.size() != kPassportSize ||
+        !base::IsStringASCII(passport) ||
+        !IsDomainSane(domain) ||
+        current_tick <= dark_tick_ ||
+        current_tick > key_change_tick_  + kKeyRegenerationHardTicks ||
+        key_.empty() ||
+        engine_ == NULL) {
       return 0;
     }
 
@@ -317,6 +316,8 @@ class InternalAuthVerificationService {
   // Some ticks before |dark_tick_| were purged from |used_ticks_| container.
   // That means that we must not trust any tick less than or equal to dark tick.
   int64_t dark_tick_;
+
+  DISALLOW_COPY_AND_ASSIGN(InternalAuthVerificationService);
 };
 
 namespace {
@@ -334,10 +335,6 @@ class InternalAuthGenerationService : public base::ThreadChecker {
     GenerateNewKey();
   }
 
-  InternalAuthGenerationService(const InternalAuthGenerationService&) = delete;
-  InternalAuthGenerationService& operator=(
-      const InternalAuthGenerationService&) = delete;
-
   void GenerateNewKey() {
     DCHECK(CalledOnValidThread());
     std::unique_ptr<crypto::HMAC> new_engine(
@@ -354,7 +351,7 @@ class InternalAuthGenerationService : public base::ThreadChecker {
   // Returns zero on failure.
   int64_t GetUnusedTick(const std::string& domain) {
     DCHECK(CalledOnValidThread());
-    if (engine_ == nullptr) {
+    if (engine_ == NULL) {
       NOTREACHED();
       return 0;
     }
@@ -422,6 +419,8 @@ class InternalAuthGenerationService : public base::ThreadChecker {
   std::unique_ptr<crypto::HMAC> engine_;
   int64_t key_regeneration_tick_;
   base::circular_deque<int64_t> used_ticks_;
+
+  DISALLOW_COPY_AND_ASSIGN(InternalAuthGenerationService);
 };
 
 namespace {
@@ -453,7 +452,7 @@ int InternalAuthVerification::get_verification_window_ticks() {
   if (verification_window_seconds_ > 0)
     candidate = verification_window_seconds_ *
         base::Time::kMicrosecondsPerSecond / kTickUs;
-  return base::clamp(candidate, 1, kVerificationWindowTicks);
+  return base::ClampToRange(candidate, 1, kVerificationWindowTicks);
 }
 
 int InternalAuthVerification::verification_window_seconds_ = 0;
@@ -468,3 +467,4 @@ std::string InternalAuthGeneration::GeneratePassport(
 void InternalAuthGeneration::GenerateNewKey() {
   g_generation_service.Get().GenerateNewKey();
 }
+

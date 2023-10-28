@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -14,6 +14,7 @@
 #include "base/bind.h"
 #include "base/check.h"
 #include "base/files/file_path.h"
+#include "base/macros.h"
 #include "base/time/time.h"
 #include "base/values.h"
 #include "build/build_config.h"
@@ -55,9 +56,6 @@ class DownloadQueryTest : public testing::Test {
  public:
   DownloadQueryTest() {}
 
-  DownloadQueryTest(const DownloadQueryTest&) = delete;
-  DownloadQueryTest& operator=(const DownloadQueryTest&) = delete;
-
   ~DownloadQueryTest() override {}
 
   void TearDown() override {}
@@ -68,8 +66,7 @@ class DownloadQueryTest : public testing::Test {
       mocks_.push_back(owned_mocks_.back().get());
       EXPECT_CALL(mock(mocks_.size() - 1), GetId()).WillRepeatedly(Return(
           mocks_.size() - 1));
-      content::DownloadItemUtils::AttachInfoForTesting(mocks_.back(), nullptr,
-                                                       nullptr);
+      content::DownloadItemUtils::AttachInfo(mocks_.back(), nullptr, nullptr);
     }
   }
 
@@ -112,6 +109,8 @@ class DownloadQueryTest : public testing::Test {
   std::vector<std::unique_ptr<download::MockDownloadItem>> owned_mocks_;
   DownloadQuery query_;
   DownloadVector results_;
+
+  DISALLOW_COPY_AND_ASSIGN(DownloadQueryTest);
 };
 
 template<> void DownloadQueryTest::AddFilter(
@@ -149,7 +148,7 @@ void DownloadQueryTest::AddFilter(DownloadQuery::FilterType name,
   std::unique_ptr<base::ListValue> list(new base::ListValue());
   for (std::vector<std::u16string>::const_iterator it = cpp_value.begin();
        it != cpp_value.end(); ++it) {
-    list->Append(*it);
+    list->AppendString(*it);
   }
   CHECK(query_.AddFilter(name, *list.get()));
 }
@@ -159,7 +158,7 @@ template<> void DownloadQueryTest::AddFilter(
   std::unique_ptr<base::ListValue> list(new base::ListValue());
   for (std::vector<std::string>::const_iterator it = cpp_value.begin();
        it != cpp_value.end(); ++it) {
-    list->Append(*it);
+    list->AppendString(*it);
   }
   CHECK(query_.AddFilter(name, *list.get()));
 }

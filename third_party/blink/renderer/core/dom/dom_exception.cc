@@ -28,14 +28,13 @@
 
 #include "third_party/blink/renderer/core/dom/dom_exception.h"
 
-#include "base/notreached.h"
 
 namespace blink {
 
 namespace {
 
 // Name, decription, and legacy code name and value of DOMExceptions.
-// https://webidl.spec.whatwg.org/#idl-DOMException-error-names
+// https://heycam.github.io/webidl/#idl-DOMException-error-names
 const struct DOMExceptionEntry {
   DOMExceptionCode code;
   const char* name;
@@ -151,8 +150,6 @@ const struct DOMExceptionEntry {
      "A framing error has been detected."},
     {DOMExceptionCode::kParityError, "ParityError",
      "A parity error has been detected."},
-    {DOMExceptionCode::kWebTransportError, "WebTransportError",
-     "The WebTransport operation failed."},
 };
 
 uint16_t ToLegacyErrorCode(DOMExceptionCode exception_code) {

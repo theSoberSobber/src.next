@@ -1,4 +1,4 @@
-// Copyright 2016 The Chromium Authors
+// Copyright 2016 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,20 +7,12 @@
 
 #include <memory>
 #include <string>
-#include <vector>
 
 #include "base/callback_forward.h"
 #include "base/files/file_path.h"
 
-namespace base::win {
-struct ShortcutProperties;
-enum class ShortcutOperation;
-}  // namespace base::win
-
-namespace shell_integration::win {
-
-struct ShortcutProperties;
-enum class ShortcutOperation;
+namespace shell_integration {
+namespace win {
 
 // Initiates an OS shell flow which (if followed by the user) should set
 // Chrome as the default browser. Returns false if the flow cannot be
@@ -84,27 +76,14 @@ std::wstring GetAppUserModelIdForBrowser(const base::FilePath& profile_path);
 
 // Returns the taskbar pin state of Chrome via the IsPinnedToTaskbarCallback.
 // The first bool is true if the state could be calculated, and the second bool
-// is true if Chrome is pinned to the taskbar.
+// is true if Chrome is pinned to the taskbar (without verb check).  The third
+// bool is true if Chrome is pinned to the taskbar (with verb check)
 // The ConnectionErrorCallback is called instead if something wrong happened
 // with the connection to the remote process.
 using ConnectionErrorCallback = base::OnceClosure;
-using IsPinnedToTaskbarCallback = base::OnceCallback<void(bool, bool)>;
+using IsPinnedToTaskbarCallback = base::OnceCallback<void(bool, bool, bool)>;
 void GetIsPinnedToTaskbarState(ConnectionErrorCallback on_error_callback,
                                IsPinnedToTaskbarCallback result_callback);
-
-// Unpins `shortcuts` from the taskbar, and run `completion_callback` when done.
-void UnpinShortcuts(const std::vector<base::FilePath>& shortcuts,
-                    base::OnceClosure completion_callback);
-
-using CreateOrUpdateShortcutsResultCallback = base::OnceCallback<void(bool)>;
-// Based on `operation`, creates or updates each shortcut in `shortcuts` to
-// have the properties in the corresponding element of `properties`. Runs
-// `callback` when done with a true or false bool indicating success or failure.
-void CreateOrUpdateShortcuts(
-    const std::vector<base::FilePath>& shortcuts,
-    const std::vector<base::win::ShortcutProperties>& properties,
-    base::win::ShortcutOperation operation,
-    CreateOrUpdateShortcutsResultCallback callback);
 
 // Migrates existing chrome taskbar pins by tagging them with correct app id.
 // see http://crbug.com/28104. Migrates taskbar pins via a task and runs
@@ -125,6 +104,7 @@ void MigrateTaskbarPinsCallback(const base::FilePath& pins_path,
 int MigrateShortcutsInPathInternal(const base::FilePath& chrome_exe,
                                    const base::FilePath& path);
 
-}  // namespace shell_integration::win
+}  // namespace win
+}  // namespace shell_integration
 
 #endif  // CHROME_BROWSER_SHELL_INTEGRATION_WIN_H_

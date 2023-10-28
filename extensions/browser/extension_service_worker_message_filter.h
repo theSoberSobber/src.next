@@ -1,4 +1,4 @@
-// Copyright 2016 The Chromium Authors
+// Copyright 2016 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -9,8 +9,8 @@
 #include <unordered_set>
 
 #include "base/callback_list.h"
-#include "base/memory/raw_ptr.h"
-#include "base/task/sequenced_task_runner_helpers.h"
+#include "base/macros.h"
+#include "base/sequenced_task_runner_helpers.h"
 #include "content/public/browser/browser_message_filter.h"
 #include "content/public/browser/browser_thread.h"
 #include "extensions/common/activation_sequence.h"
@@ -38,11 +38,6 @@ class ExtensionServiceWorkerMessageFilter
       int render_process_id,
       content::BrowserContext* context,
       content::ServiceWorkerContext* service_worker_context);
-
-  ExtensionServiceWorkerMessageFilter(
-      const ExtensionServiceWorkerMessageFilter&) = delete;
-  ExtensionServiceWorkerMessageFilter& operator=(
-      const ExtensionServiceWorkerMessageFilter&) = delete;
 
   // content::BrowserMessageFilter:
   bool OnMessageReceived(const IPC::Message& message) override;
@@ -87,20 +82,22 @@ class ExtensionServiceWorkerMessageFilter
   void DidFailDecrementInflightEvent();
 
   // Only accessed from the UI thread.
-  raw_ptr<content::BrowserContext> browser_context_;
+  content::BrowserContext* browser_context_;
 
   const int render_process_id_;
 
   base::CallbackListSubscription shutdown_notifier_subscription_;
 
   // Owned by the StoragePartition of our profile.
-  raw_ptr<content::ServiceWorkerContext> service_worker_context_;
+  content::ServiceWorkerContext* service_worker_context_;
 
   std::unique_ptr<ExtensionFunctionDispatcher,
                   content::BrowserThread::DeleteOnUIThread>
       dispatcher_;
 
   std::unordered_set<std::string> active_request_uuids_;
+
+  DISALLOW_COPY_AND_ASSIGN(ExtensionServiceWorkerMessageFilter);
 };
 
 }  // namespace extensions

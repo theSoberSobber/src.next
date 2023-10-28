@@ -25,7 +25,7 @@ String CSSNamespaceRule::cssText() const {
   result.Append("url(");
   result.Append(SerializeString(namespaceURI()));
   result.Append(");");
-  return result.ReleaseString();
+  return result.ToString();
 }
 
 AtomicString CSSNamespaceRule::namespaceURI() const {

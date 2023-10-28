@@ -1,4 +1,4 @@
-// Copyright 2014 The Chromium Authors
+// Copyright 2014 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -60,7 +60,7 @@ struct NET_EXPORT RedirectInfo {
   // The status code for the redirect response. This is almost redundant with
   // the response headers, but some URLRequestJobs emit redirects without
   // headers.
-  int status_code = -1;
+  int status_code;
 
   // The new request method. Depending on the response code, the request method
   // may change.
@@ -77,15 +77,14 @@ struct NET_EXPORT RedirectInfo {
 
   // True if this redirect was upgraded to HTTPS due to the
   // upgrade-insecure-requests policy.
-  bool insecure_scheme_was_upgraded = false;
+  bool insecure_scheme_was_upgraded;
 
   // True if this is a redirect from Signed Exchange to its fallback URL.
-  bool is_signed_exchange_fallback_redirect = false;
+  bool is_signed_exchange_fallback_redirect;
 
   // The new referrer policy that should be obeyed if there are
   // subsequent redirects.
-  ReferrerPolicy new_referrer_policy =
-      ReferrerPolicy::CLEAR_ON_TRANSITION_FROM_SECURE_TO_INSECURE;
+  ReferrerPolicy new_referrer_policy;
 };
 
 }  // namespace net

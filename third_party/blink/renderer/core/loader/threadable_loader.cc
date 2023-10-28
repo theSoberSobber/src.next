@@ -33,7 +33,6 @@
 
 #include <memory>
 
-#include "base/numerics/safe_conversions.h"
 #include "services/network/public/cpp/cors/cors_error_status.h"
 #include "services/network/public/mojom/cors.mojom-blink.h"
 #include "services/network/public/mojom/fetch_api.mojom-blink.h"
@@ -43,7 +42,7 @@
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/loader/threadable_loader_client.h"
 #include "third_party/blink/renderer/core/probe/core_probes.h"
-#include "third_party/blink/renderer/platform/heap/garbage_collected.h"
+#include "third_party/blink/renderer/platform/heap/heap.h"
 #include "third_party/blink/renderer/platform/heap/self_keep_alive.h"
 #include "third_party/blink/renderer/platform/loader/cors/cors.h"
 #include "third_party/blink/renderer/platform/loader/fetch/fetch_client_settings_object.h"
@@ -67,8 +66,9 @@ namespace {
 class DetachedClient final : public GarbageCollected<DetachedClient>,
                              public ThreadableLoaderClient {
  public:
-  explicit DetachedClient(ThreadableLoader* loader) : loader_(loader) {}
-  ~DetachedClient() override = default;
+  explicit DetachedClient(ThreadableLoader* loader)
+      : self_keep_alive_(PERSISTENT_FROM_HERE, this), loader_(loader) {}
+  ~DetachedClient() override {}
 
   void DidFinishLoading(uint64_t identifier) override {
     self_keep_alive_.Clear();
@@ -85,7 +85,7 @@ class DetachedClient final : public GarbageCollected<DetachedClient>,
   }
 
  private:
-  SelfKeepAlive<DetachedClient> self_keep_alive_{this};
+  SelfKeepAlive<DetachedClient> self_keep_alive_;
   // Keep it alive.
   const Member<ThreadableLoader> loader_;
 };
@@ -291,6 +291,17 @@ void ThreadableLoader::ResponseReceived(Resource* resource,
 
   checker_.ResponseReceived();
 
+  // Now the following check is not needed as the service worker added their own
+  // checks and today memory cache and preload matching rules are more strict.
+  // TODO(crbug.com/1053866): Remove the check.
+  if (response.WasFetchedViaServiceWorker() &&
+      request_mode_ != network::mojom::RequestMode::kNoCors &&
+      response.GetType() == network::mojom::FetchResponseType::kOpaque) {
+    DispatchDidFail(ResourceError(
+        response.CurrentRequestUrl(),
+        network::CorsErrorStatus(network::mojom::CorsError::kInvalidResponse)));
+    return;
+  }
   client_->DidReceiveResponse(resource->InspectorId(), response);
 }
 
@@ -324,7 +335,7 @@ void ThreadableLoader::DataReceived(Resource* resource,
 
   // TODO(junov): Fix the ThreadableLoader ecosystem to use size_t. Until then,
   // we use safeCast to trap potential overflows.
-  client_->DidReceiveData(data, base::checked_cast<unsigned>(data_length));
+  client_->DidReceiveData(data, SafeCast<unsigned>(data_length));
 }
 
 void ThreadableLoader::NotifyFinished(Resource* resource) {

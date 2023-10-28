@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -79,14 +79,52 @@ enum NotificationType {
   // Use ProfileManagerObserver::OnProfileAdded instead of this notification.
   // Sent after a Profile has been added to ProfileManager.
   // The details are none and the source is the new profile.
-  // Note: this notification is only sent for profiles owned by the
-  // `ProfileManager`. In particular, off-the-record profiles don't trigger this
-  // notification, but on-the-record System and Guest profiles do.
-  //  TODO(https://crbug.com/1174720): Remove. See also
-  //  https://crbug.com/1038437.
+  // TODO(https://crbug.com/1174720): Remove. See also
+  // https://crbug.com/1038437.
   NOTIFICATION_PROFILE_ADDED,
 
+  // Printing ----------------------------------------------------------------
+
+  // Notification from PrintJob that an event occurred. It can be that a page
+  // finished printing or that the print job failed. Details is
+  // PrintJob::EventDetails. Source is a PrintJob.
+  // TODO(https://crbug.com/796051): Remove.
+  NOTIFICATION_PRINT_JOB_EVENT,
+
   // Misc --------------------------------------------------------------------
+
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+  // Sent when a network error message is displayed on the WebUI login screen.
+  // First paint event of this fires NOTIFICATION_LOGIN_OR_LOCK_WEBUI_VISIBLE.
+  // TODO(https://crbug.com/1174791): Remove.
+  NOTIFICATION_LOGIN_NETWORK_ERROR_SHOWN,
+
+  // Sent when the specific part of login/lock WebUI is considered to be
+  // visible. That moment is tracked as the first paint event after one of the:
+  // NOTIFICATION_LOGIN_NETWORK_ERROR_SHOWN
+  //
+  // Possible series of notifications:
+  // 1. Boot into fresh OOBE
+  //    NOTIFICATION_LOGIN_OR_LOCK_WEBUI_VISIBLE
+  // 2. Boot into user pods list (normal boot). Same for lock screen.
+  //    NOTIFICATION_LOGIN_OR_LOCK_WEBUI_VISIBLE
+  // 3. Boot into GAIA sign in UI (user pods display disabled or no users):
+  //    if no network is connected or flaky network
+  //    (NOTIFICATION_LOGIN_NETWORK_ERROR_SHOWN +
+  //     NOTIFICATION_LOGIN_OR_LOCK_WEBUI_VISIBLE)
+  //    NOTIFICATION_LOGIN_OR_LOCK_WEBUI_VISIBLE
+  // 4. Boot into retail mode
+  //    NOTIFICATION_LOGIN_OR_LOCK_WEBUI_VISIBLE
+  // TODO(https://crbug.com/1174793): Remove.
+  NOTIFICATION_LOGIN_OR_LOCK_WEBUI_VISIBLE,
+#endif
+
+  // Sent when the applications in the NTP app launcher have been reordered.
+  // The details, if not NoDetails, is the std::string ID of the extension that
+  // was moved.
+  // TODO(https://crbug.com/1174798): Remove.
+  NOTIFICATION_APP_LAUNCHER_REORDERED,
+
   // Note:-
   // Currently only Content and Chrome define and use notifications.
   // Custom notifications not belonging to Content and Chrome should start

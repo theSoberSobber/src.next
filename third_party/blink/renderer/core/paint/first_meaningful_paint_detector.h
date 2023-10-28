@@ -5,11 +5,10 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_CORE_PAINT_FIRST_MEANINGFUL_PAINT_DETECTOR_H_
 #define THIRD_PARTY_BLINK_RENDERER_CORE_PAINT_FIRST_MEANINGFUL_PAINT_DETECTOR_H_
 
-#include "base/time/time.h"
+#include "third_party/blink/public/web/web_swap_result.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/paint/paint_event.h"
-#include "third_party/blink/renderer/platform/heap/garbage_collected.h"
-#include "third_party/blink/renderer/platform/heap/member.h"
+#include "third_party/blink/renderer/platform/heap/handle.h"
 
 namespace base {
 class TickClock;
@@ -40,13 +39,9 @@ class CORE_EXPORT FirstMeaningfulPaintDetector
                                          double contents_height_before_layout,
                                          double contents_height_after_layout,
                                          int visible_height);
-  void MarkNextPaintAsMeaningfulForTesting() {
-    next_paint_is_meaningful_ = true;
-  }
-
   void NotifyInputEvent();
   void NotifyPaint();
-  void ReportPresentationTime(PaintEvent, base::TimeTicks);
+  void ReportPresentationTime(PaintEvent, WebSwapResult, base::TimeTicks);
   void NotifyFirstContentfulPaint(base::TimeTicks presentation_time);
   void OnNetwork2Quiet();
   bool SeenFirstMeaningfulPaint() const;

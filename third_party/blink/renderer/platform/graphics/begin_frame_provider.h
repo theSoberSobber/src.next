@@ -7,27 +7,27 @@
 
 #include <string>
 
-#include "base/notreached.h"
 #include "components/power_scheduler/power_mode_voter.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "services/viz/public/mojom/compositing/compositor_frame_sink.mojom-blink.h"
 #include "third_party/blink/public/mojom/frame_sinks/embedded_frame_sink.mojom-blink.h"
-#include "third_party/blink/renderer/platform/heap/garbage_collected.h"
+#include "third_party/blink/renderer/platform/heap/handle.h"
 #include "third_party/blink/renderer/platform/mojo/heap_mojo_receiver.h"
 #include "third_party/blink/renderer/platform/mojo/heap_mojo_remote.h"
 #include "third_party/blink/renderer/platform/platform_export.h"
 
 namespace blink {
 
-struct BeginFrameProviderParams;
+struct PLATFORM_EXPORT BeginFrameProviderParams final {
+  viz::FrameSinkId parent_frame_sink_id;
+  viz::FrameSinkId frame_sink_id;
+};
 
 class PLATFORM_EXPORT BeginFrameProviderClient : public GarbageCollectedMixin {
  public:
   virtual void BeginFrame(const viz::BeginFrameArgs&) = 0;
-  virtual scoped_refptr<base::SingleThreadTaskRunner>
-  GetCompositorTaskRunner() = 0;
   virtual ~BeginFrameProviderClient() = default;
 };
 
@@ -36,10 +36,10 @@ class PLATFORM_EXPORT BeginFrameProvider
       public viz::mojom::blink::CompositorFrameSinkClient,
       public mojom::blink::EmbeddedFrameSinkClient {
  public:
-  BeginFrameProvider(
+  explicit BeginFrameProvider(
       const BeginFrameProviderParams& begin_frame_provider_params,
-      BeginFrameProviderClient* client,
-      ContextLifecycleNotifier* context);
+      BeginFrameProviderClient*,
+      ContextLifecycleNotifier*);
 
   void CreateCompositorFrameSinkIfNeeded();
 

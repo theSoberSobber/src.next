@@ -1,11 +1,13 @@
-// Copyright 2018 The Chromium Authors
+// Copyright 2018 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include "net/base/datagram_buffer.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
-namespace net::test {
+namespace net {
+
+namespace test {
 
 const size_t kMaxBufferSize = 1024;
 
@@ -47,4 +49,6 @@ TEST_F(DatagramBufferTest, DatgramBufferPoolRecycles) {
   EXPECT_EQ(buffer2_ptr, buffers.back().get());
 }
 
-}  // namespace net::test
+}  // namespace test
+
+}  // namespace net

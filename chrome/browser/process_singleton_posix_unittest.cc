@@ -1,4 +1,4 @@
-// Copyright 2014 The Chromium Authors
+// Copyright 2014 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -23,16 +23,14 @@
 #include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/location.h"
-#include "base/memory/raw_ptr.h"
 #include "base/posix/eintr_wrapper.h"
+#include "base/single_thread_task_runner.h"
 #include "base/strings/stringprintf.h"
 #include "base/synchronization/waitable_event.h"
-#include "base/task/single_thread_task_runner.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/test_timeouts.h"
 #include "base/test/thread_test_helper.h"
 #include "base/threading/thread.h"
-#include "base/time/time.h"
 #include "build/build_config.h"
 #include "chrome/common/chrome_constants.h"
 #include "content/public/browser/browser_task_traits.h"
@@ -60,7 +58,6 @@ class ProcessSingletonPosixTest : public testing::Test {
     using ProcessSingleton::NotifyOtherProcessWithTimeoutOrCreate;
     using ProcessSingleton::OverrideCurrentPidForTesting;
     using ProcessSingleton::OverrideKillCallbackForTesting;
-    using ProcessSingleton::StartWatching;
 
    private:
     bool NotificationCallback(const base::CommandLine& command_line,
@@ -249,7 +246,6 @@ class ProcessSingletonPosixTest : public testing::Test {
     process_singleton_on_thread_ = CreateProcessSingleton();
     ASSERT_EQ(ProcessSingleton::PROCESS_NONE,
               process_singleton_on_thread_->NotifyOtherProcessOrCreate());
-    process_singleton_on_thread_->StartWatching();
   }
 
   void DestructProcessSingleton() {
@@ -267,7 +263,7 @@ class ProcessSingletonPosixTest : public testing::Test {
   base::WaitableEvent signal_event_;
 
   std::unique_ptr<base::Thread> worker_thread_;
-  raw_ptr<TestableProcessSingleton> process_singleton_on_thread_;
+  TestableProcessSingleton* process_singleton_on_thread_;
 };
 
 }  // namespace
@@ -503,7 +499,7 @@ TEST_F(ProcessSingletonPosixTest, IgnoreSocketSymlinkWithTooLongTarget) {
       ProcessSingleton::ORPHANED_LOCK_FILE, 1u);
 }
 
-#if BUILDFLAG(IS_MAC)
+#if defined(OS_MAC)
 // Test that if there is an existing lock file, and we could not flock()
 // it, then exit.
 TEST_F(ProcessSingletonPosixTest, CreateRespectsOldMacLock) {
@@ -528,4 +524,4 @@ TEST_F(ProcessSingletonPosixTest, CreateReplacesOldMacLock) {
   EXPECT_TRUE(process_singleton->Create());
   VerifyFiles();
 }
-#endif  // BUILDFLAG(IS_MAC)
+#endif  // defined(OS_MAC)

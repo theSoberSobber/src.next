@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -17,10 +17,14 @@
 #include "base/time/time.h"
 #include "build/build_config.h"
 
-#if BUILDFLAG(IS_WIN)
+#if defined(OS_WIN)
 #include <windows.h>
 #endif
 #include <sys/types.h>
+
+#if defined(OS_POSIX) || defined(OS_FUCHSIA)
+#include "base/file_descriptor_posix.h"
+#endif
 
 namespace base {
 
@@ -108,7 +112,7 @@ class BASE_EXPORT CancelableSyncSocket : public SyncSocket {
   // a blocking Receive or Send.
   bool Shutdown();
 
-#if BUILDFLAG(IS_WIN)
+#if defined(OS_WIN)
   // Since the Linux and Mac implementations actually use a socket, shutting
   // them down from another thread is pretty simple - we can just call
   // shutdown().  However, the Windows implementation relies on named pipes
@@ -130,7 +134,7 @@ class BASE_EXPORT CancelableSyncSocket : public SyncSocket {
   size_t Send(const void* buffer, size_t length) override;
 
  private:
-#if BUILDFLAG(IS_WIN)
+#if defined(OS_WIN)
   WaitableEvent shutdown_event_;
   WaitableEvent file_operation_;
 #endif

@@ -1,4 +1,4 @@
-// Copyright 2020 The Chromium Authors
+// Copyright 2020 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -16,7 +16,6 @@
 #include "net/log/net_log_with_source.h"
 #include "net/ssl/ssl_info.h"
 #include "url/gurl.h"
-#include "url/scheme_host_port.h"
 
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
   FuzzedDataProvider data_provider{data, size};
@@ -31,21 +30,23 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
   }
   std::unique_ptr<net::HttpAuthHandlerRegistryFactory> factory =
       net::HttpAuthHandlerFactory::CreateDefault();
+  net::HttpAuthHandlerFactory* scheme_factory =
+      factory->GetSchemeFactory(scheme);
 
-  if (!factory->IsSchemeAllowedForTesting(scheme))
+  if (!scheme_factory)
     return 0;
 
   std::string challenge = data_provider.ConsumeRandomLengthString(500);
 
   // Dummies
   net::SSLInfo null_ssl_info;
-  url::SchemeHostPort scheme_host_port(GURL("https://foo.test/"));
+  GURL origin("https://foo.test/");
   auto host_resolver = std::make_unique<net::MockHostResolver>();
   std::unique_ptr<net::HttpAuthHandler> handler;
 
-  factory->CreateAuthHandlerFromString(
+  scheme_factory->CreateAuthHandlerFromString(
       challenge, net::HttpAuth::AUTH_SERVER, null_ssl_info,
-      net::NetworkIsolationKey(), scheme_host_port, net::NetLogWithSource(),
+      net::NetworkIsolationKey(), origin, net::NetLogWithSource(),
       host_resolver.get(), &handler);
 
   if (handler) {

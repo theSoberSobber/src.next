@@ -1,4 +1,4 @@
-// Copyright 2013 The Chromium Authors
+// Copyright 2013 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -8,9 +8,9 @@ import android.app.Activity;
 import android.content.ComponentCallbacks2;
 
 import org.chromium.base.annotations.CalledByNative;
+import org.chromium.base.annotations.MainDex;
 import org.chromium.base.annotations.NativeMethods;
 import org.chromium.base.memory.MemoryPressureCallback;
-import org.chromium.build.annotations.MainDex;
 
 /**
  * This class is Java equivalent of base::MemoryPressureListener: it distributes pressure
@@ -53,14 +53,13 @@ public class MemoryPressureListener {
     private static final String ACTION_TRIM_MEMORY_MODERATE =
             "org.chromium.base.ACTION_TRIM_MEMORY_MODERATE";
 
-    private static ObserverList<MemoryPressureCallback> sCallbacks;
+    private static final ObserverList<MemoryPressureCallback> sCallbacks = new ObserverList<>();
 
     /**
      * Called by the native side to add native callback.
      */
     @CalledByNative
     private static void addNativeCallback() {
-        ThreadUtils.assertOnUiThread();
         addCallback((pressure) -> MemoryPressureListenerJni.get().onMemoryPressure(pressure));
     }
 
@@ -70,8 +69,6 @@ public class MemoryPressureListener {
      * This method should be called only on ThreadUtils.UiThread.
      */
     public static void addCallback(MemoryPressureCallback callback) {
-        ThreadUtils.assertOnUiThread();
-        if (sCallbacks == null) sCallbacks = new ObserverList<>();
         sCallbacks.addObserver(callback);
     }
 
@@ -80,22 +77,14 @@ public class MemoryPressureListener {
      * This method should be called only on ThreadUtils.UiThread.
      */
     public static void removeCallback(MemoryPressureCallback callback) {
-        ThreadUtils.assertOnUiThread();
-        if (sCallbacks == null) return;
         sCallbacks.removeObserver(callback);
     }
 
     /**
      * Distributes |pressure| to all callbacks.
      * This method should be called only on ThreadUtils.UiThread.
-     *
-     * This includes sending the notification to the native side, provided that addNativeCallback()
-     * has been called. It does not trigger all the clients listening directly to
-     * ComponentCallbacks2 notifications.
      */
     public static void notifyMemoryPressure(@MemoryPressureLevel int pressure) {
-        ThreadUtils.assertOnUiThread();
-        if (sCallbacks == null) return;
         for (MemoryPressureCallback callback : sCallbacks) {
             callback.onPressure(pressure);
         }
@@ -106,7 +95,6 @@ public class MemoryPressureListener {
      * actions.
      */
     public static boolean handleDebugIntent(Activity activity, String action) {
-        ThreadUtils.assertOnUiThread();
         if (ACTION_LOW_MEMORY.equals(action)) {
             simulateLowMemoryPressureSignal(activity);
         } else if (ACTION_TRIM_MEMORY.equals(action)) {

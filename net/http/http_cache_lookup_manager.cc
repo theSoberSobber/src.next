@@ -1,4 +1,4 @@
-// Copyright 2016 The Chromium Authors
+// Copyright 2016 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -10,7 +10,6 @@
 #include "base/containers/contains.h"
 #include "base/values.h"
 #include "net/base/load_flags.h"
-#include "net/http/http_request_info.h"
 
 namespace net {
 
@@ -19,17 +18,18 @@ namespace net {
 base::Value NetLogPushLookupTransactionParams(
     const NetLogSource& net_log,
     const ServerPushDelegate::ServerPushHelper* push_helper) {
-  base::Value::Dict dict;
-  net_log.AddToEventParameters(dict);
-  dict.Set("push_url", push_helper->GetURL().possibly_invalid_spec());
-  return base::Value(std::move(dict));
+  base::Value dict(base::Value::Type::DICTIONARY);
+  net_log.AddToEventParameters(&dict);
+  dict.SetStringKey("push_url", push_helper->GetURL().possibly_invalid_spec());
+  return dict;
 }
 
 HttpCacheLookupManager::LookupTransaction::LookupTransaction(
     std::unique_ptr<ServerPushHelper> server_push_helper,
     NetLog* net_log)
     : push_helper_(std::move(server_push_helper)),
-      request_(std::make_unique<HttpRequestInfo>()),
+      request_(new HttpRequestInfo()),
+      transaction_(nullptr),
       net_log_(NetLogWithSource::Make(
           net_log,
           NetLogSourceType::SERVER_PUSH_LOOKUP_TRANSACTION)) {}

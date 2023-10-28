@@ -1,4 +1,4 @@
-// Copyright 2015 The Chromium Authors
+// Copyright 2015 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -8,10 +8,13 @@
 #include <memory>
 #include <string>
 
+#include "base/macros.h"
 #include "chrome/browser/extensions/extension_uninstall_dialog.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
-#include "components/services/app_service/public/cpp/icon_types.h"
+#include "components/services/app_service/public/mojom/types.mojom-forward.h"
+#include "third_party/abseil-cpp/absl/types/optional.h"
+#include "third_party/skia/include/core/SkColor.h"
 
 class Browser;
 
@@ -23,23 +26,19 @@ namespace extensions {
 
 class Extension;
 
-// Class to encapsulate logic to control the browser UI for extension based
-// Chrome Apps (platform apps and legacy packaged apps).
+// Class to encapsulate logic to control the browser UI for extension based web
+// apps.
 class HostedAppBrowserController : public web_app::AppBrowserController,
                                    public ExtensionUninstallDialog::Delegate {
  public:
   explicit HostedAppBrowserController(Browser* browser);
-
-  HostedAppBrowserController(const HostedAppBrowserController&) = delete;
-  HostedAppBrowserController& operator=(const HostedAppBrowserController&) =
-      delete;
-
   ~HostedAppBrowserController() override;
 
   // web_app::AppBrowserController:
   bool HasMinimalUiButtons() const override;
   ui::ImageModel GetWindowAppIcon() const override;
   ui::ImageModel GetWindowIcon() const override;
+  absl::optional<SkColor> GetThemeColor() const override;
   std::u16string GetTitle() const override;
   std::u16string GetAppShortName() const override;
   std::u16string GetFormattedUrlOrigin() const override;
@@ -67,13 +66,14 @@ class HostedAppBrowserController : public web_app::AppBrowserController,
   // Helper function to call AppServiceProxy to load icon.
   void LoadAppIcon(bool allow_placeholder_icon) const;
   // Invoked when the icon is loaded.
-  void OnLoadIcon(apps::IconValuePtr icon_value);
+  void OnLoadIcon(apps::mojom::IconValuePtr icon_value);
 
   gfx::ImageSkia app_icon_;
 
   std::unique_ptr<ExtensionUninstallDialog> uninstall_dialog_;
 
   base::WeakPtrFactory<HostedAppBrowserController> weak_ptr_factory_{this};
+  DISALLOW_COPY_AND_ASSIGN(HostedAppBrowserController);
 };
 
 }  // namespace extensions

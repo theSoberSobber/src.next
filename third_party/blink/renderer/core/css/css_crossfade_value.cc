@@ -50,7 +50,7 @@ String CSSCrossfadeValue::CustomCSSText() const {
   result.Append(", ");
   result.Append(percentage_value_->CssText());
   result.Append(')');
-  return result.ReleaseString();
+  return result.ToString();
 }
 
 bool CSSCrossfadeValue::HasFailedOrCanceledSubresources() const {
@@ -59,9 +59,9 @@ bool CSSCrossfadeValue::HasFailedOrCanceledSubresources() const {
 }
 
 bool CSSCrossfadeValue::Equals(const CSSCrossfadeValue& other) const {
-  return base::ValuesEquivalent(from_value_, other.from_value_) &&
-         base::ValuesEquivalent(to_value_, other.to_value_) &&
-         base::ValuesEquivalent(percentage_value_, other.percentage_value_);
+  return DataEquivalent(from_value_, other.from_value_) &&
+         DataEquivalent(to_value_, other.to_value_) &&
+         DataEquivalent(percentage_value_, other.percentage_value_);
 }
 
 class CSSCrossfadeValue::ObserverProxy final
@@ -99,10 +99,7 @@ class CSSCrossfadeValue::ObserverProxy final
 
   String DebugName() const override { return "CrossfadeObserverProxy"; }
 
-  void Trace(Visitor* visitor) const override {
-    visitor->Trace(owner_);
-    ImageResourceObserver::Trace(visitor);
-  }
+  void Trace(Visitor* visitor) const { visitor->Trace(owner_); }
 
  private:
   const ClientSizeCountMap& Clients() const { return owner_->Clients(); }

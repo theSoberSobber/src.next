@@ -1,4 +1,4 @@
-// Copyright 2015 The Chromium Authors
+// Copyright 2015 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -47,7 +47,7 @@ bool EnableSuspiciousExtensionsBubble() {
 }
 
 bool EnableSettingsApiBubble() {
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
+#if defined(OS_WIN) || defined(OS_MAC)
   return true;
 #else
   return g_override_for_testing ==
@@ -56,7 +56,7 @@ bool EnableSettingsApiBubble() {
 }
 
 bool EnableProxyOverrideBubble() {
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
+#if defined(OS_WIN) || defined(OS_MAC)
   return true;
 #else
   return g_override_for_testing ==
@@ -76,7 +76,7 @@ bool EnableDevModeBubble() {
   if (command_line->HasSwitch(switches::kEnableAutomation))
     return false;
 
-#if BUILDFLAG(IS_WIN)
+#if defined(OS_WIN)
   if (chrome::GetChannel() >= version_info::Channel::BETA)
     return true;
 #endif

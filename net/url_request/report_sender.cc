@@ -1,4 +1,4 @@
-// Copyright 2015 The Chromium Authors
+// Copyright 2015 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -80,7 +80,8 @@ void ReportSender::Send(const GURL& report_uri,
   url_request->set_method("POST");
 
   std::vector<char> report_data(report.begin(), report.end());
-  auto reader = std::make_unique<UploadOwnedBytesElementReader>(&report_data);
+  std::unique_ptr<UploadElementReader> reader(
+      new UploadOwnedBytesElementReader(&report_data));
   url_request->set_upload(
       ElementsUploadDataStream::CreateWithReader(std::move(reader), 0));
 

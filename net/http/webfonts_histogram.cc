@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium Authors
+// Copyright 2019 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -37,7 +37,8 @@ void RecordCacheEvent(net::HttpResponseInfo::CacheEntryStatus cache_status,
 
 }  // namespace
 
-namespace net::web_fonts_histogram {
+namespace net {
+namespace web_fonts_histogram {
 
 // Check if |key| is a URL for a font resource of Google Fonts.
 // If so, record the WebFont.HttpCacheStatus histogram suffixed by "roboto",
@@ -60,4 +61,5 @@ void MaybeRecordCacheStatus(HttpResponseInfo::CacheEntryStatus cache_status,
   }
 }
 
-}  // namespace net::web_fonts_histogram
+}  // namespace web_fonts_histogram
+}  // namespace net

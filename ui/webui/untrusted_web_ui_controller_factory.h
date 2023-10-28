@@ -1,4 +1,4 @@
-// Copyright 2020 The Chromium Authors
+// Copyright 2020 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -12,10 +12,10 @@ class GURL;
 namespace content {
 class BrowserContext;
 class WebUIController;
-class WebUIConfig;
 }  // namespace content
 
 namespace ui {
+class WebUIConfig;
 
 // Factory class for WebUIControllers for chrome-untrusted:// URLs.
 //
@@ -41,13 +41,13 @@ class UntrustedWebUIControllerFactory : public content::WebUIControllerFactory {
  protected:
   // Map of hosts to their corresponding WebUIConfigs.
   using WebUIConfigMap =
-      base::flat_map<std::string, std::unique_ptr<content::WebUIConfig>>;
+      base::flat_map<std::string, std::unique_ptr<ui::WebUIConfig>>;
   virtual const WebUIConfigMap& GetWebUIConfigMap() = 0;
 
  private:
   // Returns the WebUIConfig for |url| if it's registered and the WebUI is
   // enabled. (WebUIs can be disabled based on the profile or feature flags.)
-  content::WebUIConfig* GetConfigIfWebUIEnabled(
+  ui::WebUIConfig* GetConfigIfWebUIEnabled(
       content::BrowserContext* browser_context,
       const GURL& url);
 };

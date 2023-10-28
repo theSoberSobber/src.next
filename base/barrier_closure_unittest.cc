@@ -1,38 +1,31 @@
-// Copyright 2013 The Chromium Authors
+// Copyright 2013 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include "base/barrier_closure.h"
 
 #include "base/bind.h"
-#include "base/callback.h"
-#include "base/callback_helpers.h"
-#include "base/memory/raw_ptr.h"
-#include "base/test/bind.h"
-#include "base/test/gtest_util.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace {
 
+void Increment(int* count) { (*count)++; }
+
 TEST(BarrierClosureTest, RunImmediatelyForZeroClosures) {
   int count = 0;
-  base::RepeatingClosure barrier_closure = base::BarrierClosure(
-      0, base::BindLambdaForTesting([&count]() { ++count; }));
-  EXPECT_EQ(1, count);
-}
+  auto done_closure = base::BindOnce(&Increment, base::Unretained(&count));
 
-TEST(BarrierClosureTest, ChecksIfCalledForZeroClosures) {
   base::RepeatingClosure barrier_closure =
-      base::BarrierClosure(0, base::DoNothing());
-  EXPECT_FALSE(barrier_closure.is_null());
-
-  EXPECT_CHECK_DEATH(barrier_closure.Run());
+      base::BarrierClosure(0, std::move(done_closure));
+  EXPECT_EQ(1, count);
 }
 
 TEST(BarrierClosureTest, RunAfterNumClosures) {
   int count = 0;
-  base::RepeatingClosure barrier_closure = base::BarrierClosure(
-      2, base::BindLambdaForTesting([&count]() { ++count; }));
+  auto done_closure = base::BindOnce(&Increment, base::Unretained(&count));
+
+  base::RepeatingClosure barrier_closure =
+      base::BarrierClosure(2, std::move(done_closure));
   EXPECT_EQ(0, count);
 
   barrier_closure.Run();
@@ -54,7 +47,7 @@ class DestructionIndicator {
   void DoNothing() {}
 
  private:
-  raw_ptr<bool> destructed_;
+  bool* destructed_;
 };
 
 TEST(BarrierClosureTest, ReleasesDoneClosureWhenDone) {
@@ -68,6 +61,10 @@ TEST(BarrierClosureTest, ReleasesDoneClosureWhenDone) {
   EXPECT_TRUE(done_destructed);
 }
 
+void ResetBarrierClosure(base::RepeatingClosure* closure) {
+  *closure = base::RepeatingClosure();
+}
+
 // Tests a case when |done_closure| resets a |barrier_closure|.
 // |barrier_closure| is a RepeatingClosure holding the |done_closure|.
 // |done_closure| holds a pointer back to the |barrier_closure|. When
@@ -77,12 +74,9 @@ TEST(BarrierClosureTest, ReleasesDoneClosureWhenDone) {
 // ResetBarrierClosure() or this test would crash inside Run().
 TEST(BarrierClosureTest, KeepingClosureAliveUntilDone) {
   base::RepeatingClosure barrier_closure;
-  barrier_closure =
-      base::BarrierClosure(1, base::BindLambdaForTesting([&barrier_closure]() {
-                             barrier_closure = base::RepeatingClosure();
-                           }));
+  auto done_closure = base::BindOnce(ResetBarrierClosure, &barrier_closure);
+  barrier_closure = base::BarrierClosure(1, std::move(done_closure));
   barrier_closure.Run();
-  EXPECT_TRUE(barrier_closure.is_null());
 }
 
 }  // namespace

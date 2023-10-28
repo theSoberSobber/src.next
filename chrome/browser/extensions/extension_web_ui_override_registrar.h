@@ -1,10 +1,11 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_EXTENSIONS_EXTENSION_WEB_UI_OVERRIDE_REGISTRAR_H_
 #define CHROME_BROWSER_EXTENSIONS_EXTENSION_WEB_UI_OVERRIDE_REGISTRAR_H_
 
+#include "base/macros.h"
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
 #include "extensions/browser/browser_context_keyed_api_factory.h"
@@ -21,12 +22,6 @@ class ExtensionWebUIOverrideRegistrar : public BrowserContextKeyedAPI,
                                         public ExtensionRegistryObserver {
  public:
   explicit ExtensionWebUIOverrideRegistrar(content::BrowserContext* context);
-
-  ExtensionWebUIOverrideRegistrar(const ExtensionWebUIOverrideRegistrar&) =
-      delete;
-  ExtensionWebUIOverrideRegistrar& operator=(
-      const ExtensionWebUIOverrideRegistrar&) = delete;
-
   ~ExtensionWebUIOverrideRegistrar() override;
 
   // BrowserContextKeyedAPI implementation.
@@ -59,6 +54,8 @@ class ExtensionWebUIOverrideRegistrar : public BrowserContextKeyedAPI,
       extension_registry_observation_{this};
 
   base::WeakPtrFactory<ExtensionWebUIOverrideRegistrar> weak_factory_{this};
+
+  DISALLOW_COPY_AND_ASSIGN(ExtensionWebUIOverrideRegistrar);
 };
 
 }  // namespace extensions

@@ -73,7 +73,8 @@ void DocumentLoadTiming::NotifyDocumentTimingChanged() {
 
 void DocumentLoadTiming::EnsureReferenceTimesSet() {
   if (reference_wall_time_.is_zero()) {
-    reference_wall_time_ = base::Seconds(clock_->Now().ToDoubleT());
+    reference_wall_time_ =
+        base::TimeDelta::FromSecondsD(clock_->Now().ToDoubleT());
   }
   if (reference_monotonic_time_.is_null())
     reference_monotonic_time_ = tick_clock_->NowTicks();
@@ -91,7 +92,8 @@ int64_t DocumentLoadTiming::ZeroBasedDocumentTimeToMonotonicTime(
   if (reference_monotonic_time_.is_null())
     return 0;
   base::TimeTicks monotonic_time =
-      reference_monotonic_time_ + base::Milliseconds(dom_event_time);
+      reference_monotonic_time_ +
+      base::TimeDelta::FromMillisecondsD(dom_event_time);
   return monotonic_time.since_origin().InMilliseconds();
 }
 
@@ -129,8 +131,6 @@ void DocumentLoadTiming::WriteNavigationStartDataIntoTracedValue(
            document_loader_ ? document_loader_->Url().GetString() : "");
   dict.Add("isLoadingMainFrame",
            GetFrame() ? GetFrame()->IsMainFrame() : false);
-  dict.Add("isOutermostMainFrame",
-           GetFrame() ? GetFrame()->IsOutermostMainFrame() : false);
   dict.Add("navigationId", IdentifiersFactory::LoaderId(document_loader_));
 }
 
@@ -154,7 +154,7 @@ void DocumentLoadTiming::SetNavigationStart(base::TimeTicks navigation_start) {
   NotifyDocumentTimingChanged();
 }
 
-void DocumentLoadTiming::SetBackForwardCacheRestoreNavigationStart(
+void DocumentLoadTiming::MarkBackForwardCacheRestoreNavigationStart(
     base::TimeTicks navigation_start) {
   bfcache_restore_navigation_starts_.push_back(navigation_start);
   NotifyDocumentTimingChanged();
@@ -214,7 +214,7 @@ void DocumentLoadTiming::SetRedirectEnd(base::TimeTicks redirect_end) {
   NotifyDocumentTimingChanged();
 }
 
-void DocumentLoadTiming::SetUnloadEventStart(base::TimeTicks start_time) {
+void DocumentLoadTiming::MarkUnloadEventStart(base::TimeTicks start_time) {
   unload_event_start_ = start_time;
   TRACE_EVENT_MARK_WITH_TIMESTAMP1("blink.user_timing", "unloadEventStart",
                                    start_time, "frame",
@@ -222,7 +222,7 @@ void DocumentLoadTiming::SetUnloadEventStart(base::TimeTicks start_time) {
   NotifyDocumentTimingChanged();
 }
 
-void DocumentLoadTiming::SetUnloadEventEnd(base::TimeTicks end_time) {
+void DocumentLoadTiming::MarkUnloadEventEnd(base::TimeTicks end_time) {
   unload_event_end_ = end_time;
   TRACE_EVENT_MARK_WITH_TIMESTAMP1("blink.user_timing", "unloadEventEnd",
                                    end_time, "frame", ToTraceValue(GetFrame()));
@@ -281,7 +281,7 @@ void DocumentLoadTiming::MarkCommitNavigationEnd() {
   NotifyDocumentTimingChanged();
 }
 
-void DocumentLoadTiming::SetActivationStart(base::TimeTicks activation_start) {
+void DocumentLoadTiming::MarkActivationStart(base::TimeTicks activation_start) {
   activation_start_ = activation_start;
   TRACE_EVENT_MARK_WITH_TIMESTAMP1("blink.user_timing", "activationtart",
                                    activation_start, "frame",

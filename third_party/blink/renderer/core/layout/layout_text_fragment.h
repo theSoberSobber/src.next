@@ -23,10 +23,9 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_CORE_LAYOUT_LAYOUT_TEXT_FRAGMENT_H_
 #define THIRD_PARTY_BLINK_RENDERER_CORE_LAYOUT_LAYOUT_TEXT_FRAGMENT_H_
 
-#include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/editing/editing_utilities.h"
 #include "third_party/blink/renderer/core/layout/layout_text.h"
-#include "third_party/blink/renderer/platform/heap/member.h"
+#include "third_party/blink/renderer/platform/heap/handle.h"
 
 namespace blink {
 
@@ -40,7 +39,6 @@ class FirstLetterPseudoElement;
 // node.
 class CORE_EXPORT LayoutTextFragment : public LayoutText {
  public:
-  LayoutTextFragment(Node*, StringImpl*, int start_offset, int length);
   ~LayoutTextFragment() override;
 
   static LayoutTextFragment* Create(Node*,
@@ -56,13 +54,6 @@ class CORE_EXPORT LayoutTextFragment : public LayoutText {
                                              unsigned start,
                                              unsigned length,
                                              LegacyLayout);
-  static LayoutTextFragment* CreateAnonymous(Document&,
-                                             StringImpl*,
-                                             unsigned start,
-                                             unsigned length,
-                                             LegacyLayout);
-
-  void Trace(Visitor*) const override;
 
   Position PositionForCaretOffset(unsigned) const override;
   absl::optional<unsigned> CaretOffsetForPosition(
@@ -131,6 +122,7 @@ class CORE_EXPORT LayoutTextFragment : public LayoutText {
 
  protected:
   friend class LayoutObjectFactory;
+  LayoutTextFragment(Node*, StringImpl*, int start_offset, int length);
   void WillBeDestroyed() override;
 
  private:
@@ -141,14 +133,13 @@ class CORE_EXPORT LayoutTextFragment : public LayoutText {
   void UpdateHitTestResult(HitTestResult&,
                            const PhysicalOffset&) const override;
 
-  DOMNodeId OwnerNodeId() const final;
-
   unsigned start_;
   unsigned fragment_length_;
   bool is_remaining_text_layout_object_;
   scoped_refptr<StringImpl> content_string_;
-
-  Member<FirstLetterPseudoElement> first_letter_pseudo_element_;
+  // Reference back to FirstLetterPseudoElement; cleared by
+  // FirstLetterPseudoElement::detachLayoutTree() if it goes away first.
+  UntracedMember<FirstLetterPseudoElement> first_letter_pseudo_element_;
 };
 
 template <>

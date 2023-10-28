@@ -31,7 +31,6 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_CORE_LAYOUT_LAYOUT_RUBY_H_
 #define THIRD_PARTY_BLINK_RENDERER_CORE_LAYOUT_LAYOUT_RUBY_H_
 
-#include "base/notreached.h"
 #include "third_party/blink/renderer/core/layout/layout_block_flow.h"
 #include "third_party/blink/renderer/core/layout/layout_inline.h"
 
@@ -46,9 +45,9 @@ namespace blink {
 //          0 or 1 LayoutRubyText - shuffled to the front in order to re-use
 //                                  existing block layouting
 //              0-n inline object(s)
-//          1 LayoutRubyBase - contains the inline objects that make up the
-//                             ruby base
-//              0-n inline object(s)
+//          0 or 1 LayoutRubyBase - contains the inline objects that make up the
+//                                  ruby base
+//              1-n inline object(s)
 //
 // Note: <rp> elements are defined as having 'display:none' and thus normally
 // are not assigned a layoutObject.
@@ -87,7 +86,7 @@ class LayoutRubyAsInline final : public LayoutInline {
 // <ruby> when used as 'display:block' or 'display:inline-block'
 class LayoutRubyAsBlock : public LayoutBlockFlow {
  public:
-  LayoutRubyAsBlock(ContainerNode*);
+  LayoutRubyAsBlock(Element*);
   ~LayoutRubyAsBlock() override;
 
   void AddChild(LayoutObject* child,

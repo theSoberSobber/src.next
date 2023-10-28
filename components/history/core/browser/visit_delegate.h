@@ -1,4 +1,4 @@
-// Copyright 2015 The Chromium Authors
+// Copyright 2015 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -6,6 +6,8 @@
 #define COMPONENTS_HISTORY_CORE_BROWSER_VISIT_DELEGATE_H_
 
 #include <vector>
+
+#include "base/macros.h"
 
 class GURL;
 
@@ -18,10 +20,6 @@ class HistoryService;
 class VisitDelegate {
  public:
   VisitDelegate();
-
-  VisitDelegate(const VisitDelegate&) = delete;
-  VisitDelegate& operator=(const VisitDelegate&) = delete;
-
   virtual ~VisitDelegate();
 
   // Called once HistoryService initialization is complete. Returns true if the
@@ -39,6 +37,9 @@ class VisitDelegate {
 
   // Called when all URLs are removed from HistoryService.
   virtual void DeleteAllURLs() = 0;
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(VisitDelegate);
 };
 
 }  // namespace history

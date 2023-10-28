@@ -13,7 +13,6 @@
 #include "third_party/blink/renderer/core/style/computed_style.h"
 #include "third_party/blink/renderer/core/testing/page_test_base.h"
 #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
-#include "third_party/blink/renderer/platform/testing/runtime_enabled_features_test_helpers.h"
 #include "third_party/blink/renderer/platform/testing/unit_test_helpers.h"
 #include "third_party/blink/renderer/platform/wtf/shared_buffer.h"
 
@@ -84,46 +83,19 @@ class StyleEnvironmentVariablesTest : public PageTestBase {
     ASSERT_EQ(url.GetString(), GetDocument().Url().GetString());
   }
 
-  String GetRootVariableValue(UADefinedVariable name) {
+  const String& GetRootVariableValue(UADefinedVariable name) {
     CSSVariableData* data =
         StyleEnvironmentVariables::GetRootInstance().ResolveVariable(
             StyleEnvironmentVariables::GetVariableName(
-                name, /*feature_context=*/nullptr),
-            {});
+                name, /*feature_context=*/nullptr));
     EXPECT_NE(nullptr, data);
-    Vector<String> backing_strings;
-    data->AppendBackingStrings(backing_strings);
-    return backing_strings[0];
-  }
-
-  void SetVariableOnRoot(const AtomicString& name, const String& value) {
-    StyleEnvironmentVariables::GetRootInstance().SetVariable(name, value);
-  }
-
-  void RemoveVariableOnRoot(const AtomicString& name) {
-    StyleEnvironmentVariables::GetRootInstance().RemoveVariable(name);
-  }
-
-  void SetVariableOnDocument(const AtomicString& name, const String& value) {
-    GetDocumentVariables().SetVariable(name, value);
-  }
-
-  void RemoveVariableOnDocument(const AtomicString& name) {
-    GetDocumentVariables().RemoveVariable(name);
-  }
-
-  void SetTwoDimensionalVariableOnRoot(UADefinedTwoDimensionalVariable variable,
-                                       unsigned first_dimension,
-                                       unsigned second_dimension,
-                                       const String& value) {
-    StyleEnvironmentVariables::GetRootInstance().SetVariable(
-        variable, first_dimension, second_dimension, value);
+    return data->BackingStrings()[0];
   }
 };
 
 TEST_F(StyleEnvironmentVariablesTest, DocumentVariable_AfterLoad) {
   InitializeTestPageWithVariableNamed(GetFrame(), kVariableName);
-  SetVariableOnDocument(kVariableName, kVariableTestColor);
+  GetDocumentVariables().SetVariable(kVariableName, kVariableTestColor);
 
   // Ensure that the document has been invalidated.
   EXPECT_TRUE(GetDocument().NeedsLayoutTreeUpdate());
@@ -136,11 +108,11 @@ TEST_F(StyleEnvironmentVariablesTest, DocumentVariable_AfterLoad) {
 }
 
 TEST_F(StyleEnvironmentVariablesTest, DocumentVariable_Change) {
-  SetVariableOnDocument(kVariableName, kVariableAltTestColor);
+  GetDocumentVariables().SetVariable(kVariableName, kVariableAltTestColor);
   InitializeTestPageWithVariableNamed(GetFrame(), kVariableName);
 
   // Change the variable value after we have loaded the page.
-  SetVariableOnDocument(kVariableName, kVariableTestColor);
+  GetDocumentVariables().SetVariable(kVariableName, kVariableTestColor);
 
   // Ensure that the document has been invalidated.
   EXPECT_TRUE(GetDocument().NeedsLayoutTreeUpdate());
@@ -155,7 +127,8 @@ TEST_F(StyleEnvironmentVariablesTest, DocumentVariable_Change) {
 TEST_F(StyleEnvironmentVariablesTest,
        DocumentVariable_Override_RemoveDocument) {
   // Set the variable globally.
-  SetVariableOnRoot(kVariableName, kVariableAltTestColor);
+  StyleEnvironmentVariables::GetRootInstance().SetVariable(
+      kVariableName, kVariableAltTestColor);
   InitializeTestPageWithVariableNamed(GetFrame(), kVariableName);
 
   // Check that the element has the background color provided by the global
@@ -165,7 +138,7 @@ TEST_F(StyleEnvironmentVariablesTest,
                                GetCSSPropertyBackgroundColor()));
 
   // Change the variable value on the document after we have loaded the page.
-  SetVariableOnDocument(kVariableName, kVariableTestColor);
+  GetDocumentVariables().SetVariable(kVariableName, kVariableTestColor);
 
   // Ensure that the document has been invalidated.
   EXPECT_TRUE(GetDocument().NeedsLayoutTreeUpdate());
@@ -177,7 +150,7 @@ TEST_F(StyleEnvironmentVariablesTest,
                                GetCSSPropertyBackgroundColor()));
 
   // Remove the document variable.
-  RemoveVariableOnDocument(kVariableName);
+  GetDocumentVariables().RemoveVariable(kVariableName);
 
   // Ensure that the document has been invalidated.
   EXPECT_TRUE(GetDocument().NeedsLayoutTreeUpdate());
@@ -191,7 +164,8 @@ TEST_F(StyleEnvironmentVariablesTest,
 
 TEST_F(StyleEnvironmentVariablesTest, DocumentVariable_Override_RemoveGlobal) {
   // Set the variable globally.
-  SetVariableOnRoot(kVariableName, kVariableAltTestColor);
+  StyleEnvironmentVariables::GetRootInstance().SetVariable(
+      kVariableName, kVariableAltTestColor);
   InitializeTestPageWithVariableNamed(GetFrame(), kVariableName);
 
   // Check that the element has the background color provided by the global
@@ -201,7 +175,7 @@ TEST_F(StyleEnvironmentVariablesTest, DocumentVariable_Override_RemoveGlobal) {
                                GetCSSPropertyBackgroundColor()));
 
   // Change the variable value on the document after we have loaded the page.
-  SetVariableOnDocument(kVariableName, kVariableTestColor);
+  GetDocumentVariables().SetVariable(kVariableName, kVariableTestColor);
 
   // Ensure that the document has been invalidated.
   EXPECT_TRUE(GetDocument().NeedsLayoutTreeUpdate());
@@ -213,14 +187,14 @@ TEST_F(StyleEnvironmentVariablesTest, DocumentVariable_Override_RemoveGlobal) {
                                GetCSSPropertyBackgroundColor()));
 
   // Remove the global variable.
-  RemoveVariableOnRoot(kVariableName);
+  StyleEnvironmentVariables::GetRootInstance().RemoveVariable(kVariableName);
 
   // Ensure that the document has not been invalidated.
   EXPECT_FALSE(GetDocument().NeedsLayoutTreeUpdate());
 }
 
 TEST_F(StyleEnvironmentVariablesTest, DocumentVariable_Preset) {
-  SetVariableOnDocument(kVariableName, kVariableTestColor);
+  GetDocumentVariables().SetVariable(kVariableName, kVariableTestColor);
   InitializeTestPageWithVariableNamed(GetFrame(), kVariableName);
 
   // Check that the element has the background color provided by the variable.
@@ -230,7 +204,7 @@ TEST_F(StyleEnvironmentVariablesTest, DocumentVariable_Preset) {
 }
 
 TEST_F(StyleEnvironmentVariablesTest, DocumentVariable_Remove) {
-  SetVariableOnDocument(kVariableName, kVariableTestColor);
+  GetDocumentVariables().SetVariable(kVariableName, kVariableTestColor);
   InitializeTestPageWithVariableNamed(GetFrame(), kVariableName);
 
   // Check that the element has the background color provided by the variable.
@@ -239,7 +213,7 @@ TEST_F(StyleEnvironmentVariablesTest, DocumentVariable_Remove) {
                                GetCSSPropertyBackgroundColor()));
 
   // Change the variable value after we have loaded the page.
-  RemoveVariableOnDocument(kVariableName);
+  GetDocumentVariables().RemoveVariable(kVariableName);
 
   // Ensure that the document has been invalidated.
   EXPECT_TRUE(GetDocument().NeedsLayoutTreeUpdate());
@@ -254,14 +228,15 @@ TEST_F(StyleEnvironmentVariablesTest, MultiDocumentInvalidation_FromRoot) {
   InitializeTestPageWithVariableNamed(GetFrame(), kVariableName);
 
   // Create a second page that uses the variable.
-  auto new_page = std::make_unique<DummyPageHolder>(gfx::Size(800, 600));
+  auto new_page = std::make_unique<DummyPageHolder>(IntSize(800, 600));
   InitializeTestPageWithVariableNamed(new_page->GetFrame(), kVariableName);
 
   // Create an empty page that does not use the variable.
-  auto empty_page = std::make_unique<DummyPageHolder>(gfx::Size(800, 600));
+  auto empty_page = std::make_unique<DummyPageHolder>(IntSize(800, 600));
   empty_page->GetDocument().View()->UpdateAllLifecyclePhasesForTest();
 
-  SetVariableOnRoot(kVariableName, kVariableTestColor);
+  StyleEnvironmentVariables::GetRootInstance().SetVariable(kVariableName,
+                                                           kVariableTestColor);
 
   // The first two pages should be invalidated and the empty one should not.
   EXPECT_TRUE(GetDocument().NeedsLayoutTreeUpdate());
@@ -273,10 +248,10 @@ TEST_F(StyleEnvironmentVariablesTest, MultiDocumentInvalidation_FromDocument) {
   InitializeTestPageWithVariableNamed(GetFrame(), kVariableName);
 
   // Create a second page that uses the variable.
-  auto new_page = std::make_unique<DummyPageHolder>(gfx::Size(800, 600));
+  auto new_page = std::make_unique<DummyPageHolder>(IntSize(800, 600));
   InitializeTestPageWithVariableNamed(new_page->GetFrame(), kVariableName);
 
-  SetVariableOnDocument(kVariableName, kVariableTestColor);
+  GetDocumentVariables().SetVariable(kVariableName, kVariableTestColor);
 
   // Only the first document should be invalidated.
   EXPECT_TRUE(GetDocument().NeedsLayoutTreeUpdate());
@@ -284,7 +259,7 @@ TEST_F(StyleEnvironmentVariablesTest, MultiDocumentInvalidation_FromDocument) {
 }
 
 TEST_F(StyleEnvironmentVariablesTest, NavigateToClear) {
-  SetVariableOnDocument(kVariableName, kVariableTestColor);
+  GetDocumentVariables().SetVariable(kVariableName, kVariableTestColor);
 
   // Simulate a navigation to clear the variables.
   SimulateNavigation();
@@ -298,7 +273,8 @@ TEST_F(StyleEnvironmentVariablesTest, NavigateToClear) {
 
 TEST_F(StyleEnvironmentVariablesTest, GlobalVariable_AfterLoad) {
   InitializeTestPageWithVariableNamed(GetFrame(), kVariableName);
-  SetVariableOnRoot(kVariableName, kVariableTestColor);
+  StyleEnvironmentVariables::GetRootInstance().SetVariable(kVariableName,
+                                                           kVariableTestColor);
 
   // Ensure that the document has been invalidated.
   EXPECT_TRUE(GetDocument().NeedsLayoutTreeUpdate());
@@ -311,11 +287,13 @@ TEST_F(StyleEnvironmentVariablesTest, GlobalVariable_AfterLoad) {
 }
 
 TEST_F(StyleEnvironmentVariablesTest, GlobalVariable_Change) {
-  SetVariableOnRoot(kVariableName, kVariableAltTestColor);
+  StyleEnvironmentVariables::GetRootInstance().SetVariable(
+      kVariableName, kVariableAltTestColor);
   InitializeTestPageWithVariableNamed(GetFrame(), kVariableName);
 
   // Change the variable value after we have loaded the page.
-  SetVariableOnRoot(kVariableName, kVariableTestColor);
+  StyleEnvironmentVariables::GetRootInstance().SetVariable(kVariableName,
+                                                           kVariableTestColor);
 
   // Ensure that the document has been invalidated.
   EXPECT_TRUE(GetDocument().NeedsLayoutTreeUpdate());
@@ -339,11 +317,12 @@ TEST_F(StyleEnvironmentVariablesTest, GlobalVariable_DefaultsPresent) {
 
   EXPECT_EQ(
       nullptr,
-      StyleEnvironmentVariables::GetRootInstance().ResolveVariable("test", {}));
+      StyleEnvironmentVariables::GetRootInstance().ResolveVariable("test"));
 }
 
 TEST_F(StyleEnvironmentVariablesTest, GlobalVariable_Preset) {
-  SetVariableOnRoot(kVariableName, kVariableTestColor);
+  StyleEnvironmentVariables::GetRootInstance().SetVariable(kVariableName,
+                                                           kVariableTestColor);
   InitializeTestPageWithVariableNamed(GetFrame(), kVariableName);
 
   // Check that the element has the background color provided by the variable.
@@ -353,7 +332,8 @@ TEST_F(StyleEnvironmentVariablesTest, GlobalVariable_Preset) {
 }
 
 TEST_F(StyleEnvironmentVariablesTest, GlobalVariable_Remove) {
-  SetVariableOnRoot(kVariableName, kVariableTestColor);
+  StyleEnvironmentVariables::GetRootInstance().SetVariable(kVariableName,
+                                                           kVariableTestColor);
   InitializeTestPageWithVariableNamed(GetFrame(), kVariableName);
 
   // Check that the element has the background color provided by the variable.
@@ -362,7 +342,7 @@ TEST_F(StyleEnvironmentVariablesTest, GlobalVariable_Remove) {
                                GetCSSPropertyBackgroundColor()));
 
   // Change the variable value after we have loaded the page.
-  RemoveVariableOnRoot(kVariableName);
+  StyleEnvironmentVariables::GetRootInstance().RemoveVariable(kVariableName);
 
   // Ensure that the document has been invalidated.
   EXPECT_TRUE(GetDocument().NeedsLayoutTreeUpdate());
@@ -447,329 +427,5 @@ TEST_F(StyleEnvironmentVariablesTest, RecordUseCounter_SafeAreaInsetTop) {
   EXPECT_TRUE(GetDocument().IsUseCounted(
       WebFeature::kCSSEnvironmentVariable_SafeAreaInsetTop));
 }
-
-TEST_F(StyleEnvironmentVariablesTest, KeyboardInset_AfterLoad) {
-  // This test asserts that the keyboard inset environment variables are loaded
-  // by default.
-  CSSVariableData* data =
-      StyleEnvironmentVariables::GetRootInstance().ResolveVariable(
-          StyleEnvironmentVariables::GetVariableName(
-              UADefinedVariable::kKeyboardInsetTop,
-              /*feature_context=*/nullptr),
-          {});
-  EXPECT_TRUE(data);
-  data = StyleEnvironmentVariables::GetRootInstance().ResolveVariable(
-      StyleEnvironmentVariables::GetVariableName(
-          UADefinedVariable::kKeyboardInsetLeft, /*feature_context=*/nullptr),
-      {});
-  EXPECT_TRUE(data);
-  data = StyleEnvironmentVariables::GetRootInstance().ResolveVariable(
-      StyleEnvironmentVariables::GetVariableName(
-          UADefinedVariable::kKeyboardInsetBottom,
-          /*feature_context=*/nullptr),
-      {});
-  EXPECT_TRUE(data);
-  data = StyleEnvironmentVariables::GetRootInstance().ResolveVariable(
-      StyleEnvironmentVariables::GetVariableName(
-          UADefinedVariable::kKeyboardInsetRight, /*feature_context=*/nullptr),
-      {});
-  EXPECT_TRUE(data);
-  data = StyleEnvironmentVariables::GetRootInstance().ResolveVariable(
-      StyleEnvironmentVariables::GetVariableName(
-          UADefinedVariable::kKeyboardInsetWidth, /*feature_context=*/nullptr),
-      {});
-  EXPECT_TRUE(data);
-  data = StyleEnvironmentVariables::GetRootInstance().ResolveVariable(
-      StyleEnvironmentVariables::GetVariableName(
-          UADefinedVariable::kKeyboardInsetHeight,
-          /*feature_context=*/nullptr),
-      {});
-  EXPECT_TRUE(data);
-}
-
-TEST_F(StyleEnvironmentVariablesTest, TwoDimensionalVariables_BasicResolve) {
-  ScopedCSSFoldablesForTest scoped_feature(true);
-  String env_contents("viewport-segment-top 1 0");
-  InitializeTestPageWithVariableNamed(GetFrame(), env_contents);
-  SetTwoDimensionalVariableOnRoot(
-      UADefinedTwoDimensionalVariable::kViewportSegmentTop, 1, 0, "red");
-
-  // Ensure that the document has been invalidated.
-  EXPECT_TRUE(GetDocument().NeedsLayoutTreeUpdate());
-  UpdateAllLifecyclePhasesForTest();
-
-  // Check that the element has the background color provided by the variable.
-  Element* target = GetDocument().getElementById("target");
-  EXPECT_EQ(kTestColorRed, target->ComputedStyleRef().VisitedDependentColor(
-                               GetCSSPropertyBackgroundColor()));
-}
-
-TEST_F(StyleEnvironmentVariablesTest, TwoDimensionalVariables_UpdateValue) {
-  ScopedCSSFoldablesForTest scoped_feature(true);
-  String env_contents("viewport-segment-top 1 0");
-  InitializeTestPageWithVariableNamed(GetFrame(), env_contents);
-  SetTwoDimensionalVariableOnRoot(
-      UADefinedTwoDimensionalVariable::kViewportSegmentTop, 1, 0, "red");
-
-  // Ensure that the document has been invalidated.
-  EXPECT_TRUE(GetDocument().NeedsLayoutTreeUpdate());
-  UpdateAllLifecyclePhasesForTest();
-
-  // Check that the element has the background color provided by the variable.
-  Element* target = GetDocument().getElementById("target");
-  EXPECT_EQ(kTestColorRed, target->ComputedStyleRef().VisitedDependentColor(
-                               GetCSSPropertyBackgroundColor()));
-
-  SetTwoDimensionalVariableOnRoot(
-      UADefinedTwoDimensionalVariable::kViewportSegmentTop, 1, 0, "blue");
-  EXPECT_TRUE(GetDocument().NeedsLayoutTreeUpdate());
-  UpdateAllLifecyclePhasesForTest();
-  EXPECT_EQ(kAltTestColor, target->ComputedStyleRef().VisitedDependentColor(
-                               GetCSSPropertyBackgroundColor()));
-}
-
-TEST_F(StyleEnvironmentVariablesTest,
-       TwoDimensionalVariables_UndefinedFallsBack) {
-  ScopedCSSFoldablesForTest scoped_feature(true);
-  String env_contents(
-      "viewport-segment-width 10 20, env(viewport-segment-width 0 0, blue)");
-  InitializeTestPageWithVariableNamed(GetFrame(), env_contents);
-  SetTwoDimensionalVariableOnRoot(
-      UADefinedTwoDimensionalVariable::kViewportSegmentWidth, 1, 1, "red");
-
-  // Ensure that the document has been invalidated.
-  EXPECT_TRUE(GetDocument().NeedsLayoutTreeUpdate());
-  UpdateAllLifecyclePhasesForTest();
-
-  // Check that the element has the background color provided by the fallback.
-  Element* target = GetDocument().getElementById("target");
-  EXPECT_EQ(kAltTestColor, target->ComputedStyleRef().VisitedDependentColor(
-                               GetCSSPropertyBackgroundColor()));
-}
-
-TEST_F(StyleEnvironmentVariablesTest,
-       TwoDimensionalVariables_IncorrectDimensionsFallsBack) {
-  ScopedCSSFoldablesForTest scoped_feature(true);
-  String env_contents("viewport-segment-width 0 0 0 0, blue");
-  InitializeTestPageWithVariableNamed(GetFrame(), env_contents);
-  SetTwoDimensionalVariableOnRoot(
-      UADefinedTwoDimensionalVariable::kViewportSegmentWidth, 0, 0, "red");
-
-  // Ensure that the document has been invalidated.
-  EXPECT_TRUE(GetDocument().NeedsLayoutTreeUpdate());
-  UpdateAllLifecyclePhasesForTest();
-
-  // Check that the element has the background color provided by the fallback.
-  Element* target = GetDocument().getElementById("target");
-  EXPECT_EQ(kAltTestColor, target->ComputedStyleRef().VisitedDependentColor(
-                               GetCSSPropertyBackgroundColor()));
-}
-
-TEST_F(StyleEnvironmentVariablesTest,
-       TwoDimensionalVariables_NormalVariableWithDimensionFallsBack) {
-  ScopedCSSFoldablesForTest scoped_feature(true);
-  String env_contents("safe-area-inset-left 0, blue");
-  InitializeTestPageWithVariableNamed(GetFrame(), env_contents);
-  SetVariableOnRoot("safe-area-inset-left", "red");
-
-  // Ensure that the document has been invalidated.
-  EXPECT_TRUE(GetDocument().NeedsLayoutTreeUpdate());
-  UpdateAllLifecyclePhasesForTest();
-
-  // Check that the element has the background color provided by the fallback.
-  Element* target = GetDocument().getElementById("target");
-  EXPECT_EQ(kAltTestColor, target->ComputedStyleRef().VisitedDependentColor(
-                               GetCSSPropertyBackgroundColor()));
-}
-
-TEST_F(StyleEnvironmentVariablesTest,
-       TwoDimensionalVariables_NegativeIndicesInvalid) {
-  ScopedCSSFoldablesForTest scoped_feature(true);
-  String env_contents("viewport-segment-top -1 -1, blue");
-  InitializeTestPageWithVariableNamed(GetFrame(), env_contents);
-  SetTwoDimensionalVariableOnRoot(
-      UADefinedTwoDimensionalVariable::kViewportSegmentTop, 0, 0, "red");
-  SetTwoDimensionalVariableOnRoot(
-      UADefinedTwoDimensionalVariable::kViewportSegmentTop, 1, 1, "red");
-
-  // Document should not have been invalidated since the value was a parse
-  // error and viewport-segment-left is not referenced.
-  EXPECT_FALSE(GetDocument().NeedsLayoutTreeUpdate());
-
-  // Check that the element has no cascaded background color.
-  Element* target = GetDocument().getElementById("target");
-  EXPECT_EQ(kNoColor, target->ComputedStyleRef().VisitedDependentColor(
-                          GetCSSPropertyBackgroundColor()));
-}
-
-TEST_F(StyleEnvironmentVariablesTest,
-       TwoDimensionalVariables_NonCommaAfterIndexInvalid) {
-  ScopedCSSFoldablesForTest scoped_feature(true);
-  String env_contents("viewport-segment-left 1 1 ident");
-  InitializeTestPageWithVariableNamed(GetFrame(), env_contents);
-  SetTwoDimensionalVariableOnRoot(
-      UADefinedTwoDimensionalVariable::kViewportSegmentLeft, 1, 1, "red");
-
-  // Document should not have been invalidated since the value was a parse
-  // error and viewport-segment-left is not referenced.
-  EXPECT_FALSE(GetDocument().NeedsLayoutTreeUpdate());
-
-  // Check that the element has no cascaded background color.
-  Element* target = GetDocument().getElementById("target");
-  EXPECT_EQ(kNoColor, target->ComputedStyleRef().VisitedDependentColor(
-                          GetCSSPropertyBackgroundColor()));
-}
-
-TEST_F(StyleEnvironmentVariablesTest,
-       TwoDimensionalVariables_NonIntegerIndicesInvalid) {
-  ScopedCSSFoldablesForTest scoped_feature(true);
-  String env_contents("viewport-segment-top 0.5 0.5, blue");
-  InitializeTestPageWithVariableNamed(GetFrame(), env_contents);
-  SetTwoDimensionalVariableOnRoot(
-      UADefinedTwoDimensionalVariable::kViewportSegmentTop, 0, 0, "red");
-  SetTwoDimensionalVariableOnRoot(
-      UADefinedTwoDimensionalVariable::kViewportSegmentTop, 1, 1, "red");
-
-  // Document should not have been invalidated since the value was a parse
-  // error and viewport-segment-left is not referenced.
-  EXPECT_FALSE(GetDocument().NeedsLayoutTreeUpdate());
-
-  // Check that the element has no cascaded background color.
-  Element* target = GetDocument().getElementById("target");
-  EXPECT_EQ(kNoColor, target->ComputedStyleRef().VisitedDependentColor(
-                          GetCSSPropertyBackgroundColor()));
-}
-
-TEST_F(StyleEnvironmentVariablesTest,
-       TwoDimensionalVariables_NoIndicesFallsBack) {
-  ScopedCSSFoldablesForTest scoped_feature(true);
-  String env_contents("viewport-segment-height, blue");
-  InitializeTestPageWithVariableNamed(GetFrame(), env_contents);
-  SetTwoDimensionalVariableOnRoot(
-      UADefinedTwoDimensionalVariable::kViewportSegmentTop, 0, 0, "red");
-
-  // Document should not have been invalidated since the wrong dimensions can
-  // never resolve (and thus the variable has not been 'seen').
-  EXPECT_FALSE(GetDocument().NeedsLayoutTreeUpdate());
-
-  // Check that the element has the background color provided by the fallback.
-  Element* target = GetDocument().getElementById("target");
-  EXPECT_EQ(kAltTestColor, target->ComputedStyleRef().VisitedDependentColor(
-                               GetCSSPropertyBackgroundColor()));
-}
-
-TEST_F(StyleEnvironmentVariablesTest, TwoDimensionalVariables_Removal) {
-  ScopedCSSFoldablesForTest scoped_feature(true);
-  String env_contents("viewport-segment-height 0 0, blue");
-  InitializeTestPageWithVariableNamed(GetFrame(), env_contents);
-  SetTwoDimensionalVariableOnRoot(
-      UADefinedTwoDimensionalVariable::kViewportSegmentHeight, 0, 0, "red");
-
-  // Ensure that the document has been invalidated.
-  EXPECT_TRUE(GetDocument().NeedsLayoutTreeUpdate());
-  UpdateAllLifecyclePhasesForTest();
-
-  // Check that the element has the background color provided by the variable.
-  Element* target = GetDocument().getElementById("target");
-  EXPECT_EQ(kTestColorRed, target->ComputedStyleRef().VisitedDependentColor(
-                               GetCSSPropertyBackgroundColor()));
-
-  RemoveVariableOnRoot("viewport-segment-height");
-  EXPECT_TRUE(GetDocument().NeedsLayoutTreeUpdate());
-  UpdateAllLifecyclePhasesForTest();
-
-  // Check that the element has the background color provided by the fallback.
-  EXPECT_EQ(kAltTestColor, target->ComputedStyleRef().VisitedDependentColor(
-                               GetCSSPropertyBackgroundColor()));
-}
-
-#if !BUILDFLAG(IS_ANDROID)
-TEST_F(StyleEnvironmentVariablesTest, TitlebarArea_AfterLoad) {
-  // This test asserts that the titlebar area environment variables should be
-  // loaded when UpdateWindowControlsOverlay is invoked in LocalFrame when the
-  // WindowControlsOverlay runtime flag is set for PWAs with display_override
-  // "window-controls-overlay".
-  ScopedWebAppWindowControlsOverlayForTest scoped_feature(true);
-
-  // Simulate browser sending the titlebar area bounds.
-  GetFrame().UpdateWindowControlsOverlay(gfx::Rect(0, 0, 100, 10));
-  String env_contents("titlebar-area-x");
-  InitializeTestPageWithVariableNamed(GetFrame(), env_contents);
-
-  // Validate the data is set.
-  DocumentStyleEnvironmentVariables& vars =
-      GetDocument().GetStyleEngine().EnsureEnvironmentVariables();
-
-  CSSVariableData* data =
-      vars.ResolveVariable(StyleEnvironmentVariables::GetVariableName(
-                               UADefinedVariable::kTitlebarAreaX,
-                               /*feature_context=*/nullptr),
-                           {});
-  EXPECT_TRUE(data);
-  EXPECT_EQ(data->Serialize(), "0px");
-  data = vars.ResolveVariable(
-      StyleEnvironmentVariables::GetVariableName(
-          UADefinedVariable::kTitlebarAreaY, /*feature_context=*/nullptr),
-      {});
-  EXPECT_TRUE(data);
-  EXPECT_EQ(data->Serialize(), "0px");
-  data = vars.ResolveVariable(StyleEnvironmentVariables::GetVariableName(
-                                  UADefinedVariable::kTitlebarAreaWidth,
-                                  /*feature_context=*/nullptr),
-                              {});
-  EXPECT_TRUE(data);
-  EXPECT_EQ(data->Serialize(), "100px");
-  data = vars.ResolveVariable(
-      StyleEnvironmentVariables::GetVariableName(
-          UADefinedVariable::kTitlebarAreaHeight, /*feature_context=*/nullptr),
-      {});
-  EXPECT_TRUE(data);
-  EXPECT_EQ(data->Serialize(), "10px");
-}
-
-TEST_F(StyleEnvironmentVariablesTest, TitlebarArea_AfterNavigation) {
-  // This test asserts that the titlebar area environment variables should be
-  // set after a navigation when the WindowControlsOverlay runtime flag is set
-  // for PWAs with display_override "window-controls-overlay".
-  ScopedWebAppWindowControlsOverlayForTest scoped_feature(true);
-
-  // Simulate browser sending the titlebar area bounds.
-  GetFrame().UpdateWindowControlsOverlay(gfx::Rect(0, 0, 100, 10));
-  String env_contents("titlebar-area-x");
-  InitializeTestPageWithVariableNamed(GetFrame(), env_contents);
-
-  SimulateNavigation();
-
-  // Validate the data is set after navigation.
-  DocumentStyleEnvironmentVariables& vars =
-      GetDocument().GetStyleEngine().EnsureEnvironmentVariables();
-
-  CSSVariableData* data =
-      vars.ResolveVariable(StyleEnvironmentVariables::GetVariableName(
-                               UADefinedVariable::kTitlebarAreaX,
-                               /*feature_context=*/nullptr),
-                           {});
-  EXPECT_TRUE(data);
-  EXPECT_EQ(data->Serialize(), "0px");
-  data = vars.ResolveVariable(
-      StyleEnvironmentVariables::GetVariableName(
-          UADefinedVariable::kTitlebarAreaY, /*feature_context=*/nullptr),
-      {});
-  EXPECT_TRUE(data);
-  EXPECT_EQ(data->Serialize(), "0px");
-  data = vars.ResolveVariable(StyleEnvironmentVariables::GetVariableName(
-                                  UADefinedVariable::kTitlebarAreaWidth,
-                                  /*feature_context=*/nullptr),
-                              {});
-  EXPECT_TRUE(data);
-  EXPECT_EQ(data->Serialize(), "100px");
-  data = vars.ResolveVariable(
-      StyleEnvironmentVariables::GetVariableName(
-          UADefinedVariable::kTitlebarAreaHeight, /*feature_context=*/nullptr),
-      {});
-  EXPECT_TRUE(data);
-  EXPECT_EQ(data->Serialize(), "10px");
-}
-#endif  // !BUILDFLAG(IS_ANDROID)
 
 }  // namespace blink

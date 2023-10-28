@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -43,7 +43,7 @@ class ChildProcessSecurityPolicyInProcessBrowserTest
   }
 };
 
-#if !defined(NDEBUG) && BUILDFLAG(IS_MAC)
+#if !defined(NDEBUG) && defined(OS_MAC)
 IN_PROC_BROWSER_TEST_F(ChildProcessSecurityPolicyInProcessBrowserTest, DISABLED_NoLeak) {
 #else
 IN_PROC_BROWSER_TEST_F(ChildProcessSecurityPolicyInProcessBrowserTest, NoLeak) {
@@ -60,10 +60,9 @@ IN_PROC_BROWSER_TEST_F(ChildProcessSecurityPolicyInProcessBrowserTest, NoLeak) {
 
   WebContents* web_contents = shell()->web_contents();
   content::RenderProcessHostWatcher exit_observer(
-      web_contents->GetPrimaryMainFrame()->GetProcess(),
+      web_contents->GetMainFrame()->GetProcess(),
       content::RenderProcessHostWatcher::WATCH_FOR_PROCESS_EXIT);
-  web_contents->GetPrimaryMainFrame()->GetProcess()->Shutdown(
-      RESULT_CODE_KILLED);
+  web_contents->GetMainFrame()->GetProcess()->Shutdown(RESULT_CODE_KILLED);
   exit_observer.Wait();
 
   web_contents->GetController().Reload(ReloadType::NORMAL, true);

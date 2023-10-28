@@ -1,4 +1,4 @@
-// Copyright 2011 The Chromium Authors
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -18,9 +18,8 @@ DownloadRow& DownloadRow::operator=(const DownloadRow& other) = default;
 bool DownloadRow::operator==(const DownloadRow& rhs) const {
   return current_path == rhs.current_path && target_path == rhs.target_path &&
          url_chain == rhs.url_chain && referrer_url == rhs.referrer_url &&
-         site_url == rhs.site_url &&
-         embedder_download_data == rhs.embedder_download_data &&
-         tab_url == rhs.tab_url && tab_referrer_url == rhs.tab_referrer_url &&
+         site_url == rhs.site_url && tab_url == rhs.tab_url &&
+         tab_referrer_url == rhs.tab_referrer_url &&
          http_method == rhs.http_method && mime_type == rhs.mime_type &&
          original_mime_type == rhs.original_mime_type &&
          start_time == rhs.start_time && end_time == rhs.end_time &&
@@ -33,8 +32,7 @@ bool DownloadRow::operator==(const DownloadRow& rhs) const {
          last_access_time == rhs.last_access_time &&
          transient == rhs.transient && by_ext_id == rhs.by_ext_id &&
          by_ext_name == rhs.by_ext_name &&
-         download_slice_info == rhs.download_slice_info &&
-         reroute_info_serialized == rhs.reroute_info_serialized;
+         download_slice_info == rhs.download_slice_info;
 }
 
 }  // namespace history

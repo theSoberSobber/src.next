@@ -3,7 +3,6 @@
 
 #include <memory>
 #include "gpu/command_buffer/client/gles2_interface.h"
-#include "gpu/command_buffer/client/shared_image_interface.h"
 #include "third_party/blink/renderer/platform/platform_export.h"
 #include "third_party/blink/renderer/platform/wtf/allocator/allocator.h"
 #include "ui/gfx/gpu_memory_buffer.h"
@@ -16,23 +15,22 @@ class PLATFORM_EXPORT GpuMemoryBufferImageCopy {
   USING_FAST_MALLOC(GpuMemoryBufferImageCopy);
 
  public:
-  GpuMemoryBufferImageCopy(gpu::gles2::GLES2Interface*,
-                           gpu::SharedImageInterface*);
+  GpuMemoryBufferImageCopy(gpu::gles2::GLES2Interface*);
   ~GpuMemoryBufferImageCopy();
 
-  // SyncToken will be completed after GpuMemoryBuffer access is finished by
-  // GPU process.
-  std::pair<gfx::GpuMemoryBuffer*, gpu::SyncToken> CopyImage(Image*);
+  gfx::GpuMemoryBuffer* CopyImage(Image*);
 
  private:
-  bool EnsureDestImage(const gfx::Size&);
-  void CleanupDestImage();
+  bool EnsureMemoryBuffer(int width, int height);
+  void OnContextLost();
+  void OnContextError(const char* msg, int32_t id);
 
-  gpu::gles2::GLES2Interface* const gl_;
-  gpu::SharedImageInterface* const sii_;
+  std::unique_ptr<gfx::GpuMemoryBuffer> m_currentBuffer;
+
+  int last_width_ = 0;
+  int last_height_ = 0;
+  gpu::gles2::GLES2Interface* gl_;
   std::unique_ptr<gfx::GpuMemoryBuffer> gpu_memory_buffer_;
-  gfx::Size dest_image_size_;
-  gpu::Mailbox dest_mailbox_;
 
   // TODO(billorr): Add error handling for context loss or GL errors before we
   // enable this by default.

@@ -85,7 +85,7 @@ void LayoutRubyAsInline::AddChild(LayoutObject* child,
       run->AddChild(child, before_child);
       return;
     }
-    NOTREACHED();  // before_child should always have a run as parent!
+    NOTREACHED();  // beforeChild should always have a run as parent!
                    // Emergency fallback: fall through and just append.
   }
 
@@ -94,9 +94,8 @@ void LayoutRubyAsInline::AddChild(LayoutObject* child,
   // (The LayoutRubyRun object will handle the details)
   LayoutRubyRun* last_run = LastRubyRun(this);
   if (!last_run || last_run->HasRubyText()) {
-    last_run = &LayoutRubyRun::Create(this, *ContainingBlock());
+    last_run = LayoutRubyRun::StaticCreateRubyRun(this, *ContainingBlock());
     LayoutInline::AddChild(last_run, before_child);
-    last_run->EnsureRubyBase();
   }
   last_run->AddChild(child);
 }
@@ -119,8 +118,8 @@ void LayoutRubyAsInline::RemoveChild(LayoutObject* child) {
 
 // === ruby as block object ===
 
-LayoutRubyAsBlock::LayoutRubyAsBlock(ContainerNode* node)
-    : LayoutBlockFlow(node) {
+LayoutRubyAsBlock::LayoutRubyAsBlock(Element* element)
+    : LayoutBlockFlow(element) {
   UseCounter::Count(GetDocument(), WebFeature::kRenderRuby);
 }
 
@@ -154,7 +153,7 @@ void LayoutRubyAsBlock::AddChild(LayoutObject* child,
       run->AddChild(child, before_child);
       return;
     }
-    NOTREACHED();  // before_child should always have a run as parent!
+    NOTREACHED();  // beforeChild should always have a run as parent!
                    // Emergency fallback: fall through and just append.
   }
 
@@ -163,9 +162,8 @@ void LayoutRubyAsBlock::AddChild(LayoutObject* child,
   // (The LayoutRubyRun object will handle the details)
   LayoutRubyRun* last_run = LastRubyRun(this);
   if (!last_run || last_run->HasRubyText()) {
-    last_run = &LayoutRubyRun::Create(this, *this);
+    last_run = LayoutRubyRun::StaticCreateRubyRun(this, *this);
     LayoutBlockFlow::AddChild(last_run, before_child);
-    last_run->EnsureRubyBase();
   }
   last_run->AddChild(child);
 }

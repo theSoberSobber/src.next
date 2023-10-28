@@ -1,4 +1,4 @@
-// Copyright 2013 The Chromium Authors
+// Copyright 2013 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -39,9 +39,7 @@ OfflineEnabledHandler::~OfflineEnabledHandler() {
 }
 
 bool OfflineEnabledHandler::Parse(Extension* extension, std::u16string* error) {
-  const base::Value* offline_enabled_value =
-      extension->manifest()->FindKey(keys::kOfflineEnabled);
-  if (offline_enabled_value == nullptr) {
+  if (!extension->manifest()->HasKey(keys::kOfflineEnabled)) {
     // Only platform apps are provided with a default offline enabled value.
     // A platform app is offline enabled unless it requests the webview
     // permission. That is, offline_enabled is true when there is NO webview
@@ -56,11 +54,13 @@ bool OfflineEnabledHandler::Parse(Extension* extension, std::u16string* error) {
     return true;
   }
 
-  if (!offline_enabled_value->is_bool()) {
-    *error = manifest_errors::kInvalidOfflineEnabled;
+  bool offline_enabled = false;
+
+  if (!extension->manifest()->GetBoolean(keys::kOfflineEnabled,
+                                         &offline_enabled)) {
+    *error = base::ASCIIToUTF16(manifest_errors::kInvalidOfflineEnabled);
     return false;
   }
-  bool offline_enabled = offline_enabled_value->GetBool();
 
   extension->SetManifestData(
       keys::kOfflineEnabled,

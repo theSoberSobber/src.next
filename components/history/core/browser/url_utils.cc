@@ -1,4 +1,4 @@
-// Copyright 2013 The Chromium Authors
+// Copyright 2013 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -79,8 +79,10 @@ GURL ToggleHTTPAndHTTPS(const GURL& url) {
     new_scheme = "http";
   else
     return GURL::EmptyGURL();
+  url::Component comp;
+  comp.len = static_cast<int>(new_scheme.length());
   GURL::Replacements replacement;
-  replacement.SetSchemeStr(new_scheme);
+  replacement.SetScheme(new_scheme.c_str(), comp);
   return url.ReplaceComponents(replacement);
 }
 

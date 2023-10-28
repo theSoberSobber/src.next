@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -41,8 +41,8 @@ IN_PROC_BROWSER_TEST_F(ExtensionBrowserTest, OptionsPage) {
   ASSERT_TRUE(extension.get());
 
   // Go to the Extension Settings page and click the button.
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(
-      browser(), GURL("chrome://extensions?id=" + extension->id())));
+  ui_test_utils::NavigateToURL(
+      browser(), GURL("chrome://extensions?id=" + extension->id()));
   TabStripModel* tab_strip = browser()->tab_strip_model();
   ui_test_utils::TabAddedWaiter tab_add(browser());
 
@@ -53,7 +53,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionBrowserTest, OptionsPage) {
     (function() {
       var button = document.querySelector('extensions-manager').
                     shadowRoot.querySelector('extensions-detail-view').
-                    shadowRoot.querySelector('#extensionsOptions');
+                    shadowRoot.querySelector('#extensions-options');
       button.click();
     })();)";
 
@@ -88,12 +88,12 @@ IN_PROC_BROWSER_TEST_F(ExtensionBrowserTest,
           .Set("version", "1")
           .ToJSON());
 
-  ExtensionTestMessageListener listener;
+  ExtensionTestMessageListener listener(false /* will_reply */);
   scoped_refptr<const Extension> extension =
       InstallExtension(extension_dir.Pack(), 1);
   ASSERT_TRUE(extension.get());
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(
-      browser(), GURL("chrome://extensions?options=" + extension->id())));
+  ui_test_utils::NavigateToURL(
+      browser(), GURL("chrome://extensions?options=" + extension->id()));
   ASSERT_TRUE(listener.WaitUntilSatisfied());
   ASSERT_EQ("embedded", listener.message());
 }

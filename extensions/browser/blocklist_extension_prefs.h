@@ -1,4 +1,4 @@
-// Copyright 2021 The Chromium Authors
+// Copyright 2021 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -28,11 +28,6 @@ BitMapBlocklistState GetExtensionBlocklistState(
     const std::string& extension_id,
     ExtensionPrefs* extension_prefs);
 
-// Returns whether the extension with |extension_id| is blocklisted for malware
-// by the Safe Browsing blocklist or the Omaha attribute blocklist.
-bool IsExtensionBlocklisted(const std::string& extension_id,
-                            ExtensionPrefs* extension_prefs);
-
 // Adds the `state` to the Omaha blocklist state pref.
 void AddOmahaBlocklistState(const std::string& extension_id,
                             BitMapBlocklistState state,
@@ -61,34 +56,20 @@ void RemoveAcknowledgedBlocklistState(
     const std::string& extension_id,
     BitMapBlocklistState state,
     extensions::ExtensionPrefs* extension_prefs);
-// Clears all greylisted states in the acknowledged blocklist state pref.
-void ClearAcknowledgedGreylistStates(const std::string& extension_id,
-                                     ExtensionPrefs* extension_prefs);
+// Clears all states in the acknowledged blocklist state pref.
+void ClearAcknowledgedBlocklistStates(const std::string& extension_id,
+                                      ExtensionPrefs* extension_prefs);
 // Checks whether the `extension_id` has the `state` in the acknowledged
 // blocklist state pref.
 bool HasAcknowledgedBlocklistState(const std::string& extension_id,
                                    BitMapBlocklistState state,
-                                   const ExtensionPrefs* extension_prefs);
-// Sets all current greylist states for this `extension_id` as acknowledged.
+                                   ExtensionPrefs* extension_prefs);
+// Set all current greylist states for this `extension_id` as acknowledged.
 // It will consider both Safe Browsing greylist state and Omaha attribute
 // greylist state. Previous acknowledged states will be cleared if the
 // `extension_id` is no longer in that state.
 void UpdateCurrentGreylistStatesAsAcknowledged(const std::string& extension_id,
                                                ExtensionPrefs* extension_prefs);
-
-// Sets the `bitmap_blocklist_state` to the Safe Browsing blocklist state pref.
-void SetSafeBrowsingExtensionBlocklistState(
-    const std::string& extension_id,
-    BitMapBlocklistState bitmap_blocklist_state,
-    ExtensionPrefs* extension_prefs);
-
-// Returns the current Safe Browsing blocklist state of the `extension_id`.
-// Warning: This function only takes Safe Browsing blocklist states into
-// account. If you'd like to combine both Safe Browsing and Omaha attribute
-// blocklist, please use blocklist_prefs::GetExtensionBlocklistState instead.
-BitMapBlocklistState GetSafeBrowsingExtensionBlocklistState(
-    const std::string& extension_id,
-    ExtensionPrefs* extension_prefs);
 
 }  // namespace blocklist_prefs
 }  // namespace extensions

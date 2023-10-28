@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,6 +7,7 @@
 
 #include <stddef.h>
 
+#include <list>
 #include <map>
 #include <memory>
 #include <set>
@@ -14,7 +15,7 @@
 
 #include "base/containers/unique_ptr_adapters.h"
 #include "base/gtest_prod_util.h"
-#include "base/memory/raw_ptr.h"
+#include "base/macros.h"
 #include "base/memory/ref_counted.h"
 #include "net/base/host_port_pair.h"
 #include "net/base/load_states.h"
@@ -33,6 +34,12 @@
 #include "net/ssl/ssl_config.h"
 #include "net/websockets/websocket_handshake_stream_base.h"
 
+namespace base {
+namespace trace_event {
+class ProcessMemoryDump;
+}
+}
+
 namespace net {
 
 class HostMappingRules;
@@ -46,28 +53,12 @@ class NET_EXPORT HttpStreamFactory {
   class NET_EXPORT_PRIVATE JobFactory;
 
   enum JobType {
-    // Job that will connect via HTTP/1 or HTTP/2. This may be paused for a
-    // while when ALTERNATIVE or DNS_ALPN_H3 job was created.
     MAIN,
-    // Job that will connect via HTTP/3 iff Chrome has received an Alt-Svc
-    // header from the origin.
     ALTERNATIVE,
-    // Job that will connect via HTTP/3 iff an "h3" value was found in the ALPN
-    // list of an HTTPS DNS record.
-    DNS_ALPN_H3,
-    // Job that will preconnect. This uses HTTP/3 iff Chrome has received an
-    // Alt-Svc header from the origin. Otherwise, it use HTTP/1 or HTTP/2.
     PRECONNECT,
-    // Job that will preconnect via HTTP/3 iff an "h3" value was found in the
-    // ALPN list of an HTTPS DNS record.
-    PRECONNECT_DNS_ALPN_H3,
   };
 
   explicit HttpStreamFactory(HttpNetworkSession* session);
-
-  HttpStreamFactory(const HttpStreamFactory&) = delete;
-  HttpStreamFactory& operator=(const HttpStreamFactory&) = delete;
-
   virtual ~HttpStreamFactory();
 
   void ProcessAlternativeServices(
@@ -122,6 +113,11 @@ class NET_EXPORT HttpStreamFactory {
 
   const HostMappingRules* GetHostMappingRules() const;
 
+  // Dumps memory allocation stats. |parent_dump_absolute_name| is the name
+  // used by the parent MemoryAllocatorDump in the memory dump hierarchy.
+  void DumpMemoryStats(base::trace_event::ProcessMemoryDump* pmd,
+                       const std::string& parent_absolute_name) const;
+
  private:
   FRIEND_TEST_ALL_PREFIXES(HttpStreamRequestTest, SetPriority);
 
@@ -168,7 +164,7 @@ class NET_EXPORT HttpStreamFactory {
   // from |job_controller_set_|.
   void OnJobControllerComplete(JobController* controller);
 
-  const raw_ptr<HttpNetworkSession> session_;
+  HttpNetworkSession* const session_;
 
   // All Requests/Preconnects are assigned with a JobController to manage
   // serving Job(s). JobController might outlive Request when Request
@@ -179,6 +175,8 @@ class NET_EXPORT HttpStreamFactory {
 
   // Factory used by job controllers for creating jobs.
   std::unique_ptr<JobFactory> job_factory_;
+
+  DISALLOW_COPY_AND_ASSIGN(HttpStreamFactory);
 };
 
 }  // namespace net

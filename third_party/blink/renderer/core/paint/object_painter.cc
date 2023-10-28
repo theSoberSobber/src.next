@@ -36,16 +36,23 @@ void ObjectPainter::PaintOutline(const PaintInfo& paint_info,
     return;
   }
 
-  LayoutObject::OutlineInfo info;
   auto outline_rects = layout_object_.OutlineRects(
-      &info, paint_offset,
+      paint_offset,
       style_to_use.OutlineRectsShouldIncludeBlockVisualOverflow());
   if (outline_rects.IsEmpty())
     return;
 
-  OutlinePainter::PaintOutlineRects(paint_info, layout_object_, outline_rects,
-                                    info, style_to_use,
-                                    layout_object_.GetDocument());
+  if (DrawingRecorder::UseCachedDrawingIfPossible(
+          paint_info.context, layout_object_, paint_info.phase))
+    return;
+
+  IntRect visual_rect =
+      PixelSnappedIntRect(UnionRectEvenIfEmpty(outline_rects));
+  visual_rect.Inflate(style_to_use.OutlineOutsetExtent());
+  DrawingRecorder recorder(paint_info.context, layout_object_, paint_info.phase,
+                           visual_rect);
+  OutlinePainter::PaintOutlineRects(paint_info.context, outline_rects,
+                                    style_to_use);
 }
 
 void ObjectPainter::PaintInlineChildrenOutlines(const PaintInfo& paint_info) {
@@ -73,8 +80,8 @@ void ObjectPainter::AddURLRectIfNeeded(const PaintInfo& paint_info,
     return;
 
   auto outline_rects = layout_object_.OutlineRects(
-      nullptr, paint_offset, NGOutlineType::kIncludeBlockVisualOverflow);
-  gfx::Rect rect = ToPixelSnappedRect(UnionRect(outline_rects));
+      paint_offset, NGOutlineType::kIncludeBlockVisualOverflow);
+  IntRect rect = PixelSnappedIntRect(UnionRect(outline_rects));
   if (rect.IsEmpty())
     return;
 

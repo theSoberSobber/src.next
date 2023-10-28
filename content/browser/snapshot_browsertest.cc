@@ -1,4 +1,4 @@
-// Copyright 2017 The Chromium Authors
+// Copyright (c) 2017 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -11,7 +11,6 @@
 #include "base/bind.h"
 #include "base/command_line.h"
 #include "base/containers/contains.h"
-#include "base/memory/raw_ptr.h"
 #include "base/rand_util.h"
 #include "base/run_loop.h"
 #include "base/strings/stringprintf.h"
@@ -141,17 +140,20 @@ class SnapshotBrowserTest : public ContentBrowserTest {
   struct SerialSnapshot {
     SerialSnapshot() : host(nullptr) {}
 
-    raw_ptr<content::RenderWidgetHost> host;
+    content::RenderWidgetHost* host;
     ExpectedColor color;
   };
   std::vector<SerialSnapshot> expected_snapshots_;
 
   void SyncSnapshotCallback(content::RenderWidgetHostImpl* rwhi,
                             const gfx::Image& image) {
+    bool found = false;
     for (auto iter = expected_snapshots_.begin();
          iter != expected_snapshots_.end(); ++iter) {
       const SerialSnapshot& expected = *iter;
       if (expected.host == rwhi) {
+        found = true;
+
         const SkBitmap* bitmap = image.ToSkBitmap();
         SkColor color = bitmap->getColor(1, 1);
 
@@ -212,15 +214,9 @@ class SnapshotBrowserTest : public ContentBrowserTest {
 
 // Even the single-window test doesn't work on Android yet. It's expected
 // that the multi-window tests would never work on that platform.
-#if !BUILDFLAG(IS_ANDROID)
+#if !defined(OS_ANDROID)
 
-#if BUILDFLAG(IS_MAC)
-// TODO(crbug.com/1347296): This test is flakey on macOS.
-#define MAYBE_SingleWindowTest DISABLED_SingleWindowTest
-#else
-#define MAYBE_SingleWindowTest SingleWindowTest
-#endif
-IN_PROC_BROWSER_TEST_F(SnapshotBrowserTest, MAYBE_SingleWindowTest) {
+IN_PROC_BROWSER_TEST_F(SnapshotBrowserTest, SingleWindowTest) {
   SetupTestServer();
 
   content::RenderWidgetHostImpl* rwhi = GetRenderWidgetHostImpl(shell());
@@ -258,15 +254,15 @@ IN_PROC_BROWSER_TEST_F(SnapshotBrowserTest, MAYBE_SingleWindowTest) {
 //   Linux Chromium OS ASAN LSAN Tests (1)
 //   Linux TSAN Tests
 // See crbug.com/771119
-// TODO(https://crbug.com/1317446): Fix and enable on Fuchsia.
-#if (BUILDFLAG(IS_WIN) && !defined(NDEBUG)) || BUILDFLAG(IS_CHROMEOS_ASH) || \
-    ((BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)) &&                      \
-     defined(THREAD_SANITIZER)) ||                                           \
-    BUILDFLAG(IS_FUCHSIA)
+#if (defined(OS_WIN) && !defined(NDEBUG)) || (BUILDFLAG(IS_CHROMEOS_ASH)) || \
+    ((defined(OS_LINUX) || defined(OS_CHROMEOS)) && defined(THREAD_SANITIZER))
 #define MAYBE_SyncMultiWindowTest DISABLED_SyncMultiWindowTest
+#define MAYBE_AsyncMultiWindowTest DISABLED_AsyncMultiWindowTest
 #else
 #define MAYBE_SyncMultiWindowTest SyncMultiWindowTest
+#define MAYBE_AsyncMultiWindowTest AsyncMultiWindowTest
 #endif
+
 IN_PROC_BROWSER_TEST_F(SnapshotBrowserTest, MAYBE_SyncMultiWindowTest) {
   SetupTestServer();
 
@@ -318,22 +314,6 @@ IN_PROC_BROWSER_TEST_F(SnapshotBrowserTest, MAYBE_SyncMultiWindowTest) {
   }
 }
 
-// Timing out either all the time, or infrequently, apparently because
-// they're too slow, on the following configurations:
-//   Windows Debug
-//   Linux Chromium OS ASAN LSAN Tests (1)
-//   Linux TSAN Tests
-// See crbug.com/771119
-// TODO(crbug.com/1164581): recently crashes flakily on
-// linux_chromium_asan_rel_ng and linux-rel.
-// TODO(https://crbug.com/1317446): Fix and enable on Fuchsia.
-#if (BUILDFLAG(IS_WIN) && !defined(NDEBUG)) || BUILDFLAG(IS_CHROMEOS_ASH) || \
-    (BUILDFLAG(IS_CHROMEOS) && defined(THREAD_SANITIZER)) ||                 \
-    BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_FUCHSIA)
-#define MAYBE_AsyncMultiWindowTest DISABLED_AsyncMultiWindowTest
-#else
-#define MAYBE_AsyncMultiWindowTest AsyncMultiWindowTest
-#endif
 IN_PROC_BROWSER_TEST_F(SnapshotBrowserTest, MAYBE_AsyncMultiWindowTest) {
   SetupTestServer();
 
@@ -420,6 +400,6 @@ IN_PROC_BROWSER_TEST_F(SnapshotBrowserTest, MAYBE_AsyncMultiWindowTest) {
   }
 }
 
-#endif  // !BUILDFLAG(IS_ANDROID)
+#endif  // !defined(OS_ANDROID)
 
 }  // namespace content

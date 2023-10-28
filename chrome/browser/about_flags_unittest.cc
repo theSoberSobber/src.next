@@ -1,4 +1,4 @@
-// Copyright 2011 The Chromium Authors
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -11,7 +11,6 @@
 #include <string>
 #include <utility>
 
-#include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/test/metrics/histogram_enum_reader.h"
@@ -22,7 +21,6 @@
 #include "components/flags_ui/flags_test_helpers.h"
 #include "components/flags_ui/flags_ui_metrics.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 
 namespace about_flags {
 
@@ -35,7 +33,13 @@ using SwitchToIdMap = std::map<std::string, Sample>;
 std::set<std::string> GetAllPublicSwitchesAndFeaturesForTesting() {
   std::set<std::string> result;
 
-  for (const auto& entry : testing::GetFeatureEntries()) {
+  size_t num_entries = 0;
+  const flags_ui::FeatureEntry* entries =
+      testing::GetFeatureEntries(&num_entries);
+
+  for (size_t i = 0; i < num_entries; ++i) {
+    const flags_ui::FeatureEntry& entry = entries[i];
+
     // Skip over flags that are part of the flags system itself - they don't
     // have any of the usual metadata or histogram entries for flags, since they
     // are synthesized during the build process.
@@ -66,70 +70,31 @@ std::set<std::string> GetAllPublicSwitchesAndFeaturesForTesting() {
         result.insert(std::string(entry.feature.feature->name) + ":enabled");
         result.insert(std::string(entry.feature.feature->name) + ":disabled");
         break;
-#if BUILDFLAG(IS_CHROMEOS_ASH)
-      case flags_ui::FeatureEntry::PLATFORM_FEATURE_NAME_VALUE:
-      case flags_ui::FeatureEntry::PLATFORM_FEATURE_NAME_WITH_PARAMS_VALUE:
-        std::string name(entry.platform_feature_name.name);
-        result.insert(name + ":enabled");
-        result.insert(name + ":disabled");
-        break;
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
     }
   }
   return result;
 }
 
-// Returns all variation ids defined in flags entries.
-std::vector<std::string> GetAllVariationIds() {
-  std::vector<std::string> variation_ids;
-  for (const auto& entry : testing::GetFeatureEntries()) {
-    // Only FEATURE_WITH_PARAMS_VALUE or PLATFORM_FEATURE_NAME_WITH_PARAMS_VALUE
-    // entries can have a variation id.
-    if (entry.type != flags_ui::FeatureEntry::FEATURE_WITH_PARAMS_VALUE
-#if BUILDFLAG(IS_CHROMEOS_ASH)
-        && entry.type !=
-               flags_ui::FeatureEntry::PLATFORM_FEATURE_NAME_WITH_PARAMS_VALUE
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
-    ) {
-      continue;
-    }
-
-    for (const auto& variation : entry.GetVariations()) {
-      if (variation.variation_id)
-        variation_ids.push_back(variation.variation_id);
-    }
-  }
-  return variation_ids;
-}
-
-// Returns the parsed |variation_id|. If it is malformed, returns absl::nullopt.
-absl::optional<int> ParseVariationId(const std::string& variation_id) {
-  // Remove the "t" prefix if it is there.
-  std::string trimmed_id =
-      base::StartsWith(variation_id, "t", base::CompareCase::SENSITIVE)
-          ? variation_id.substr(1)
-          : variation_id;
-  int id;
-  if (base::StringToInt(trimmed_id, &id) && id >= 0)
-    return id;
-  return absl::nullopt;
-}
-
-}  // namespace
+}  // anonymous namespace
 
 // Makes sure there are no separators in any of the entry names.
 TEST(AboutFlagsTest, NoSeparators) {
-  for (const auto& entry : testing::GetFeatureEntries()) {
-    const std::string name(entry.internal_name);
+  size_t count;
+  const flags_ui::FeatureEntry* entries = testing::GetFeatureEntries(&count);
+  for (size_t i = 0; i < count; ++i) {
+    std::string name = entries[i].internal_name;
     EXPECT_EQ(std::string::npos, name.find(flags_ui::testing::kMultiSeparator))
-        << name;
+        << i;
   }
 }
 
 // Makes sure that every flag has an owner and an expiry entry in
 // flag-metadata.json.
 TEST(AboutFlagsTest, EveryFlagHasMetadata) {
-  flags_ui::testing::EnsureEveryFlagHasMetadata(testing::GetFeatureEntries());
+  size_t count;
+  const flags_ui::FeatureEntry* entries = testing::GetFeatureEntries(&count);
+  flags_ui::testing::EnsureEveryFlagHasMetadata(
+      base::make_span(entries, count));
 }
 
 // Ensures that all flags marked as never expiring in flag-metadata.json is
@@ -155,54 +120,34 @@ TEST(AboutFlagsTest, FlagsListedInAlphabeticalOrder) {
   flags_ui::testing::EnsureFlagsAreListedInAlphabeticalOrder();
 }
 
-TEST(AboutFlagsTest, EveryFlagIsValid) {
-  for (const auto& entry : testing::GetFeatureEntries()) {
-    EXPECT_TRUE(entry.IsValid()) << entry.internal_name;
-  }
-}
-
 TEST(AboutFlagsTest, RecentUnexpireFlagsArePresent) {
+  size_t count;
+  const flags_ui::FeatureEntry* entries = testing::GetFeatureEntries(&count);
   flags_ui::testing::EnsureRecentUnexpireFlagsArePresent(
-      testing::GetFeatureEntries(), CHROME_VERSION_MAJOR);
-}
-
-// Ensures that all variation IDs specified are well-formed and unique.
-TEST(AboutFlagsTest, VariationIdsAreValid) {
-  std::set<int> variation_ids;
-
-  for (const std::string& variation_id : GetAllVariationIds()) {
-    absl::optional<int> id = ParseVariationId(variation_id);
-    EXPECT_TRUE(id)
-        << "Variation ID \"" << variation_id
-        << "\" is malformed. It must be a nonnegative integer and can "
-           "optionally start with a \"t\".";
-
-    if (id.has_value()) {
-      EXPECT_TRUE(variation_ids.insert(id.value()).second)
-          << "Variation ID " << variation_id << " is duplicated.";
-    }
-  }
+      base::make_span(entries, count), CHROME_VERSION_MAJOR);
 }
 
 // Test that ScopedFeatureEntries restores existing feature entries on
 // destruction.
 TEST(AboutFlagsTest, ScopedFeatureEntriesRestoresFeatureEntries) {
-  const base::span<const flags_ui::FeatureEntry> old_entries =
-      testing::GetFeatureEntries();
-  EXPECT_GT(old_entries.size(), 0U);
-  const char* first_feature_name = old_entries[0].internal_name;
+  size_t orig_num_features;
+  const flags_ui::FeatureEntry* cur_entries =
+      testing::GetFeatureEntries(&orig_num_features);
+  EXPECT_GT(orig_num_features, 0U);
+  const char* first_feature_name = cur_entries[0].internal_name;
   {
     const base::Feature kTestFeature1{"FeatureName1",
                                       base::FEATURE_ENABLED_BY_DEFAULT};
     testing::ScopedFeatureEntries feature_entries(
         {{"feature-1", "", "", flags_ui::FlagsState::GetCurrentPlatform(),
           FEATURE_VALUE_TYPE(kTestFeature1)}});
-    EXPECT_EQ(testing::GetFeatureEntries().size(), 1U);
+    size_t num_features;
+    testing::GetFeatureEntries(&num_features);
+    EXPECT_EQ(num_features, 1U);
   }
-
-  const base::span<const flags_ui::FeatureEntry> new_entries =
-      testing::GetFeatureEntries();
-  EXPECT_EQ(old_entries.size(), new_entries.size());
+  size_t new_num_features;
+  cur_entries = testing::GetFeatureEntries(&new_num_features);
+  EXPECT_EQ(orig_num_features, new_num_features);
   EXPECT_TRUE(about_flags::GetCurrentFlagsState()->FindFeatureEntryByName(
       first_feature_name));
 }
@@ -241,7 +186,7 @@ TEST_F(AboutFlagsHistogramTest, CheckHistograms) {
          "tools/metrics/histograms/enums.xml.";
 
   // Build reverse map {switch_name => id} from login_custom_flags.
-  SwitchToIdMap metadata_switches_ids;
+  SwitchToIdMap histograms_xml_switches_ids;
 
   EXPECT_TRUE(
       login_custom_flags->count(flags_ui::testing::kBadSwitchFormatHistogramId))
@@ -254,7 +199,7 @@ TEST_F(AboutFlagsHistogramTest, CheckHistograms) {
     if (entry.first == flags_ui::testing::kBadSwitchFormatHistogramId) {
       // Add error value with empty name.
       SetSwitchToHistogramIdMapping(std::string(), entry.first,
-                                    &metadata_switches_ids);
+                                    &histograms_xml_switches_ids);
       continue;
     }
     const Sample uma_id = flags_ui::GetSwitchUMAId(entry.second);
@@ -265,7 +210,7 @@ TEST_F(AboutFlagsHistogramTest, CheckHistograms) {
         << uma_id << " is expected. Consider changing entry to:\n"
         << "  " << GetHistogramEnumEntryText(entry.second, uma_id);
     SetSwitchToHistogramIdMapping(entry.second, entry.first,
-                                  &metadata_switches_ids);
+                                  &histograms_xml_switches_ids);
   }
 
   // Check that all flags in about_flags.cc have entries in login_custom_flags.
@@ -281,11 +226,11 @@ TEST_F(AboutFlagsHistogramTest, CheckHistograms) {
            "kBadSwitchFormatHistogramId="
         << flags_ui::testing::kBadSwitchFormatHistogramId
         << ". Please modify switch name.";
-    auto enum_entry = metadata_switches_ids.lower_bound(flag);
+    auto enum_entry = histograms_xml_switches_ids.lower_bound(flag);
 
     // Ignore case here when switch ID is incorrect - it has already been
     // reported in the previous loop.
-    EXPECT_TRUE(enum_entry != metadata_switches_ids.end() &&
+    EXPECT_TRUE(enum_entry != histograms_xml_switches_ids.end() &&
                 enum_entry->first == flag)
         << "tools/metrics/histograms/enums.xml enum LoginCustomFlags doesn't "
            "contain switch '"

@@ -1,4 +1,4 @@
-// Copyright 2013 The Chromium Authors
+// Copyright (c) 2013 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,7 +7,8 @@
 
 #include <string>
 
-#include "base/memory/raw_ptr.h"
+#include "base/compiler_specific.h"
+#include "base/macros.h"
 #include "chrome/browser/extensions/external_loader.h"
 #include "chrome/browser/profiles/profile.h"
 
@@ -27,9 +28,6 @@ class ExternalComponentLoader : public ExternalLoader {
  public:
   explicit ExternalComponentLoader(Profile* profile);
 
-  ExternalComponentLoader(const ExternalComponentLoader&) = delete;
-  ExternalComponentLoader& operator=(const ExternalComponentLoader&) = delete;
-
  protected:
   void StartLoading() override;
 
@@ -42,7 +40,8 @@ class ExternalComponentLoader : public ExternalLoader {
 
   // The profile that this loader is associated with. It listens for
   // preference changes for that profile.
-  raw_ptr<Profile> profile_;
+  Profile* profile_;
+  DISALLOW_COPY_AND_ASSIGN(ExternalComponentLoader);
 };
 
 }  // namespace extensions

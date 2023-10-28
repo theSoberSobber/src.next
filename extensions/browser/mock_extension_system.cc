@@ -1,10 +1,10 @@
-// Copyright 2014 The Chromium Authors
+// Copyright 2014 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include "extensions/browser/mock_extension_system.h"
 
-#include "components/value_store/value_store_factory.h"
+#include "extensions/browser/value_store/value_store_factory.h"
 #include "extensions/common/extension_set.h"
 
 namespace extensions {
@@ -22,6 +22,10 @@ void MockExtensionSystem::SetReady() {
 void MockExtensionSystem::InitForRegularProfile(bool extensions_enabled) {}
 
 ExtensionService* MockExtensionSystem::extension_service() {
+  return nullptr;
+}
+
+RuntimeData* MockExtensionSystem::runtime_data() {
   return nullptr;
 }
 
@@ -45,12 +49,7 @@ StateStore* MockExtensionSystem::rules_store() {
   return nullptr;
 }
 
-StateStore* MockExtensionSystem::dynamic_user_scripts_store() {
-  return nullptr;
-}
-
-scoped_refptr<value_store::ValueStoreFactory>
-MockExtensionSystem::store_factory() {
+scoped_refptr<ValueStoreFactory> MockExtensionSystem::store_factory() {
   return nullptr;
 }
 

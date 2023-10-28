@@ -1,4 +1,4 @@
-// Copyright 2011 The Chromium Authors
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -12,7 +12,6 @@
 #include <string>
 
 #include "base/gtest_prod_util.h"
-#include "base/memory/raw_ptr.h"
 #include "base/memory/ref_counted.h"
 #include "base/time/default_clock.h"
 #include "base/time/default_tick_clock.h"
@@ -20,12 +19,12 @@
 #include "net/base/net_export.h"
 #include "net/base/network_isolation_key.h"
 #include "net/http/http_auth.h"
-#include "url/scheme_host_port.h"
+#include "url/gurl.h"
 
 namespace net {
 
 // HttpAuthCache stores HTTP authentication identities and challenge info.
-// For each (scheme_host_port, realm, scheme) triple the cache stores a
+// For each (origin, realm, scheme) triple the cache stores a
 // HttpAuthCache::Entry, which holds:
 //   - the origin server {protocol scheme, host, port}
 //   - the last identity used (username/password)
@@ -39,8 +38,8 @@ class NET_EXPORT HttpAuthCache {
     Entry(const Entry& other);
     ~Entry();
 
-    const url::SchemeHostPort& scheme_host_port() const {
-      return scheme_host_port_;
+    const GURL& origin() const {
+      return origin_;
     }
 
     // The case-sensitive realm string of the challenge.
@@ -95,16 +94,16 @@ class NET_EXPORT HttpAuthCache {
     // true and set |*path_len| to 0.
     bool HasEnclosingPath(const std::string& dir, size_t* path_len);
 
-    // SchemeHostPort of the server.
-    url::SchemeHostPort scheme_host_port_;
+    // |origin_| contains the {protocol, host, port} of the server.
+    GURL origin_;
     std::string realm_;
-    HttpAuth::Scheme scheme_ = HttpAuth::AUTH_SCHEME_MAX;
+    HttpAuth::Scheme scheme_;
 
     // Identity.
     std::string auth_challenge_;
     AuthCredentials credentials_;
 
-    int nonce_count_ = 0;
+    int nonce_count_;
 
     // List of paths that define the realm's protection space.
     PathList paths_;
@@ -127,10 +126,6 @@ class NET_EXPORT HttpAuthCache {
   // HttpAuth::AUTH_SERVER operations are keyed by NetworkIsolationKey.
   // Otherwise, NetworkIsolationKey arguments are ignored.
   explicit HttpAuthCache(bool key_server_entries_by_network_isolation_key);
-
-  HttpAuthCache(const HttpAuthCache&) = delete;
-  HttpAuthCache& operator=(const HttpAuthCache&) = delete;
-
   ~HttpAuthCache();
 
   // Sets whether server entries are keyed by NetworkIsolationKey.
@@ -143,12 +138,12 @@ class NET_EXPORT HttpAuthCache {
   // scheme |scheme|. If a matching entry is found, move it up by one place
   // in the entries list, so that more frequently used entries migrate to the
   // front of the list.
-  //   |scheme_host_port| - the {scheme, host, port} of the server.
+  //   |origin| - the {scheme, host, port} of the server.
   //   |target| - whether this is for server or proxy auth.
   //   |realm|  - case sensitive realm string.
   //   |scheme| - the authentication scheme (i.e. basic, negotiate).
   //   returns  - the matched entry or nullptr.
-  Entry* Lookup(const url::SchemeHostPort& scheme_host_port,
+  Entry* Lookup(const GURL& origin,
                 HttpAuth::Target target,
                 const std::string& realm,
                 HttpAuth::Scheme scheme,
@@ -159,27 +154,27 @@ class NET_EXPORT HttpAuthCache {
   // paths lie in the same protection space. If a matching entry is found, move
   // it up by one place in the entries list, so that more frequently used
   // entries migrate to the front of the list.
-  //   |scheme_host_port| - the {scheme, host, port} of the server.
+  //   |origin| - the {scheme, host, port} of the server.
   //   |path|   - absolute path of the resource, or empty string in case of
   //              proxy auth (which does not use the concept of paths).
   //   returns  - the matched entry or nullptr.
-  Entry* LookupByPath(const url::SchemeHostPort& scheme_host_port,
+  Entry* LookupByPath(const GURL& origin,
                       HttpAuth::Target target,
                       const NetworkIsolationKey& network_isolation_key,
                       const std::string& path);
 
-  // Add an entry on server |scheme_host_port| for realm |handler->realm()| and
+  // Add an entry on server |origin| for realm |handler->realm()| and
   // scheme |handler->scheme()|.  If an entry for this (realm,scheme)
   // already exists, update it rather than replace it -- this  preserves the
   // paths list.
-  //   |scheme_host_port| - the {scheme, host, port} of the server.
+  //   |origin|   - the {scheme, host, port} of the server.
   //   |realm|    - the auth realm for the challenge.
   //   |scheme|   - the authentication scheme (i.e. basic, negotiate).
   //   |credentials| - login information for the realm.
   //   |path|     - absolute path for a resource contained in the protection
   //                space; this will be added to the list of known paths.
   //   returns    - the entry that was just added/updated.
-  Entry* Add(const url::SchemeHostPort& scheme_host_port,
+  Entry* Add(const GURL& origin,
              HttpAuth::Target target,
              const std::string& realm,
              HttpAuth::Scheme scheme,
@@ -190,12 +185,12 @@ class NET_EXPORT HttpAuthCache {
 
   // Remove entry on server |origin| for realm |realm| and scheme |scheme|
   // if one exists AND if the cached credentials matches |credentials|.
-  //   |scheme_host_port| - the {scheme, host, port} of the server.
+  //   |origin|   - the {scheme, host, port} of the server.
   //   |realm|    - case sensitive realm string.
   //   |scheme|   - the authentication scheme (i.e. basic, negotiate).
   //   |credentials| - the credentials to match.
   //   returns    - true if an entry was removed.
-  bool Remove(const url::SchemeHostPort& scheme_host_port,
+  bool Remove(const GURL& origin,
               HttpAuth::Target target,
               const std::string& realm,
               HttpAuth::Scheme scheme,
@@ -210,12 +205,12 @@ class NET_EXPORT HttpAuthCache {
   // Clears all added entries.
   void ClearAllEntries();
 
-  // Updates a stale digest entry on server |scheme_host_port| for realm |realm|
-  // and scheme |scheme|. The cached auth challenge is replaced with
+  // Updates a stale digest entry on server |origin| for realm |realm| and
+  // scheme |scheme|. The cached auth challenge is replaced with
   // |auth_challenge| and the nonce count is reset.
   // |UpdateStaleChallenge()| returns true if a matching entry exists in the
   // cache, false otherwise.
-  bool UpdateStaleChallenge(const url::SchemeHostPort& scheme_host_port,
+  bool UpdateStaleChallenge(const GURL& origin,
                             HttpAuth::Target target,
                             const std::string& realm,
                             HttpAuth::Scheme scheme,
@@ -240,7 +235,7 @@ class NET_EXPORT HttpAuthCache {
 
  private:
   struct EntryMapKey {
-    EntryMapKey(const url::SchemeHostPort& scheme_host_port,
+    EntryMapKey(const GURL& url,
                 HttpAuth::Target target,
                 const NetworkIsolationKey& network_isolation_key,
                 bool key_server_entries_by_network_isolation_key);
@@ -248,7 +243,7 @@ class NET_EXPORT HttpAuthCache {
 
     bool operator<(const EntryMapKey& other) const;
 
-    url::SchemeHostPort scheme_host_port;
+    GURL url;
     HttpAuth::Target target;
     // Empty if |key_server_entries_by_network_isolation_key| is false, |target|
     // is HttpAuth::AUTH_PROXY, or an empty NetworkIsolationKey is passed in to
@@ -258,12 +253,11 @@ class NET_EXPORT HttpAuthCache {
 
   using EntryMap = std::multimap<EntryMapKey, Entry>;
 
-  raw_ptr<const base::TickClock> tick_clock_ =
-      base::DefaultTickClock::GetInstance();
-  raw_ptr<const base::Clock> clock_ = base::DefaultClock::GetInstance();
+  const base::TickClock* tick_clock_ = base::DefaultTickClock::GetInstance();
+  const base::Clock* clock_ = base::DefaultClock::GetInstance();
 
   EntryMap::iterator LookupEntryIt(
-      const url::SchemeHostPort& scheme_host_port,
+      const GURL& origin,
       HttpAuth::Target target,
       const std::string& realm,
       HttpAuth::Scheme scheme,
@@ -274,6 +268,8 @@ class NET_EXPORT HttpAuthCache {
   bool key_server_entries_by_network_isolation_key_;
 
   EntryMap entries_;
+
+  DISALLOW_COPY_AND_ASSIGN(HttpAuthCache);
 };
 
 // An authentication realm entry.

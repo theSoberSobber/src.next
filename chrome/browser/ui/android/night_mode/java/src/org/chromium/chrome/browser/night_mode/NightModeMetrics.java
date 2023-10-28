@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium Authors
+// Copyright 2019 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -29,22 +29,6 @@ public class NightModeMetrics {
         int POWER_SAVE_MODE = 1;
         // TODO(https://crbug.com/941819): Rename this.
         int OTHER = 2;
-        int NUM_ENTRIES = 3;
-    }
-
-    /**
-     * Entries that navigate the user into Theme Settings.
-     *
-     * This is used for histograms and should therefore be treated as append-only.
-     * See AndroidThemeSettingsEntry in tools/metrics/histograms/enums.xml.
-     */
-    @IntDef({ThemeSettingsEntry.SETTINGS, ThemeSettingsEntry.AUTO_DARK_MODE_MESSAGE})
-    @Retention(RetentionPolicy.SOURCE)
-    public @interface ThemeSettingsEntry {
-        int SETTINGS = 0;
-        int AUTO_DARK_MODE_MESSAGE = 1;
-        int AUTO_DARK_MODE_DIALOG = 2;
-
         int NUM_ENTRIES = 3;
     }
 
@@ -105,14 +89,5 @@ public class NightModeMetrics {
                 assert false : "Theme preferences change should be recorded.";
         }
         recordThemePreferencesState(theme);
-    }
-
-    /**
-     * Records the entry that navigates the user into Theme Settings.
-     * @param entry The {@link ThemeSettingsEntry} that user navigates into theme settings.
-     */
-    public static void recordThemeSettingsEntry(@ThemeSettingsEntry int entry) {
-        RecordHistogram.recordEnumeratedHistogram(
-                "Android.DarkTheme.ThemeSettingsEntry", entry, ThemeSettingsEntry.NUM_ENTRIES);
     }
 }

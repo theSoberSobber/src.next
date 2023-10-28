@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium Authors
+// Copyright 2019 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -6,6 +6,7 @@ package org.chromium.chrome.browser.tasks.pseudotab;
 
 import android.content.Context;
 import android.os.SystemClock;
+import android.text.TextUtils;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -13,6 +14,7 @@ import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.Log;
 import org.chromium.base.StreamUtil;
+import org.chromium.chrome.browser.flags.CachedFeatureFlags;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.state.CriticalPersistedTabData;
@@ -134,10 +136,7 @@ public class PseudoTab {
         if (tabList != null) {
             pseudoTabs = new ArrayList<>();
             for (int i = 0; i < tabList.getCount(); i++) {
-                Tab tab = tabList.getTabAt(i);
-                if (tab != null) {
-                    pseudoTabs.add(fromTab(tab));
-                }
+                pseudoTabs.add(fromTab(tabList.getTabAt(i)));
             }
         }
         return pseudoTabs;
@@ -297,7 +296,7 @@ public class PseudoTab {
     private static @Nullable List<Tab> getRelatedTabList(
             @NonNull TabModelSelector tabModelSelector, int tabId) {
         if (!tabModelSelector.isTabStateInitialized()) {
-            assert ChromeFeatureList.sInstantStart.isEnabled();
+            assert CachedFeatureFlags.isEnabled(ChromeFeatureList.INSTANT_START);
             return null;
         }
         TabModelFilterProvider provider = tabModelSelector.getTabModelFilterProvider();
@@ -331,8 +330,8 @@ public class PseudoTab {
     }
 
     private static void readAllPseudoTabsFromStateFile(Context context) {
-        assert ChromeFeatureList.sInstantStart.isEnabled()
-                || ChromeFeatureList.sPaintPreviewShowOnStartup.isEnabled();
+        assert CachedFeatureFlags.isEnabled(ChromeFeatureList.INSTANT_START)
+                || CachedFeatureFlags.isEnabled(ChromeFeatureList.PAINT_PREVIEW_SHOW_ON_STARTUP);
         if (sReadStateFile) return;
         sReadStateFile = true;
 
@@ -367,6 +366,9 @@ public class PseudoTab {
                         // Skip restoring of non-selected NTP to match the real restoration logic.
                         if (UrlUtilities.isCanonicalizedNTPUrl(url) && !isStandardActiveIndex) {
                             return;
+                        } else if (TextUtils.isEmpty(url)) {
+                            // Skip restoring of empty Tabs.
+                            return;
                         }
                         PseudoTab tab = PseudoTab.fromTabId(id);
                         if (isStandardActiveIndex) {
@@ -381,7 +383,7 @@ public class PseudoTab {
                         sAllTabsFromStateFile.add(tab);
                         seenRootId.add(rootId);
                     },
-                    null);
+                    null, false);
         } catch (IOException exception) {
             Log.e(TAG, "Could not read state file.", exception);
             return;

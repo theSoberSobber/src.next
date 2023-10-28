@@ -1,4 +1,4 @@
-// Copyright 2020 The Chromium Authors
+// Copyright 2020 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -10,7 +10,6 @@
 #include "base/base_export.h"
 #include "base/compiler_specific.h"
 #include "base/dcheck_is_on.h"
-#include "base/debug/debugging_buildflags.h"
 #include "base/immediate_crash.h"
 
 // This header defines the CHECK, DCHECK, and DPCHECK macros.
@@ -83,24 +82,23 @@ class BASE_EXPORT CheckError {
                                    int line,
                                    const char* function);
 
-  static CheckError NotReached(const char* file, int line);
-
   // Stream for adding optional details to the error message.
   std::ostream& stream();
 
-  NOMERGE NOT_TAIL_CALLED ~CheckError();
+  NOMERGE ~CheckError();
 
-  CheckError(const CheckError&) = delete;
-  CheckError& operator=(const CheckError&) = delete;
+  CheckError(const CheckError& other) = delete;
+  CheckError& operator=(const CheckError& other) = delete;
+  CheckError(CheckError&& other) = default;
+  CheckError& operator=(CheckError&& other) = default;
 
  private:
   explicit CheckError(LogMessage* log_message);
 
-  LogMessage* const log_message_;
+  LogMessage* log_message_;
 };
 
-#if defined(OFFICIAL_BUILD) && defined(NDEBUG) && \
-    !BUILDFLAG(DCHECK_IS_CONFIGURABLE)
+#if defined(OFFICIAL_BUILD) && defined(NDEBUG)
 
 // Discard log strings to reduce code bloat.
 //
@@ -109,8 +107,6 @@ class BASE_EXPORT CheckError {
 // compiler optimizations.
 #define CHECK(condition) \
   UNLIKELY(!(condition)) ? IMMEDIATE_CRASH() : EAT_CHECK_STREAM_PARAMS()
-
-#define CHECK_WILL_STREAM() false
 
 #define PCHECK(condition)                                         \
   LAZY_CHECK_STREAM(                                              \
@@ -123,8 +119,6 @@ class BASE_EXPORT CheckError {
   LAZY_CHECK_STREAM(                                                         \
       ::logging::CheckError::Check(__FILE__, __LINE__, #condition).stream(), \
       !ANALYZER_ASSUME_TRUE(condition))
-
-#define CHECK_WILL_STREAM() true
 
 #define PCHECK(condition)                                                     \
   LAZY_CHECK_STREAM(                                                          \
@@ -154,7 +148,6 @@ class BASE_EXPORT CheckError {
 
 // Async signal safe checking mechanism.
 BASE_EXPORT void RawCheck(const char* message);
-BASE_EXPORT void RawError(const char* message);
 #define RAW_CHECK(condition)                                 \
   do {                                                       \
     if (!(condition))                                        \

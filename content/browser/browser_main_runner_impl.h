@@ -1,4 +1,4 @@
-// Copyright 2018 The Chromium Authors
+// Copyright 2018 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,11 +7,12 @@
 
 #include <memory>
 
+#include "base/macros.h"
 #include "base/task/thread_pool/thread_pool_instance.h"
 #include "build/build_config.h"
 #include "content/public/browser/browser_main_runner.h"
 
-#if BUILDFLAG(IS_WIN)
+#if defined(OS_WIN)
 namespace ui {
 class ScopedOleInitializer;
 }
@@ -27,15 +28,11 @@ class BrowserMainRunnerImpl : public BrowserMainRunner {
   static std::unique_ptr<BrowserMainRunnerImpl> Create();
 
   BrowserMainRunnerImpl();
-
-  BrowserMainRunnerImpl(const BrowserMainRunnerImpl&) = delete;
-  BrowserMainRunnerImpl& operator=(const BrowserMainRunnerImpl&) = delete;
-
   ~BrowserMainRunnerImpl() override;
 
   // BrowserMainRunner:
-  int Initialize(MainFunctionParams parameters) override;
-#if BUILDFLAG(IS_ANDROID)
+  int Initialize(const MainFunctionParams& parameters) override;
+#if defined(OS_ANDROID)
   void SynchronouslyFlushStartupTasks() override;
 #endif
   int Run() override;
@@ -56,9 +53,11 @@ class BrowserMainRunnerImpl : public BrowserMainRunner {
 
   std::unique_ptr<NotificationServiceImpl> notification_service_;
   std::unique_ptr<BrowserMainLoop> main_loop_;
-#if BUILDFLAG(IS_WIN)
+#if defined(OS_WIN)
   std::unique_ptr<ui::ScopedOleInitializer> ole_initializer_;
 #endif
+
+  DISALLOW_COPY_AND_ASSIGN(BrowserMainRunnerImpl);
 };
 
 }  // namespace content

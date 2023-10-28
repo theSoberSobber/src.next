@@ -1,4 +1,4 @@
-// Copyright 2013 The Chromium Authors
+// Copyright (c) 2013 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -13,7 +13,7 @@
 
 #include "base/callback.h"
 #include "base/gtest_prod_util.h"
-#include "base/memory/raw_ptr.h"
+#include "base/macros.h"
 #include "base/scoped_observation.h"
 #include "base/synchronization/lock.h"
 #include "base/task/cancelable_task_tracker.h"
@@ -27,9 +27,6 @@
 
 class PrefRegistrySimple;
 class PrefService;
-class SearchTermsData;
-class TemplateURL;
-class TemplateURLService;
 
 namespace base {
 class FilePath;
@@ -38,17 +35,6 @@ class FilePath;
 namespace history {
 
 class TopSitesImplTest;
-
-// How many top sites to store in the cache.
-static constexpr size_t kTopSitesNumber = 10;
-
-// Returns true if it can set |url| to a valid canonical search results page
-// URL for |default_provider| given the search terms.
-bool GetSearchResultsPageForDefaultSearchProvider(
-    const TemplateURL& default_provider,
-    const SearchTermsData& search_terms_data,
-    const std::u16string& search_terms,
-    GURL* url);
 
 // This class allows requests for most visited urls on any thread. All other
 // methods must be invoked on the UI thread. All mutations to internal state
@@ -60,14 +46,13 @@ class TopSitesImpl : public TopSites, public HistoryServiceObserver {
   // callable multiple time and during the whole lifetime of TopSitesImpl.
   using CanAddURLToHistoryFn = base::RepeatingCallback<bool(const GURL&)>;
 
+  // How many top sites to store in the cache.
+  static constexpr size_t kTopSitesNumber = 10;
+
   TopSitesImpl(PrefService* pref_service,
                HistoryService* history_service,
-               TemplateURLService* template_url_service,
                const PrepopulatedPageList& prepopulated_pages,
                const CanAddURLToHistoryFn& can_add_url_to_history);
-
-  TopSitesImpl(const TopSitesImpl&) = delete;
-  TopSitesImpl& operator=(const TopSitesImpl&) = delete;
 
   // Initializes TopSitesImpl.
   void Init(const base::FilePath& db_name);
@@ -112,7 +97,6 @@ class TopSitesImpl : public TopSites, public HistoryServiceObserver {
   friend class TopSitesImplTest;
   FRIEND_TEST_ALL_PREFIXES(TopSitesImplTest, DiffMostVisited);
   FRIEND_TEST_ALL_PREFIXES(TopSitesImplTest, DiffMostVisitedWithForced);
-  FRIEND_TEST_ALL_PREFIXES(TopSitesImplTest, GetMostVisitedURLsAndQueries);
 
   using PendingCallback = base::OnceCallback<void(const MostVisitedURLList&)>;
 
@@ -134,9 +118,6 @@ class TopSitesImpl : public TopSites, public HistoryServiceObserver {
   static void DiffMostVisited(const MostVisitedURLList& old_list,
                               const MostVisitedURLList& new_list,
                               TopSitesDelta* delta);
-
-  // Adds the most repeated search terms to TopSites and returns a new list.
-  MostVisitedURLList AddMostRepeatedQueries(const MostVisitedURLList& urls);
 
   // Adds prepopulated pages to TopSites. Returns true if any pages were added.
   bool AddPrepopulatedPages(MostVisitedURLList* urls) const;
@@ -212,15 +193,11 @@ class TopSitesImpl : public TopSites, public HistoryServiceObserver {
   const PrepopulatedPageList prepopulated_pages_;
 
   // PrefService holding the set of blocked urls. Must outlive TopSitesImpl.
-  raw_ptr<PrefService> pref_service_;
+  PrefService* pref_service_;
 
   // HistoryService that TopSitesImpl can query. May be null, but if defined it
   // must outlive TopSitesImpl.
-  raw_ptr<HistoryService> history_service_;
-
-  // Used to identify and create search results page URLs for the default
-  // provider. May be nullptr. Must outlive |this| if provided.
-  raw_ptr<TemplateURLService> template_url_service_;
+  HistoryService* history_service_;
 
   // Can URL be added to the history?
   CanAddURLToHistoryFn can_add_url_to_history_;
@@ -234,6 +211,8 @@ class TopSitesImpl : public TopSites, public HistoryServiceObserver {
 
   base::ScopedObservation<HistoryService, HistoryServiceObserver>
       history_service_observation_{this};
+
+  DISALLOW_COPY_AND_ASSIGN(TopSitesImpl);
 };
 
 }  // namespace history

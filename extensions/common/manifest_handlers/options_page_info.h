@@ -1,4 +1,4 @@
-// Copyright 2014 The Chromium Authors
+// Copyright 2014 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 
+#include "base/macros.h"
 #include "base/values.h"
 #include "extensions/common/extension.h"
 #include "extensions/common/manifest_handler.h"
@@ -25,10 +26,6 @@ class OptionsPageInfo : public Extension::ManifestData {
   OptionsPageInfo(const GURL& options_page,
                   bool chrome_styles,
                   bool open_in_tab);
-
-  OptionsPageInfo(const OptionsPageInfo&) = delete;
-  OptionsPageInfo& operator=(const OptionsPageInfo&) = delete;
-
   ~OptionsPageInfo() override;
 
   // Returns the URL to the given extension's options page. This method supports
@@ -65,17 +62,14 @@ class OptionsPageInfo : public Extension::ManifestData {
   bool chrome_styles_;
 
   bool open_in_tab_;
+
+  DISALLOW_COPY_AND_ASSIGN(OptionsPageInfo);
 };
 
 // Parses the "options_ui" manifest key and the legacy "options_page" key.
 class OptionsPageManifestHandler : public ManifestHandler {
  public:
   OptionsPageManifestHandler();
-
-  OptionsPageManifestHandler(const OptionsPageManifestHandler&) = delete;
-  OptionsPageManifestHandler& operator=(const OptionsPageManifestHandler&) =
-      delete;
-
   ~OptionsPageManifestHandler() override;
 
   bool Parse(Extension* extension, std::u16string* error) override;
@@ -85,6 +79,8 @@ class OptionsPageManifestHandler : public ManifestHandler {
 
  private:
   base::span<const char* const> Keys() const override;
+
+  DISALLOW_COPY_AND_ASSIGN(OptionsPageManifestHandler);
 };
 
 }  // namespace extensions

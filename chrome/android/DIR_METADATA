@@ -1,1 +1,5 @@
-mixins: "//chrome/android/COMMON_METADATA"
+monorail {
+  component: "UI>Browser>Mobile"
+}
+team_email: "clank-dev@google.com"
+os: ANDROID

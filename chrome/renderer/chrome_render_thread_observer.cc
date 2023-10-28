@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -16,13 +16,15 @@
 #include "base/command_line.h"
 #include "base/files/file_util.h"
 #include "base/location.h"
+#include "base/macros.h"
 #include "base/memory/weak_ptr.h"
 #include "base/metrics/histogram.h"
 #include "base/metrics/statistics_recorder.h"
 #include "base/no_destructor.h"
 #include "base/path_service.h"
+#include "base/single_thread_task_runner.h"
 #include "base/strings/utf_string_conversions.h"
-#include "base/task/single_thread_task_runner.h"
+#include "base/task/post_task.h"
 #include "base/threading/platform_thread.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "build/build_config.h"
@@ -39,6 +41,8 @@
 #include "content/public/common/content_switches.h"
 #include "content/public/common/resource_usage_reporter_type_converters.h"
 #include "content/public/renderer/render_thread.h"
+#include "content/public/renderer/render_view.h"
+#include "content/public/renderer/render_view_visitor.h"
 #include "extensions/buildflags/buildflags.h"
 #include "ipc/ipc_sync_channel.h"
 #include "media/base/localized_strings.h"
@@ -56,7 +60,7 @@
 #include "third_party/blink/public/web/web_view.h"
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
-#include "extensions/renderer/localization_peer.h"
+#include "chrome/renderer/extensions/extension_localization_peer.h"
 #endif
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
@@ -76,9 +80,6 @@ class RendererResourceDelegate
  public:
   RendererResourceDelegate() = default;
 
-  RendererResourceDelegate(const RendererResourceDelegate&) = delete;
-  RendererResourceDelegate& operator=(const RendererResourceDelegate&) = delete;
-
   void OnRequestComplete() override {
     // Update the browser about our cache.
 
@@ -94,7 +95,7 @@ class RendererResourceDelegate
           FROM_HERE,
           base::BindOnce(&RendererResourceDelegate::InformHostOfCacheStats,
                          weak_factory_.GetWeakPtr()),
-          base::Milliseconds(kCacheStatsDelayMS));
+          base::TimeDelta::FromMilliseconds(kCacheStatsDelayMS));
     }
   }
 
@@ -127,6 +128,8 @@ class RendererResourceDelegate
       cache_stats_recorder_;
 
   base::WeakPtrFactory<RendererResourceDelegate> weak_factory_{this};
+
+  DISALLOW_COPY_AND_ASSIGN(RendererResourceDelegate);
 };
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
@@ -221,10 +224,9 @@ ChromeRenderThreadObserver::GetDynamicParams() {
 
 void ChromeRenderThreadObserver::RegisterMojoInterfaces(
     blink::AssociatedInterfaceRegistry* associated_interfaces) {
-  associated_interfaces->AddInterface<chrome::mojom::RendererConfiguration>(
-      base::BindRepeating(
-          &ChromeRenderThreadObserver::OnRendererConfigurationAssociatedRequest,
-          base::Unretained(this)));
+  associated_interfaces->AddInterface(base::BindRepeating(
+      &ChromeRenderThreadObserver::OnRendererConfigurationAssociatedRequest,
+      base::Unretained(this)));
 }
 
 void ChromeRenderThreadObserver::UnregisterMojoInterfaces(
@@ -236,11 +238,7 @@ void ChromeRenderThreadObserver::UnregisterMojoInterfaces(
 void ChromeRenderThreadObserver::SetInitialConfiguration(
     bool is_incognito_process,
     mojo::PendingReceiver<chrome::mojom::ChromeOSListener>
-        chromeos_listener_receiver,
-    mojo::PendingRemote<content_settings::mojom::ContentSettingsManager>
-        content_settings_manager) {
-  if (content_settings_manager)
-    content_settings_manager_.Bind(std::move(content_settings_manager));
+        chromeos_listener_receiver) {
   is_incognito_process_ = is_incognito_process;
 #if BUILDFLAG(IS_CHROMEOS_ASH)
   if (chromeos_listener_receiver) {
@@ -255,8 +253,18 @@ void ChromeRenderThreadObserver::SetConfiguration(
   *GetDynamicConfigParams() = std::move(*params);
 }
 
+void ChromeRenderThreadObserver::SetContentSettingRules(
+    const RendererContentSettingRules& rules) {
+  content_setting_rules_ = rules;
+}
+
 void ChromeRenderThreadObserver::OnRendererConfigurationAssociatedRequest(
     mojo::PendingAssociatedReceiver<chrome::mojom::RendererConfiguration>
         receiver) {
   renderer_configuration_receivers_.Add(this, std::move(receiver));
+}
+
+const RendererContentSettingRules*
+ChromeRenderThreadObserver::content_setting_rules() const {
+  return &content_setting_rules_;
 }

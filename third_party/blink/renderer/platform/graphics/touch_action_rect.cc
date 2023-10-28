@@ -10,8 +10,7 @@
 namespace blink {
 
 String TouchActionRect::ToString() const {
-  return String(rect.ToString()) + " " +
-         cc::TouchActionToString(allowed_touch_action);
+  return rect.ToString() + " " + cc::TouchActionToString(allowed_touch_action);
 }
 
 std::ostream& operator<<(std::ostream& os,

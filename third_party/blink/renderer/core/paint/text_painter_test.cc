@@ -31,12 +31,13 @@ class TextPainterTest : public RenderingTest {
   LineLayoutText GetLineLayoutText() { return LineLayoutText(layout_text_); }
 
   PaintInfo CreatePaintInfoForBackground() {
-    return PaintInfo(context_, CullRect(),
-                     PaintPhase::kSelfBlockBackgroundOnly);
+    return PaintInfo(context_, CullRect(), PaintPhase::kSelfBlockBackgroundOnly,
+                     kGlobalPaintNormalPhase, 0);
   }
 
   PaintInfo CreatePaintInfoForTextClip() {
-    return PaintInfo(context_, CullRect(), PaintPhase::kTextClip);
+    return PaintInfo(context_, CullRect(), PaintPhase::kTextClip,
+                     kGlobalPaintNormalPhase, 0);
   }
 
  protected:
@@ -52,7 +53,7 @@ class TextPainterTest : public RenderingTest {
     ASSERT_EQ("Hello world", layout_text_->GetText());
   }
 
-  Persistent<LayoutText> layout_text_;
+  LayoutText* layout_text_;
   std::unique_ptr<PaintController> paint_controller_;
   GraphicsContext context_;
 };
@@ -78,7 +79,7 @@ TEST_F(TextPainterTest, TextPaintingStyle_AllProperties) {
   GetDocument().body()->SetInlineStyleProperty(
       CSSPropertyID::kWebkitTextStrokeColor, CSSValueID::kLime);
   GetDocument().body()->SetInlineStyleProperty(
-      CSSPropertyID::kTextEmphasisColor, CSSValueID::kBlue);
+      CSSPropertyID::kWebkitTextEmphasisColor, CSSValueID::kBlue);
   GetDocument().body()->SetInlineStyleProperty(
       CSSPropertyID::kWebkitTextStrokeWidth, 4,
       CSSPrimitiveValue::UnitType::kPixels);
@@ -108,7 +109,7 @@ TEST_F(TextPainterTest, TextPaintingStyle_UsesTextAsClip) {
   GetDocument().body()->SetInlineStyleProperty(
       CSSPropertyID::kWebkitTextStrokeColor, CSSValueID::kLime);
   GetDocument().body()->SetInlineStyleProperty(
-      CSSPropertyID::kTextEmphasisColor, CSSValueID::kBlue);
+      CSSPropertyID::kWebkitTextEmphasisColor, CSSValueID::kBlue);
   GetDocument().body()->SetInlineStyleProperty(
       CSSPropertyID::kWebkitTextStrokeWidth, 4,
       CSSPrimitiveValue::UnitType::kPixels);
@@ -133,11 +134,11 @@ TEST_F(TextPainterTest,
   GetDocument().body()->SetInlineStyleProperty(
       CSSPropertyID::kWebkitTextStrokeColor, CSSValueID::kLime);
   GetDocument().body()->SetInlineStyleProperty(
-      CSSPropertyID::kTextEmphasisColor, CSSValueID::kBlue);
+      CSSPropertyID::kWebkitTextEmphasisColor, CSSValueID::kBlue);
   GetDocument().body()->SetInlineStyleProperty(
       CSSPropertyID::kWebkitPrintColorAdjust, CSSValueID::kEconomy);
   GetDocument().GetSettings()->SetShouldPrintBackgrounds(false);
-  gfx::SizeF page_size(500, 800);
+  FloatSize page_size(500, 800);
   GetFrame().StartPrinting(page_size, page_size, 1);
   UpdateAllLifecyclePhasesForTest();
   // In LayoutNG, printing currently forces layout tree reattachment,
@@ -158,11 +159,11 @@ TEST_F(TextPainterTest, TextPaintingStyle_ForceBackgroundToWhite_Darkened) {
   GetDocument().body()->SetInlineStyleProperty(
       CSSPropertyID::kWebkitTextStrokeColor, "rgb(220, 255, 220)");
   GetDocument().body()->SetInlineStyleProperty(
-      CSSPropertyID::kTextEmphasisColor, "rgb(220, 220, 255)");
+      CSSPropertyID::kWebkitTextEmphasisColor, "rgb(220, 220, 255)");
   GetDocument().body()->SetInlineStyleProperty(
       CSSPropertyID::kWebkitPrintColorAdjust, CSSValueID::kEconomy);
   GetDocument().GetSettings()->SetShouldPrintBackgrounds(false);
-  gfx::SizeF page_size(500, 800);
+  FloatSize page_size(500, 800);
   GetFrame().StartPrinting(page_size, page_size, 1);
   GetDocument().View()->UpdateLifecyclePhasesForPrinting();
   // In LayoutNG, printing currently forces layout tree reattachment,

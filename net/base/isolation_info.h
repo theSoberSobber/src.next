@@ -1,4 +1,4 @@
-// Copyright 2020 The Chromium Authors
+// Copyright 2020 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -6,19 +6,18 @@
 #define NET_BASE_ISOLATION_INFO_H_
 
 #include <set>
-#include <string>
 
-#include "base/unguessable_token.h"
 #include "net/base/net_export.h"
-#include "net/base/network_anonymization_key.h"
 #include "net/base/network_isolation_key.h"
 #include "net/cookies/site_for_cookies.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
 #include "url/origin.h"
 
-namespace network::mojom {
+namespace network {
+namespace mojom {
 class IsolationInfoDataView;
-}  // namespace network::mojom
+}  // namespace mojom
+}  // namespace network
 
 namespace mojo {
 template <typename DataViewType, typename T>
@@ -92,10 +91,10 @@ class NET_EXPORT IsolationInfo {
   // CreateForInternalRequest with a fresh opaque origin.
   static IsolationInfo CreateTransient();
 
-  // Creates an IsolationInfo from the serialized contents. Returns a nullopt
-  // if deserialization fails or if data is inconsistent.
-  static absl::optional<IsolationInfo> Deserialize(
-      const std::string& serialized);
+  // Creates a non-transient IsolationInfo. Just like a transient IsolationInfo
+  // (no SameSite cookies, opaque Origins), but does write data to disk, so this
+  // allows use of the disk cache with a transient NIK.
+  static IsolationInfo CreateOpaqueAndNonTransient();
 
   // Creates an IsolationInfo with the provided parameters. If the parameters
   // are inconsistent, DCHECKs. In particular:
@@ -108,8 +107,7 @@ class NET_EXPORT IsolationInfo {
   // * If |request_type| is kOther, |top_frame_origin| and
   //   |frame_origin| must be first party with respect to |site_for_cookies|, or
   //   |site_for_cookies| must be null.
-  // * If |party_context| is not empty, |top_frame_origin| must not be null.
-  // * If |nonce| is specified, then |top_frame_origin| must not be null.
+  // * If |party_context_| is not empty, |top_frame_origin| must not be null.
   //
   // Note that the |site_for_cookies| consistency checks are skipped when
   // |site_for_cookies| is not HTTP/HTTPS.
@@ -118,18 +116,7 @@ class NET_EXPORT IsolationInfo {
       const url::Origin& top_frame_origin,
       const url::Origin& frame_origin,
       const SiteForCookies& site_for_cookies,
-      absl::optional<std::set<SchemefulSite>> party_context = absl::nullopt,
-      const base::UnguessableToken* nonce = nullptr);
-
-  // Create and IsolationInfo from the context of a double key. This should only
-  // be used when we don't have access to the frame_origin because the
-  // IsolationInfo is being created from an existing double keyed IsolationInfo.
-  static IsolationInfo CreateDoubleKey(
-      RequestType request_type,
-      const url::Origin& top_frame_origin,
-      const SiteForCookies& site_for_cookies,
-      absl::optional<std::set<SchemefulSite>> party_context = absl::nullopt,
-      const base::UnguessableToken* nonce = nullptr);
+      absl::optional<std::set<SchemefulSite>> party_context = absl::nullopt);
 
   // Create an IsolationInfos that may not be fully correct - in particular,
   // the SiteForCookies will always set to null, and if the NetworkIsolationKey
@@ -154,8 +141,8 @@ class NET_EXPORT IsolationInfo {
       const absl::optional<url::Origin>& top_frame_origin,
       const absl::optional<url::Origin>& frame_origin,
       const SiteForCookies& site_for_cookies,
-      absl::optional<std::set<SchemefulSite>> party_context = absl::nullopt,
-      const base::UnguessableToken* nonce = nullptr);
+      bool opaque_and_non_transient,
+      absl::optional<std::set<SchemefulSite>> party_context = absl::nullopt);
 
   // Create a new IsolationInfo for a redirect to the supplied origin. |this| is
   // unmodified.
@@ -182,17 +169,13 @@ class NET_EXPORT IsolationInfo {
   const absl::optional<url::Origin>& top_frame_origin() const {
     return top_frame_origin_;
   }
-  const absl::optional<url::Origin>& frame_origin() const;
+  const absl::optional<url::Origin>& frame_origin() const {
+    return frame_origin_;
+  }
 
   const NetworkIsolationKey& network_isolation_key() const {
     return network_isolation_key_;
   }
-
-  const NetworkAnonymizationKey& network_anonymization_key() const {
-    return network_anonymization_key_;
-  }
-
-  const absl::optional<base::UnguessableToken>& nonce() const { return nonce_; }
 
   // The value that should be consulted for the third-party cookie blocking
   // policy, as defined in Section 2.1.1 and 2.1.2 of
@@ -202,10 +185,7 @@ class NET_EXPORT IsolationInfo {
   //          policy. It MUST NEVER be used for any kind of SECURITY check.
   const SiteForCookies& site_for_cookies() const { return site_for_cookies_; }
 
-  // Do not use outside of testing. Returns the `frame_origin_` if
-  // `kForceIsolationInfoFrameOriginToTopLevelFrame` is disabled. Else it
-  // returns the `top_frame_origin_` value.
-  const absl::optional<url::Origin>& frame_origin_for_testing() const;
+  bool opaque_and_non_transient() const { return opaque_and_non_transient_; }
 
   // Return |party_context| which exclude the top frame origin and the frame
   // origin.
@@ -218,25 +198,12 @@ class NET_EXPORT IsolationInfo {
 
   bool IsEqualForTesting(const IsolationInfo& other) const;
 
-  NetworkAnonymizationKey CreateNetworkAnonymizationKeyForIsolationInfo(
-      const absl::optional<url::Origin>& top_frame_origin,
-      const absl::optional<url::Origin>& frame_origin,
-      const base::UnguessableToken* nonce) const;
-
-  // Serialize the `IsolationInfo` into a string. Fails if transient, returning
-  // an empty string.
-  std::string Serialize() const;
-
-  // Returns true if the IsolationInfo has a triple keyed scheme. This
-  // means both `frame_site_` and `top_frame_site_` are populated.
-  static bool IsFrameSiteEnabled();
-
  private:
   IsolationInfo(RequestType request_type,
                 const absl::optional<url::Origin>& top_frame_origin,
                 const absl::optional<url::Origin>& frame_origin,
                 const SiteForCookies& site_for_cookies,
-                const base::UnguessableToken* nonce,
+                bool opaque_and_non_transient,
                 absl::optional<std::set<SchemefulSite>> party_context);
 
   RequestType request_type_;
@@ -246,15 +213,11 @@ class NET_EXPORT IsolationInfo {
 
   // This can be deduced from the two origins above, but keep a cached version
   // to avoid repeated eTLD+1 calculations, when this is using eTLD+1.
-  NetworkIsolationKey network_isolation_key_;
-
-  NetworkAnonymizationKey network_anonymization_key_;
+  net::NetworkIsolationKey network_isolation_key_;
 
   SiteForCookies site_for_cookies_;
 
-  // Having a nonce is a way to force a transient opaque `IsolationInfo`
-  // for non-opaque origins.
-  absl::optional<base::UnguessableToken> nonce_;
+  bool opaque_and_non_transient_ = false;
 
   // This will hold the list of distinct sites in the form of SchemefulSite to
   // be used for First-Party-Sets check.

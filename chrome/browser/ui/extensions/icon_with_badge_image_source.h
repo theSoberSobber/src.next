@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,7 +7,7 @@
 
 #include <string>
 
-#include "base/callback.h"
+#include "base/macros.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/image/canvas_image_source.h"
@@ -18,10 +18,6 @@ class RenderText;
 class Size;
 }
 
-namespace ui {
-class ColorProvider;
-}
-
 // CanvasImageSource for creating extension icon with a badge.
 class IconWithBadgeImageSource : public gfx::CanvasImageSource {
  public:
@@ -30,26 +26,17 @@ class IconWithBadgeImageSource : public gfx::CanvasImageSource {
     Badge(const std::string& text,
           SkColor text_color,
           SkColor background_color);
-
-    Badge(const Badge&) = delete;
-    Badge& operator=(const Badge&) = delete;
-
     ~Badge();
 
     std::string text;
     SkColor text_color;
     SkColor background_color;
+
+   private:
+    DISALLOW_COPY_AND_ASSIGN(Badge);
   };
 
-  using GetColorProviderCallback =
-      base::RepeatingCallback<const ui::ColorProvider*()>;
-  IconWithBadgeImageSource(
-      const gfx::Size& size,
-      GetColorProviderCallback get_color_provider_callback);
-
-  IconWithBadgeImageSource(const IconWithBadgeImageSource&) = delete;
-  IconWithBadgeImageSource& operator=(const IconWithBadgeImageSource&) = delete;
-
+  explicit IconWithBadgeImageSource(const gfx::Size& size);
   ~IconWithBadgeImageSource() override;
 
   void SetIcon(const gfx::Image& icon);
@@ -85,8 +72,6 @@ class IconWithBadgeImageSource : public gfx::CanvasImageSource {
   // https://crbug.com/831946.
   gfx::Rect GetIconAreaRect() const;
 
-  GetColorProviderCallback get_color_provider_callback_;
-
   // The base icon to draw.
   gfx::Image icon_;
 
@@ -105,9 +90,9 @@ class IconWithBadgeImageSource : public gfx::CanvasImageSource {
 
   // Whether or not to paint a decoration to indicate that the extension has
   // had actions blocked.
-  // TODO(crbug.com/1352298): Remove once kExtensionsMenuAccessControl is rolled
-  // out.
   bool paint_blocked_actions_decoration_ = false;
+
+  DISALLOW_COPY_AND_ASSIGN(IconWithBadgeImageSource);
 };
 
 #endif  // CHROME_BROWSER_UI_EXTENSIONS_ICON_WITH_BADGE_IMAGE_SOURCE_H_

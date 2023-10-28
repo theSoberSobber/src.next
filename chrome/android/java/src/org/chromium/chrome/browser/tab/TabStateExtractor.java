@@ -1,4 +1,4 @@
-// Copyright 2020 The Chromium Authors
+// Copyright 2020 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -43,7 +43,6 @@ public class TabStateExtractor {
                 ? tab.getThemeColor()
                 : TabState.UNSPECIFIED_THEME_COLOR;
         tabState.rootId = CriticalPersistedTabData.from(tab).getRootId();
-        tabState.userAgent = CriticalPersistedTabData.from(tab).getUserAgent();
         return tabState;
     }
 

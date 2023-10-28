@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -13,10 +13,8 @@
 #include "base/atomicops.h"
 #include "base/barrier_closure.h"
 #include "base/bind.h"
-#include "base/callback.h"
 #include "base/lazy_instance.h"
 #include "base/memory/aligned_memory.h"
-#include "base/memory/raw_ptr.h"
 #include "base/system/sys_info.h"
 #include "base/threading/platform_thread.h"
 #include "base/threading/simple_thread.h"
@@ -46,7 +44,7 @@ class SlowConstructor {
  public:
   SlowConstructor() : some_int_(0) {
     // Sleep for 1 second to try to cause a race.
-    base::PlatformThread::Sleep(base::Seconds(1));
+    base::PlatformThread::Sleep(base::TimeDelta::FromSeconds(1));
     ++constructed;
     some_int_ = 12;
   }
@@ -76,7 +74,7 @@ class SlowDelegate : public base::DelegateSimpleThread::Delegate {
   }
 
  private:
-  raw_ptr<base::LazyInstance<SlowConstructor>::DestructorAtExit> lazy_;
+  base::LazyInstance<SlowConstructor>::DestructorAtExit* lazy_;
 };
 
 }  // namespace
@@ -141,7 +139,7 @@ class DeleteLogger {
   }
 
  private:
-  raw_ptr<bool> deleted_;
+  bool* deleted_;
 };
 
 }  // anonymous namespace
@@ -242,15 +240,15 @@ class BlockingConstructor {
   bool done_construction_ = false;
 };
 
-// A SimpleThread running at |thread_type| which invokes |before_get| (optional)
-// and then invokes Get() on the LazyInstance it's assigned.
+// A SimpleThread running at |thread_priority| which invokes |before_get|
+// (optional) and then invokes Get() on the LazyInstance it's assigned.
 class BlockingConstructorThread : public base::SimpleThread {
  public:
   BlockingConstructorThread(
-      base::ThreadType thread_type,
+      base::ThreadPriority thread_priority,
       base::LazyInstance<BlockingConstructor>::DestructorAtExit* lazy,
       base::OnceClosure before_get)
-      : SimpleThread("BlockingConstructorThread", Options(thread_type)),
+      : SimpleThread("BlockingConstructorThread", Options(thread_priority)),
         lazy_(lazy),
         before_get_(std::move(before_get)) {}
   BlockingConstructorThread(const BlockingConstructorThread&) = delete;
@@ -264,7 +262,7 @@ class BlockingConstructorThread : public base::SimpleThread {
   }
 
  private:
-  raw_ptr<base::LazyInstance<BlockingConstructor>::DestructorAtExit> lazy_;
+  base::LazyInstance<BlockingConstructor>::DestructorAtExit* lazy_;
   base::OnceClosure before_get_;
 };
 
@@ -287,11 +285,11 @@ TEST(LazyInstanceTest, PriorityInversionAtInitializationResolves) {
 
   // Construct BlockingConstructor from a background thread.
   BlockingConstructorThread background_getter(
-      base::ThreadType::kBackground, &lazy_blocking, base::OnceClosure());
+      base::ThreadPriority::BACKGROUND, &lazy_blocking, base::OnceClosure());
   background_getter.Start();
 
   while (!BlockingConstructor::WasConstructorCalled())
-    base::PlatformThread::Sleep(base::Milliseconds(1));
+    base::PlatformThread::Sleep(base::TimeDelta::FromMilliseconds(1));
 
   // Spin 4 foreground thread per core contending to get the already under
   // construction LazyInstance. When they are all running and poking at it :
@@ -304,7 +302,7 @@ TEST(LazyInstanceTest, PriorityInversionAtInitializationResolves) {
           base::BindOnce(&BlockingConstructor::CompleteConstructionNow));
   for (int i = 0; i < kNumForegroundThreads; ++i) {
     foreground_threads.push_back(std::make_unique<BlockingConstructorThread>(
-        base::ThreadType::kDefault, &lazy_blocking,
+        base::ThreadPriority::NORMAL, &lazy_blocking,
         foreground_thread_ready_callback));
     foreground_threads.back()->Start();
   }
@@ -318,5 +316,6 @@ TEST(LazyInstanceTest, PriorityInversionAtInitializationResolves) {
 
   // Fail if this test takes more than 5 seconds (it takes 5-10 seconds on a
   // Z840 without r527445 but is expected to be fast (~30ms) with the fix).
-  EXPECT_LT(base::TimeTicks::Now() - test_begin, base::Seconds(5));
+  EXPECT_LT(base::TimeTicks::Now() - test_begin,
+            base::TimeDelta::FromSeconds(5));
 }

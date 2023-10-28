@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -11,12 +11,12 @@
 
 #include "base/bind.h"
 #include "base/logging.h"
+#include "base/stl_util.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/time/time.h"
-#include "base/types/optional_util.h"
 #include "chrome/common/search/search.mojom.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/renderer/searchbox/searchbox_extension.h"
@@ -24,6 +24,7 @@
 #include "components/favicon_base/favicon_url_parser.h"
 #include "components/url_formatter/url_fixer.h"
 #include "content/public/renderer/render_frame.h"
+#include "content/public/renderer/render_view.h"
 #include "mojo/public/cpp/bindings/pending_associated_remote.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_registry.h"
@@ -46,7 +47,8 @@ bool AreMostVisitedItemsEqual(
 
   for (size_t i = 0; i < new_items.size(); ++i) {
     if (new_items[i].url != old_item_id_pairs[i].second.url ||
-        new_items[i].title != old_item_id_pairs[i].second.title) {
+        new_items[i].title != old_item_id_pairs[i].second.title ||
+        new_items[i].source != old_item_id_pairs[i].second.source) {
       return false;
     }
   }
@@ -202,6 +204,35 @@ SearchBox::SearchBox(content::RenderFrame* render_frame)
 
 SearchBox::~SearchBox() = default;
 
+void SearchBox::LogEvent(NTPLoggingEventType event) {
+  base::Time navigation_start = base::Time::FromDoubleT(
+      render_frame()->GetWebFrame()->Performance().NavigationStart());
+  base::Time now = base::Time::Now();
+  base::TimeDelta delta = now - navigation_start;
+  embedded_search_service_->LogEvent(page_seq_no_, event, delta);
+}
+
+void SearchBox::LogSuggestionEventWithValue(
+    NTPSuggestionsLoggingEventType event,
+    int data) {
+  base::Time navigation_start = base::Time::FromDoubleT(
+      render_frame()->GetWebFrame()->Performance().NavigationStart());
+  base::Time now = base::Time::Now();
+  base::TimeDelta delta = now - navigation_start;
+  embedded_search_service_->LogSuggestionEventWithValue(page_seq_no_, event,
+                                                        data, delta);
+}
+
+void SearchBox::LogMostVisitedImpression(
+    const ntp_tiles::NTPTileImpression& impression) {
+  embedded_search_service_->LogMostVisitedImpression(page_seq_no_, impression);
+}
+
+void SearchBox::LogMostVisitedNavigation(
+    const ntp_tiles::NTPTileImpression& impression) {
+  embedded_search_service_->LogMostVisitedNavigation(page_seq_no_, impression);
+}
+
 void SearchBox::DeleteMostVisitedItem(
     InstantRestrictedID most_visited_item_id) {
   GURL url = GetURLForMostVisitedItem(most_visited_item_id);
@@ -233,7 +264,7 @@ bool SearchBox::GetMostVisitedItemWithID(
 }
 
 const NtpTheme* SearchBox::GetNtpTheme() const {
-  return base::OptionalToPtr(theme_);
+  return base::OptionalOrNullptr(theme_);
 }
 
 void SearchBox::StartCapturingKeyStrokes() {
@@ -254,6 +285,63 @@ void SearchBox::UndoMostVisitedDeletion(
   if (!url.is_valid())
     return;
   embedded_search_service_->UndoMostVisitedDeletion(page_seq_no_, url);
+}
+
+void SearchBox::SetCustomBackgroundInfo(const GURL& background_url,
+                                        const std::string& attribution_line_1,
+                                        const std::string& attribution_line_2,
+                                        const GURL& action_url,
+                                        const std::string& collection_id) {
+  embedded_search_service_->SetCustomBackgroundInfo(
+      background_url, attribution_line_1, attribution_line_2, action_url,
+      collection_id);
+}
+
+void SearchBox::SelectLocalBackgroundImage() {
+  embedded_search_service_->SelectLocalBackgroundImage();
+}
+
+void SearchBox::BlocklistSearchSuggestion(int task_version, long task_id) {
+  embedded_search_service_->BlocklistSearchSuggestion(task_version, task_id);
+}
+
+void SearchBox::BlocklistSearchSuggestionWithHash(
+    int task_version,
+    long task_id,
+    const std::vector<uint8_t>& hash) {
+  embedded_search_service_->BlocklistSearchSuggestionWithHash(task_version,
+                                                              task_id, hash);
+}
+
+void SearchBox::SearchSuggestionSelected(int task_version,
+                                         long task_id,
+                                         const std::vector<uint8_t>& hash) {
+  embedded_search_service_->SearchSuggestionSelected(task_version, task_id,
+                                                     hash);
+}
+
+void SearchBox::OptOutOfSearchSuggestions() {
+  embedded_search_service_->OptOutOfSearchSuggestions();
+}
+
+void SearchBox::ApplyDefaultTheme() {
+  embedded_search_service_->ApplyDefaultTheme();
+}
+
+void SearchBox::ApplyAutogeneratedTheme(SkColor color) {
+  embedded_search_service_->ApplyAutogeneratedTheme(color);
+}
+
+void SearchBox::RevertThemeChanges() {
+  embedded_search_service_->RevertThemeChanges();
+}
+
+void SearchBox::ConfirmThemeChanges() {
+  embedded_search_service_->ConfirmThemeChanges();
+}
+
+void SearchBox::BlocklistPromo(const std::string& promo_id) {
+  embedded_search_service_->BlocklistPromo(promo_id);
 }
 
 void SearchBox::SetPageSequenceNumber(int page_seq_no) {
@@ -330,6 +418,13 @@ void SearchBox::ThemeChanged(const NtpTheme& theme) {
   theme_ = theme;
   if (can_run_js_in_renderframe_)
     SearchBoxExtension::DispatchThemeChange(render_frame()->GetWebFrame());
+}
+
+void SearchBox::LocalBackgroundSelected() {
+  if (can_run_js_in_renderframe_) {
+    SearchBoxExtension::DispatchLocalBackgroundSelected(
+        render_frame()->GetWebFrame());
+  }
 }
 
 GURL SearchBox::GetURLForMostVisitedItem(InstantRestrictedID item_id) const {

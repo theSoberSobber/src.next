@@ -1,10 +1,11 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include <map>
 
 #include "base/bind.h"
+#include "base/macros.h"
 #include "base/strings/stringprintf.h"
 #include "chrome/browser/devtools/devtools_window.h"
 #include "chrome/browser/devtools/devtools_window_testing.h"
@@ -41,11 +42,6 @@ class ExtensionNavigationUIDataObserver : public content::WebContentsObserver {
   explicit ExtensionNavigationUIDataObserver(content::WebContents* web_contents)
       : WebContentsObserver(web_contents) {}
 
-  ExtensionNavigationUIDataObserver(const ExtensionNavigationUIDataObserver&) =
-      delete;
-  ExtensionNavigationUIDataObserver& operator=(
-      const ExtensionNavigationUIDataObserver&) = delete;
-
   const ExtensionNavigationUIData* GetExtensionNavigationUIData(
       content::RenderFrameHost* rfh) const {
     auto iter = navigation_ui_data_map_.find(rfh);
@@ -70,6 +66,8 @@ class ExtensionNavigationUIDataObserver : public content::WebContentsObserver {
   std::map<content::RenderFrameHost*,
            std::unique_ptr<ExtensionNavigationUIData>>
       navigation_ui_data_map_;
+
+  DISALLOW_COPY_AND_ASSIGN(ExtensionNavigationUIDataObserver);
 };
 
 }  // namespace
@@ -82,9 +80,9 @@ IN_PROC_BROWSER_TEST_F(ExtensionBrowserTest, WebContents) {
                     .AppendASCII("behllobkkfkfnphdnhnkndlbkcpglgmj")
                     .AppendASCII("1.0.0.0")));
 
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(
+  ui_test_utils::NavigateToURL(
       browser(),
-      GURL("chrome-extension://behllobkkfkfnphdnhnkndlbkcpglgmj/page.html")));
+      GURL("chrome-extension://behllobkkfkfnphdnhnkndlbkcpglgmj/page.html"));
 
   bool result = false;
   ASSERT_TRUE(content::ExecuteScriptAndExtractBool(
@@ -94,9 +92,9 @@ IN_PROC_BROWSER_TEST_F(ExtensionBrowserTest, WebContents) {
   // There was a bug where we would crash if we navigated to a page in the same
   // extension because no new render view was getting created, so we would not
   // do some setup.
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(
+  ui_test_utils::NavigateToURL(
       browser(),
-      GURL("chrome-extension://behllobkkfkfnphdnhnkndlbkcpglgmj/page.html")));
+      GURL("chrome-extension://behllobkkfkfnphdnhnkndlbkcpglgmj/page.html"));
   result = false;
   ASSERT_TRUE(content::ExecuteScriptAndExtractBool(
       GetActiveWebContents(browser()), "testTabsAPI()", &result));
@@ -120,8 +118,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionBrowserTest, TabNavigationToPlatformApp) {
     content::WebContents* web_contents = GetActiveWebContents(browser());
     content::TestNavigationObserver observer(web_contents,
                                              net::ERR_BLOCKED_BY_CLIENT);
-    ASSERT_TRUE(
-        ui_test_utils::NavigateToURL(browser(), redirect_to_platform_app));
+    ui_test_utils::NavigateToURL(browser(), redirect_to_platform_app);
     observer.Wait();
     EXPECT_FALSE(observer.last_navigation_succeeded());
   }
@@ -196,7 +193,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionBrowserTest, ExtensionNavigationUIData) {
 
   // Load a page with an iframe.
   const GURL url = embedded_test_server()->GetURL("/iframe.html");
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
+  ui_test_utils::NavigateToURL(browser(), url);
 
   sessions::SessionTabHelper* session_tab_helper =
       sessions::SessionTabHelper::FromWebContents(web_contents);
@@ -207,8 +204,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionBrowserTest, ExtensionNavigationUIData) {
   // Test ExtensionNavigationUIData for the main frame.
   {
     const auto* extension_navigation_ui_data =
-        observer.GetExtensionNavigationUIData(
-            web_contents->GetPrimaryMainFrame());
+        observer.GetExtensionNavigationUIData(web_contents->GetMainFrame());
     ASSERT_TRUE(extension_navigation_ui_data);
     EXPECT_FALSE(extension_navigation_ui_data->is_web_view());
 
@@ -225,7 +221,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionBrowserTest, ExtensionNavigationUIData) {
   {
     const auto* extension_navigation_ui_data =
         observer.GetExtensionNavigationUIData(
-            content::ChildFrameAt(web_contents->GetPrimaryMainFrame(), 0));
+            content::ChildFrameAt(web_contents->GetMainFrame(), 0));
     ASSERT_TRUE(extension_navigation_ui_data);
     EXPECT_FALSE(extension_navigation_ui_data->is_web_view());
 

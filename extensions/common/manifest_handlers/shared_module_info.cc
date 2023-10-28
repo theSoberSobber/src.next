@@ -1,4 +1,4 @@
-// Copyright 2013 The Chromium Authors
+// Copyright 2013 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -12,6 +12,7 @@
 #include <utility>
 
 #include "base/lazy_instance.h"
+#include "base/macros.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
@@ -132,8 +133,7 @@ SharedModuleHandler::~SharedModuleHandler() = default;
 bool SharedModuleHandler::Parse(Extension* extension, std::u16string* error) {
   ManifestKeys manifest_keys;
   if (!ManifestKeys::ParseFromDictionary(
-          extension->manifest()->available_values().GetDict(), &manifest_keys,
-          error)) {
+          extension->manifest()->available_values(), &manifest_keys, error)) {
     return false;
   }
 
@@ -144,7 +144,7 @@ bool SharedModuleHandler::Parse(Extension* extension, std::u16string* error) {
   auto info = std::make_unique<SharedModuleInfo>();
 
   if (has_import && has_export) {
-    *error = errors::kInvalidImportAndExport;
+    *error = base::ASCIIToUTF16(errors::kInvalidImportAndExport);
     return false;
   }
 

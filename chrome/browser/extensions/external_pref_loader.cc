@@ -1,10 +1,9 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include "chrome/browser/extensions/external_pref_loader.h"
 
-#include <set>
 #include <utility>
 
 #include "base/bind.h"
@@ -55,7 +54,7 @@ constexpr base::FilePath::CharType kExternalExtensionJson[] =
 // TODO(crbug.com/1023268) This is a temporary measure and should be replaced.
 bool SkipInstallForChromeOSTablet(const base::FilePath& file_path) {
 #if BUILDFLAG(IS_CHROMEOS_ASH)
-  if (!ash::switches::IsTabletFormFactor())
+  if (!chromeos::switches::IsTabletFormFactor())
     return false;
 
   constexpr char const* kIdsNotToBeInstalledOnTabletFormFactor[] = {
@@ -86,9 +85,9 @@ std::set<base::FilePath> GetPrefsCandidateFilesFromFolder(
       external_extension_search_path,
       false,  // Recursive.
       base::FileEnumerator::FILES);
-#if BUILDFLAG(IS_WIN)
+#if defined(OS_WIN)
   base::FilePath::StringType extension = base::UTF8ToWide(".json");
-#elif BUILDFLAG(IS_POSIX) || BUILDFLAG(IS_FUCHSIA)
+#elif defined(OS_POSIX)
   base::FilePath::StringType extension(".json");
 #endif
   do {
@@ -124,9 +123,6 @@ class ExternalPrefLoader::PrioritySyncReadyWaiter
     DCHECK(profile_);
   }
 
-  PrioritySyncReadyWaiter(const PrioritySyncReadyWaiter&) = delete;
-  PrioritySyncReadyWaiter& operator=(const PrioritySyncReadyWaiter&) = delete;
-
   ~PrioritySyncReadyWaiter() override = default;
 
   void Start(base::OnceClosure done_closure) {
@@ -137,10 +133,40 @@ class ExternalPrefLoader::PrioritySyncReadyWaiter
     }
     DCHECK(!done_closure_);
     done_closure_ = std::move(done_closure);
+    if (chromeos::features::IsSplitSettingsSyncEnabled()) {
+      // SplitSettingsSync lets users opt-out of sync during OOBE.
+      PrefService* prefs = profile_->GetPrefs();
+      if (!prefs->GetBoolean(chromeos::prefs::kSyncOobeCompleted)) {
+        // Need to wait for OOBE completion before checking if sync is enabled.
+        pref_change_registrar_ = std::make_unique<PrefChangeRegistrar>();
+        pref_change_registrar_->Init(prefs);
+        // base::Unretained is safe because we own |pref_changed_registrar_|.
+        pref_change_registrar_->Add(
+            chromeos::prefs::kSyncOobeCompleted,
+            base::BindRepeating(&PrioritySyncReadyWaiter::OnSyncOobeCompleted,
+                                base::Unretained(this)));
+        return;
+      }
+    }
     MaybeObserveSyncStart();
   }
 
  private:
+  void OnSyncOobeCompleted() {
+    DCHECK(chromeos::features::IsSplitSettingsSyncEnabled());
+    DCHECK(
+        profile_->GetPrefs()->GetBoolean(chromeos::prefs::kSyncOobeCompleted));
+    pref_change_registrar_.reset();
+    syncer::SyncService* service = SyncServiceFactory::GetForProfile(profile_);
+    if (!service->GetUserSettings()->IsOsSyncFeatureEnabled()) {
+      // User opted-out of OS sync, OS sync will never start, we're done here.
+      Finish();
+      // Note: |this| is deleted.
+      return;
+    }
+    MaybeObserveSyncStart();
+  }
+
   void MaybeObserveSyncStart() {
     syncer::SyncService* service = SyncServiceFactory::GetForProfile(profile_);
     DCHECK(service);
@@ -177,9 +203,9 @@ class ExternalPrefLoader::PrioritySyncReadyWaiter
     sync_preferences::PrefServiceSyncable* prefs =
         PrefServiceSyncableFromProfile(profile_);
     DCHECK(prefs);
-    // SyncSettingsCategorization moves prefs like language and keyboard/mouse
-    // config to OS priority prefs.
-    return chromeos::features::IsSyncSettingsCategorizationEnabled()
+    // SplitSettingsSync moves prefs like language and keyboard/mouse config to
+    // OS priority prefs.
+    return chromeos::features::IsSplitSettingsSyncEnabled()
                ? prefs->AreOsPriorityPrefsSyncing()
                : prefs->IsPrioritySyncing();
   }
@@ -200,12 +226,17 @@ class ExternalPrefLoader::PrioritySyncReadyWaiter
 
   base::OnceClosure done_closure_;
 
+  // Used with SplitSettingsSync to wait for OOBE sync dialog completion.
+  std::unique_ptr<PrefChangeRegistrar> pref_change_registrar_;
+
   // Used for registering observer for sync_preferences::PrefServiceSyncable.
   base::ScopedObservation<sync_preferences::PrefServiceSyncable,
                           sync_preferences::PrefServiceSyncableObserver>
       syncable_pref_observation_{this};
   base::ScopedObservation<syncer::SyncService, syncer::SyncServiceObserver>
       sync_service_observation_{this};
+
+  DISALLOW_COPY_AND_ASSIGN(PrioritySyncReadyWaiter);
 };
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
@@ -268,7 +299,7 @@ ExternalPrefLoader::ExtractExtensionPrefs(base::ValueDeserializer* deserializer,
                                           const base::FilePath& path) {
   std::string error_msg;
   std::unique_ptr<base::Value> extensions =
-      deserializer->Deserialize(nullptr, &error_msg);
+      deserializer->Deserialize(NULL, &error_msg);
   if (!extensions) {
     LOG(WARNING) << "Unable to deserialize json data: " << error_msg
                  << " in file " << path.value() << ".";
@@ -321,7 +352,7 @@ void ExternalPrefLoader::LoadOnFileThread() {
 
 void ExternalPrefLoader::ReadExternalExtensionPrefFile(
     base::DictionaryValue* prefs) {
-  CHECK(nullptr != prefs);
+  CHECK(NULL != prefs);
 
   base::FilePath json_file = base_path_.Append(kExternalExtensionJson);
 
@@ -331,7 +362,7 @@ void ExternalPrefLoader::ReadExternalExtensionPrefFile(
   }
 
   if (IsOptionSet(ENSURE_PATH_CONTROLLED_BY_ADMIN)) {
-#if BUILDFLAG(IS_MAC)
+#if defined(OS_MAC)
     if (!base::VerifyPathControlledByAdmin(json_file)) {
       LOG(ERROR) << "Can not read external extensions source.  The file "
                  << json_file.value() << " and every directory in its path, "
@@ -346,7 +377,7 @@ void ExternalPrefLoader::ReadExternalExtensionPrefFile(
     // you need to implement base::VerifyPathControlledByAdmin() for
     // that platform.
     NOTREACHED();
-#endif  // BUILDFLAG(IS_MAC)
+#endif  // defined(OS_MAC)
   }
 
   JSONFileValueDeserializer deserializer(json_file);
@@ -358,7 +389,7 @@ void ExternalPrefLoader::ReadExternalExtensionPrefFile(
 
 void ExternalPrefLoader::ReadStandaloneExtensionPrefFiles(
     base::DictionaryValue* prefs) {
-  CHECK(nullptr != prefs);
+  CHECK(NULL != prefs);
 
   // First list the potential .json candidates.
   std::set<base::FilePath> candidates =
@@ -381,10 +412,10 @@ void ExternalPrefLoader::ReadStandaloneExtensionPrefFiles(
     base::FilePath extension_candidate_path = base_path_.Append(*it);
 
     const std::string id =
-#if BUILDFLAG(IS_WIN)
+#if defined(OS_WIN)
         base::WideToASCII(
             extension_candidate_path.RemoveExtension().BaseName().value());
-#elif BUILDFLAG(IS_POSIX) || BUILDFLAG(IS_FUCHSIA)
+#elif defined(OS_POSIX)
         extension_candidate_path.RemoveExtension().BaseName().value();
 #endif
 

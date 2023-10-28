@@ -6,7 +6,6 @@
 
 #include "services/network/public/mojom/referrer_policy.mojom-blink.h"
 #include "third_party/blink/renderer/platform/loader/link_header.h"
-#include "third_party/blink/renderer/platform/weborigin/security_policy.h"
 
 namespace blink {
 
@@ -18,13 +17,11 @@ LinkLoadParameters::LinkLoadParameters(
     const String& media,
     const String& nonce,
     const String& integrity,
-    const String& fetch_priority_hint,
+    const String& importance,
     network::mojom::ReferrerPolicy referrer_policy,
     const KURL& href,
     const String& image_srcset,
-    const String& image_sizes,
-    const String& blocking,
-    LinkLoadParameters::Reason reason)
+    const String& image_sizes)
     : rel(rel),
       cross_origin(cross_origin),
       type(type),
@@ -32,17 +29,15 @@ LinkLoadParameters::LinkLoadParameters(
       media(media),
       nonce(nonce),
       integrity(integrity),
-      fetch_priority_hint(fetch_priority_hint),
+      importance(importance),
       referrer_policy(referrer_policy),
       href(href),
       image_srcset(image_srcset),
-      image_sizes(image_sizes),
-      blocking(blocking),
-      reason(reason) {}
+      image_sizes(image_sizes) {}
 
 // TODO(domfarolino)
-// Eventually we'll want to support a |fetchpriority| value on
-// LinkHeaders. We can communicate a header's fetchpriority value
+// Eventually we'll want to support an |importance| value on
+// LinkHeaders. We can communicate a header's importance value
 // to LinkLoadParameters here, likely after modifying the LinkHeader
 // class. See https://crbug.com/821464 for info on Priority Hints.
 LinkLoadParameters::LinkLoadParameters(const LinkHeader& header,
@@ -57,14 +52,6 @@ LinkLoadParameters::LinkLoadParameters(const LinkHeader& header,
       referrer_policy(network::mojom::ReferrerPolicy::kDefault),
       href(KURL(base_url, header.Url())),
       image_srcset(header.ImageSrcset()),
-      image_sizes(header.ImageSizes()),
-      blocking(header.Blocking()),
-      reason(Reason::kDefault) {
-  if (!header.ReferrerPolicy().IsEmpty()) {
-    SecurityPolicy::ReferrerPolicyFromString(
-        header.ReferrerPolicy(), kDoNotSupportReferrerPolicyLegacyKeywords,
-        &referrer_policy);
-  }
-}
+      image_sizes(header.ImageSizes()) {}
 
 }  // namespace blink

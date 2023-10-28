@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -40,7 +40,7 @@ class NET_EXPORT HostPortPair {
 
   // Creates a HostPortPair from a string formatted in same manner as
   // ToString().
-  static HostPortPair FromString(base::StringPiece str);
+  static HostPortPair FromString(const std::string& str);
 
   // TODO(willchan): Define a functor instead.
   // Comparator function so this can be placed in a std::map.
@@ -77,6 +77,9 @@ class NET_EXPORT HostPortPair {
 
   // Returns |host_|, adding IPv6 brackets if needed.
   std::string HostForURL() const;
+
+  // Returns the estimate of dynamically allocated memory in bytes.
+  size_t EstimateMemoryUsage() const;
 
  private:
   // If |host_| represents an IPv6 address, this string will not contain

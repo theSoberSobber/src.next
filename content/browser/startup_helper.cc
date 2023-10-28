@@ -1,4 +1,4 @@
-// Copyright 2018 The Chromium Authors
+// Copyright 2018 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -47,18 +47,18 @@ std::unique_ptr<base::FieldTrialList> SetUpFieldTrialsAndFeatureList() {
 }
 
 namespace {
-#if BUILDFLAG(IS_ANDROID)
+#if defined(OS_ANDROID)
 // Mobile config, for iOS see ios/web/app/web_main_loop.cc.
-constexpr size_t kThreadPoolDefaultMin = 6;
-constexpr size_t kThreadPoolMax = 8;
+constexpr int kThreadPoolDefaultMin = 6;
+constexpr int kThreadPoolMax = 8;
 constexpr double kThreadPoolCoresMultiplier = 0.6;
-constexpr size_t kThreadPoolOffset = 0;
+constexpr int kThreadPoolOffset = 0;
 #else
 // Desktop config.
-constexpr size_t kThreadPoolDefaultMin = 16;
-constexpr size_t kThreadPoolMax = 32;
+constexpr int kThreadPoolDefaultMin = 16;
+constexpr int kThreadPoolMax = 32;
 constexpr double kThreadPoolCoresMultiplier = 0.6;
-constexpr size_t kThreadPoolOffset = 0;
+constexpr int kThreadPoolOffset = 0;
 #endif
 
 const base::Feature kBrowserThreadPoolAdjustment{
@@ -73,12 +73,12 @@ const base::FeatureParam<int> kBrowserThreadPoolMin{
 void StartBrowserThreadPool() {
   // Ensure we always support at least one thread regardless of the field trial
   // param setting.
-  auto min = static_cast<size_t>(std::max(kBrowserThreadPoolMin.Get(), 1));
+  int min = std::max(kBrowserThreadPoolMin.Get(), 1);
   base::ThreadPoolInstance::InitParams thread_pool_init_params = {
       base::RecommendedMaxNumberOfThreadsInThreadGroup(
           min, kThreadPoolMax, kThreadPoolCoresMultiplier, kThreadPoolOffset)};
 
-#if BUILDFLAG(IS_WIN)
+#if defined(OS_WIN)
   thread_pool_init_params.common_thread_pool_environment = base::
       ThreadPoolInstance::InitParams::CommonThreadPoolEnvironment::COM_MTA;
 #endif

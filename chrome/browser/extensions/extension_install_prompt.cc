@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -8,11 +8,10 @@
 
 #include "base/bind.h"
 #include "base/location.h"
-#include "base/observer_list.h"
+#include "base/single_thread_task_runner.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
-#include "base/task/single_thread_task_runner.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "chrome/browser/extensions/extension_install_prompt_show_params.h"
 #include "chrome/browser/extensions/extension_util.h"
@@ -41,7 +40,6 @@
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/base/ui_base_types.h"
 #include "ui/gfx/image/image_skia.h"
-#include "ui/gfx/image/image_skia_rep.h"
 
 using extensions::Extension;
 using extensions::Manifest;
@@ -483,15 +481,14 @@ scoped_refptr<Extension>
     std::string* error) {
   std::unique_ptr<base::DictionaryValue> localized_manifest;
   if (!localized_name.empty() || !localized_description.empty()) {
-    localized_manifest = base::DictionaryValue::From(
-        base::Value::ToUniquePtrValue(manifest->Clone()));
+    localized_manifest.reset(manifest->DeepCopy());
     if (!localized_name.empty()) {
-      localized_manifest->SetStringKey(extensions::manifest_keys::kName,
-                                       localized_name);
+      localized_manifest->SetString(extensions::manifest_keys::kName,
+                                    localized_name);
     }
     if (!localized_description.empty()) {
-      localized_manifest->SetStringKey(extensions::manifest_keys::kDescription,
-                                       localized_description);
+      localized_manifest->SetString(extensions::manifest_keys::kDescription,
+                                    localized_description);
     }
   }
 
@@ -626,8 +623,10 @@ void ExtensionInstallPrompt::LoadImageIfNeeded() {
 
   std::vector<extensions::ImageLoader::ImageRepresentation> images_list;
   images_list.push_back(extensions::ImageLoader::ImageRepresentation(
-      image, extensions::ImageLoader::ImageRepresentation::NEVER_RESIZE,
-      gfx::Size(), ui::k100Percent));
+      image,
+      extensions::ImageLoader::ImageRepresentation::NEVER_RESIZE,
+      gfx::Size(),
+      ui::SCALE_FACTOR_100P));
   loader->LoadImagesAsync(extension_.get(), images_list,
                           base::BindOnce(&ExtensionInstallPrompt::OnImageLoaded,
                                          weak_factory_.GetWeakPtr()));

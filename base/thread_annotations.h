@@ -1,4 +1,4 @@
-// Copyright 2018 The Chromium Authors
+// Copyright (c) 2018 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -6,11 +6,6 @@
 // that allow developers to document the locking policies of multi-threaded
 // code. The annotations can also help program analysis tools to identify
 // potential thread safety issues.
-//
-// Note that no analysis is done inside constructors and destructors,
-// regardless of what attributes are used. See
-// https://clang.llvm.org/docs/ThreadSafetyAnalysis.html#no-checking-inside-constructors-and-destructors
-// for details.
 //
 // Note that the annotations we use are described as deprecated in the Clang
 // documentation, linked below. E.g. we use EXCLUSIVE_LOCKS_REQUIRED where the
@@ -37,7 +32,7 @@
 #ifndef BASE_THREAD_ANNOTATIONS_H_
 #define BASE_THREAD_ANNOTATIONS_H_
 
-#include "base/dcheck_is_on.h"
+#include "base/check_op.h"
 #include "build/build_config.h"
 
 #if defined(__clang__)

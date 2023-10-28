@@ -6,12 +6,12 @@
 
 namespace blink {
 
-MemoryManagedPaintCanvas::MemoryManagedPaintCanvas(cc::DisplayItemList* list,
-                                                   const SkRect& bounds,
-                                                   Client* client)
-    : RecordPaintCanvas(list, bounds), client_(client) {
-  DCHECK(client);
-}
+MemoryManagedPaintCanvas::MemoryManagedPaintCanvas(
+    cc::DisplayItemList* list,
+    const SkRect& bounds,
+    base::RepeatingClosure set_needs_flush_callback)
+    : RecordPaintCanvas(list, bounds),
+      set_needs_flush_callback_(std::move(set_needs_flush_callback)) {}
 
 MemoryManagedPaintCanvas::~MemoryManagedPaintCanvas() = default;
 
@@ -42,7 +42,10 @@ void MemoryManagedPaintCanvas::UpdateMemoryUsage(const cc::PaintImage& image) {
     return;
 
   cached_image_ids_.insert(image.GetContentIdForFrame(0u));
-  client_->DidPinImage(image.GetSkImageInfo().computeMinByteSize());
+  total_stored_image_memory_ += image.GetSkImageInfo().computeMinByteSize();
+
+  if (total_stored_image_memory_ > kMaxPinnedMemory)
+    set_needs_flush_callback_.Run();
 }
 
 bool MemoryManagedPaintCanvas::IsCachingImage(

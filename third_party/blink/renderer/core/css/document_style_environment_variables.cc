@@ -6,7 +6,6 @@
 
 #include "third_party/blink/renderer/core/css/style_engine.h"
 #include "third_party/blink/renderer/core/dom/document.h"
-#include "third_party/blink/renderer/core/execution_context/execution_context.h"
 #include "third_party/blink/renderer/core/frame/web_feature.h"
 #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_hasher.h"
@@ -36,7 +35,6 @@ DocumentStyleEnvironmentVariables::Create(StyleEnvironmentVariables& parent,
 
 CSSVariableData* DocumentStyleEnvironmentVariables::ResolveVariable(
     const AtomicString& name,
-    WTF::Vector<unsigned> indices,
     bool record_metrics) {
   unsigned id = GenerateHashFromName(name);
   if (record_metrics)
@@ -44,7 +42,7 @@ CSSVariableData* DocumentStyleEnvironmentVariables::ResolveVariable(
 
   // Mark the variable as seen so we will invalidate the style if we change it.
   seen_variables_.insert(id);
-  return StyleEnvironmentVariables::ResolveVariable(name, std::move(indices));
+  return StyleEnvironmentVariables::ResolveVariable(name);
 }
 
 const FeatureContext* DocumentStyleEnvironmentVariables::GetFeatureContext()
@@ -53,9 +51,8 @@ const FeatureContext* DocumentStyleEnvironmentVariables::GetFeatureContext()
 }
 
 CSSVariableData* DocumentStyleEnvironmentVariables::ResolveVariable(
-    const AtomicString& name,
-    WTF::Vector<unsigned> indices) {
-  return ResolveVariable(name, std::move(indices), true /* record_metrics */);
+    const AtomicString& name) {
+  return ResolveVariable(name, true /* record_metrics */);
 }
 
 void DocumentStyleEnvironmentVariables::InvalidateVariable(

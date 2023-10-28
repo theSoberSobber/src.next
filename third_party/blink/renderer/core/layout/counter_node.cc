@@ -42,7 +42,7 @@ CounterNode::CounterNode(LayoutObject& o, unsigned type_mask, int value)
       first_child_(nullptr),
       last_child_(nullptr) {}
 
-void CounterNode::Destroy() {
+CounterNode::~CounterNode() {
   // Ideally this would be an assert and this would never be reached. In reality
   // this happens a lot so we need to handle these cases. The node is still
   // connected to the tree so we need to detach it.
@@ -92,14 +92,10 @@ void CounterNode::Destroy() {
   ResetLayoutObjects();
 }
 
-void CounterNode::Trace(Visitor* visitor) const {
-  visitor->Trace(owner_);
-  visitor->Trace(root_layout_object_);
-  visitor->Trace(parent_);
-  visitor->Trace(previous_sibling_);
-  visitor->Trace(next_sibling_);
-  visitor->Trace(first_child_);
-  visitor->Trace(last_child_);
+scoped_refptr<CounterNode> CounterNode::Create(LayoutObject& owner,
+                                               unsigned type_mask,
+                                               int value) {
+  return base::AdoptRef(new CounterNode(owner, type_mask, value));
 }
 
 CounterNode* CounterNode::NextInPreOrderAfterChildren(
@@ -185,7 +181,7 @@ void CounterNode::AddLayoutObject(LayoutCounter* value) {
       return;
     }
   }
-  value->next_for_same_counter_ = root_layout_object_.Get();
+  value->next_for_same_counter_ = root_layout_object_;
   root_layout_object_ = value;
   if (value->counter_node_ != this) {
     if (value->counter_node_) {
@@ -241,8 +237,8 @@ CounterNode* CounterNode::AncestorNodeAcrossStyleContainment(
     if (!crossed_style_containment)
       continue;
     if (CounterMap* node_map = LayoutCounter::GetCounterMap(ancestor)) {
-      if (node_map->Contains(identifier))
-        return node_map->at(identifier);
+      if (CounterNode* node = node_map->at(identifier))
+        return node;
     }
   }
   return nullptr;
@@ -293,7 +289,7 @@ void CounterNode::InsertAfter(CounterNode* new_child,
       LayoutCounter::DestroyCounterNode(last_child_->Owner(), identifier);
   }
 
-  CounterNode* next = nullptr;
+  CounterNode* next;
 
   if (ref_child) {
     next = ref_child->next_sibling_;
@@ -403,13 +399,14 @@ void CounterNode::MoveNonResetSiblingsToChildOf(
   if (!first_node)
     return;
 
-  CounterNode* cur_node = first_node;
-  CounterNode* old_parent = first_node->Parent();
+  scoped_refptr<CounterNode> cur_node = first_node;
+  scoped_refptr<CounterNode> old_parent = first_node->Parent();
   while (cur_node) {
-    CounterNode* next = cur_node->NextSibling();
+    scoped_refptr<CounterNode> next = cur_node->NextSibling();
     if (!cur_node->ActsAsReset()) {
-      old_parent->RemoveChild(cur_node);
-      new_parent.InsertAfter(cur_node, new_parent.LastChild(), identifier);
+      old_parent->RemoveChild(cur_node.get());
+      new_parent.InsertAfter(cur_node.get(), new_parent.LastChild(),
+                             identifier);
     }
     cur_node = next;
   }
@@ -443,7 +440,7 @@ static void ShowTreeAndMark(const CounterNode* node) {
 
 #if DCHECK_IS_ON()
 
-void ShowCounterTree(const blink::CounterNode* counter) {
+void showCounterTree(const blink::CounterNode* counter) {
   if (counter)
     ShowTreeAndMark(counter);
   else

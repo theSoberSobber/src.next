@@ -1,4 +1,4 @@
-// Copyright 2013 The Chromium Authors
+// Copyright (c) 2013 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -39,16 +39,12 @@ DefaultLocaleHandler::~DefaultLocaleHandler() {
 
 bool DefaultLocaleHandler::Parse(Extension* extension, std::u16string* error) {
   std::unique_ptr<LocaleInfo> info(new LocaleInfo);
-
-  const std::string* default_locale =
-      extension->manifest()->FindStringPath(keys::kDefaultLocale);
-  if (default_locale == nullptr ||
-      !l10n_util::IsValidLocaleSyntax(*default_locale)) {
-    *error = manifest_errors::kInvalidDefaultLocale16;
+  if (!extension->manifest()->GetString(keys::kDefaultLocale,
+                                        &info->default_locale) ||
+      !l10n_util::IsValidLocaleSyntax(info->default_locale)) {
+    *error = base::ASCIIToUTF16(manifest_errors::kInvalidDefaultLocale);
     return false;
   }
-  info->default_locale = *default_locale;
-
   extension->SetManifestData(keys::kDefaultLocale, std::move(info));
   return true;
 }
@@ -104,8 +100,7 @@ bool DefaultLocaleHandler::Validate(
         !(gzipped_messages_allowed &&
           base::PathExists(gzipped_messages_path))) {
       *error = base::StringPrintf(
-          "%s %s",
-          base::UTF16ToUTF8(errors::kLocalesMessagesFileMissing).c_str(),
+          "%s %s", errors::kLocalesMessagesFileMissing,
           base::UTF16ToUTF8(messages_path.LossyDisplayName()).c_str());
       return false;
     }

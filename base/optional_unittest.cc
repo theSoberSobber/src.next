@@ -1,4 +1,4 @@
-// Copyright 2016 The Chromium Authors
+// Copyright 2016 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -8,12 +8,11 @@
 #include <type_traits>
 #include <vector>
 
-#include "base/template_util.h"
+#include "base/macros.h"
 #include "base/test/gtest_util.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
-#include "third_party/abseil-cpp/absl/utility/utility.h"
 
 using ::testing::ElementsAre;
 
@@ -407,7 +406,8 @@ TEST(OptionalTest, ConvertingCopyConstructor) {
 
   // Make sure explicit is not marked for convertible case.
   {
-    [[maybe_unused]] absl::optional<int> o(1);
+    absl::optional<int> o(1);
+    ignore_result<absl::optional<double>>(o);
   }
 }
 
@@ -421,7 +421,8 @@ TEST(OptionalTest, ConvertingMoveConstructor) {
 
   // Make sure explicit is not marked for convertible case.
   {
-    [[maybe_unused]] absl::optional<int> o(1);
+    absl::optional<int> o(1);
+    ignore_result<absl::optional<double>>(std::move(o));
   }
 
   {
@@ -536,7 +537,7 @@ TEST(OptionalTest, ForwardConstructor) {
       Test(const Test& param) : param_type(ParamType::COPY_CONSTRUCTED) {}
       Test(Test&& param) : param_type(ParamType::MOVE_CONSTRUCTED) {}
       explicit Test(int param) : param_type(ParamType::INT) {}
-      explicit Test(absl::in_place_t param) : param_type(ParamType::IN_PLACE) {}
+      explicit Test(in_place_t param) : param_type(ParamType::IN_PLACE) {}
       explicit Test(absl::optional<int> param)
           : param_type(ParamType::OPTIONAL_INT) {}
 

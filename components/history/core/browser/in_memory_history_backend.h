@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -24,6 +24,7 @@
 #include <string>
 
 #include "base/gtest_prod_util.h"
+#include "base/macros.h"
 #include "base/scoped_observation.h"
 #include "components/history/core/browser/history_service.h"
 #include "components/history/core/browser/history_service_observer.h"
@@ -43,10 +44,6 @@ class URLRow;
 class InMemoryHistoryBackend : public HistoryServiceObserver {
  public:
   InMemoryHistoryBackend();
-
-  InMemoryHistoryBackend(const InMemoryHistoryBackend&) = delete;
-  InMemoryHistoryBackend& operator=(const InMemoryHistoryBackend&) = delete;
-
   ~InMemoryHistoryBackend() override;
 
   // Initializes the backend from the history database pointed to by the
@@ -73,9 +70,11 @@ class InMemoryHistoryBackend : public HistoryServiceObserver {
   friend class InMemoryHistoryBackendTest;
 
   // HistoryServiceObserver:
-  void OnURLVisited(history::HistoryService* history_service,
-                    const history::URLRow& url_row,
-                    const history::VisitRow& new_visit) override;
+  void OnURLVisited(HistoryService* history_service,
+                    ui::PageTransition transition,
+                    const URLRow& row,
+                    const RedirectList& redirects,
+                    base::Time visit_time) override;
   void OnURLsModified(HistoryService* history_service,
                       const URLRows& changed_urls) override;
   void OnURLsDeleted(HistoryService* history_service,
@@ -94,6 +93,8 @@ class InMemoryHistoryBackend : public HistoryServiceObserver {
 
   base::ScopedObservation<HistoryService, HistoryServiceObserver>
       history_service_observation_{this};
+
+  DISALLOW_COPY_AND_ASSIGN(InMemoryHistoryBackend);
 };
 
 }  // namespace history

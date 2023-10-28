@@ -1,12 +1,11 @@
-// Copyright 2021 The Chromium Authors
+// Copyright 2021 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef EXTENSIONS_BROWSER_EXTENSION_FRAME_HOST_H_
 #define EXTENSIONS_BROWSER_EXTENSION_FRAME_HOST_H_
 
-#include "base/memory/raw_ptr.h"
-#include "content/public/browser/render_frame_host_receiver_set.h"
+#include "content/public/browser/web_contents_receiver_set.h"
 #include "extensions/common/mojom/frame.mojom.h"
 #include "extensions/common/mojom/injection_type.mojom-shared.h"
 #include "extensions/common/mojom/run_location.mojom-shared.h"
@@ -27,15 +26,6 @@ class ExtensionFrameHost : public mojom::LocalFrameHost {
   ExtensionFrameHost& operator=(const ExtensionFrameHost&) = delete;
   ~ExtensionFrameHost() override;
 
-  void BindLocalFrameHost(
-      mojo::PendingAssociatedReceiver<mojom::LocalFrameHost> receiver,
-      content::RenderFrameHost* rfh);
-
-  content::RenderFrameHostReceiverSet<mojom::LocalFrameHost>&
-  receivers_for_testing() {
-    return receivers_;
-  }
-
   // mojom::LocalFrameHost:
   void RequestScriptInjectionPermission(
       const std::string& extension_id,
@@ -55,8 +45,8 @@ class ExtensionFrameHost : public mojom::LocalFrameHost {
  private:
   // This raw pointer is safe to use because ExtensionWebContentsObserver whose
   // lifetime is tied to the WebContents owns this instance.
-  raw_ptr<content::WebContents> web_contents_;
-  content::RenderFrameHostReceiverSet<mojom::LocalFrameHost> receivers_;
+  content::WebContents* web_contents_;
+  content::WebContentsFrameReceiverSet<mojom::LocalFrameHost> receivers_;
 };
 
 }  // namespace extensions

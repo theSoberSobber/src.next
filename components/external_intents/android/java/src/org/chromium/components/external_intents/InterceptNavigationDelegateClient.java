@@ -1,4 +1,4 @@
-// Copyright 2020 The Chromium Authors
+// Copyright 2020 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,7 +7,7 @@ package org.chromium.components.external_intents;
 import android.app.Activity;
 
 import org.chromium.components.external_intents.ExternalNavigationHandler.OverrideUrlLoadingResult;
-import org.chromium.content_public.browser.NavigationHandle;
+import org.chromium.components.navigation_interception.NavigationParams;
 import org.chromium.content_public.browser.WebContents;
 
 /**
@@ -29,6 +29,10 @@ public interface InterceptNavigationDelegateClient {
      * necessary. */
     RedirectHandler getOrCreateRedirectHandler();
 
+    /* Creates an AuthenticatorNavigationInterceptor instance that is configured for this client.
+     */
+    AuthenticatorNavigationInterceptor createAuthenticatorNavigationInterceptor();
+
     /* Returns whether whether the tab associated with this client is incognito. */
     boolean isIncognito();
 
@@ -36,8 +40,8 @@ public interface InterceptNavigationDelegateClient {
     boolean isHidden();
 
     /* Returns whether intent launching from hidden tabs is allowed for the navigation specified
-     * by |navigationHandle|. */
-    boolean areIntentLaunchesAllowedInHiddenTabsForNavigation(NavigationHandle navigationHandle);
+     * by |params|. */
+    boolean areIntentLaunchesAllowedInHiddenTabsForNavigation(NavigationParams params);
 
     /* Returns the Activity associated with this client. */
     Activity getActivity();
@@ -54,11 +58,11 @@ public interface InterceptNavigationDelegateClient {
 
     /* Invoked when a navigation has begun in the InterceptNavigationDelegateImpl instance
      * associated with this instance. */
-    void onNavigationStarted(NavigationHandle navigationHandle);
+    void onNavigationStarted(NavigationParams params);
 
     /* Invoked when the InterceptNavigationDelegateImpl instance
      * associated with this instance has reached a decision for the navigation specified by
-     * |navigationHandle|. |overrideUrlLoadingResult| specifies the decision. */
+     * |params|. |overrideUrlLoadingResult| specifies the decision. */
     void onDecisionReachedForNavigation(
-            NavigationHandle navigationHandle, OverrideUrlLoadingResult overrideUrlLoadingResult);
+            NavigationParams params, OverrideUrlLoadingResult overrideUrlLoadingResult);
 }

@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -11,6 +11,7 @@
 
 #include "base/callback.h"
 #include "base/memory/ref_counted.h"
+#include "base/task/post_task.h"
 #include "content/common/content_export.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
@@ -69,7 +70,7 @@ namespace content {
 //      std::unique_ptr<ByteStreamReader> reader;
 //      CreateByteStream(
 //          GetIOThreadTaskRunner({}),
-//          base::ThreadPool::CreateSequencedTaskRunner({base::MayBlock, ...}),
+//          base::CreateSequencedTaskRunner({base::MayBlock, ...}),
 //          kStreamBufferSize /* e.g. 10240.  */,
 //          &writer,
 //          &reader);         // Presumed passed to FILE thread for reading.

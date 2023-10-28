@@ -54,9 +54,6 @@ void SVGContainerPainter::Paint(const PaintInfo& paint_info) {
             layout_svg_container_.VisualRectInLocalSVGCoordinates()))
       return;
     if (properties) {
-      // TODO(https://crbug.com/1278452): Also consider Translate, Rotate,
-      // Scale, and Offset, probably via a single transform operation to
-      // FirstFragment().PreTransform().
       if (const auto* transform = properties->Transform())
         paint_info_before_filtering.TransformCullRect(*transform);
     }
@@ -91,8 +88,8 @@ void SVGContainerPainter::Paint(const PaintInfo& paint_info) {
 
     for (LayoutObject* child = layout_svg_container_.FirstChild(); child;
          child = child->NextSibling()) {
-      if (child->IsSVGForeignObjectIncludingNG()) {
-        SVGForeignObjectPainter(To<LayoutBlockFlow>(*child))
+      if (auto* foreign_object = DynamicTo<LayoutSVGForeignObject>(*child)) {
+        SVGForeignObjectPainter(*foreign_object)
             .PaintLayer(paint_info_before_filtering);
       } else {
         child->Paint(paint_info_before_filtering);

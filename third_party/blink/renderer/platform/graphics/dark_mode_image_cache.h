@@ -10,8 +10,6 @@
 #include "base/hash/hash.h"
 #include "third_party/blink/renderer/platform/platform_export.h"
 #include "third_party/skia/include/core/SkColorFilter.h"
-#include "third_party/skia/include/core/SkRect.h"
-#include "third_party/skia/include/core/SkRefCnt.h"
 
 namespace blink {
 

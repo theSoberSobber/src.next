@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium Authors
+// Copyright 2019 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,6 +7,7 @@
 
 #include <memory>
 
+#include "base/macros.h"
 #include "base/no_destructor.h"
 #include "components/keyed_service/core/simple_keyed_service_factory.h"
 
@@ -29,11 +30,6 @@ class SimpleDownloadManagerCoordinatorFactory
   static download::SimpleDownloadManagerCoordinator* GetForKey(
       SimpleFactoryKey* key);
 
-  SimpleDownloadManagerCoordinatorFactory(
-      const SimpleDownloadManagerCoordinatorFactory&) = delete;
-  SimpleDownloadManagerCoordinatorFactory& operator=(
-      const SimpleDownloadManagerCoordinatorFactory&) = delete;
-
  private:
   friend class base::NoDestructor<SimpleDownloadManagerCoordinatorFactory>;
 
@@ -44,6 +40,8 @@ class SimpleDownloadManagerCoordinatorFactory
   std::unique_ptr<KeyedService> BuildServiceInstanceFor(
       SimpleFactoryKey* key) const override;
   SimpleFactoryKey* GetKeyToUse(SimpleFactoryKey* key) const override;
+
+  DISALLOW_COPY_AND_ASSIGN(SimpleDownloadManagerCoordinatorFactory);
 };
 
 #endif  // CHROME_BROWSER_DOWNLOAD_SIMPLE_DOWNLOAD_MANAGER_COORDINATOR_FACTORY_H_

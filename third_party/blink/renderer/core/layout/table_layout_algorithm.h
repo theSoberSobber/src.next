@@ -22,16 +22,15 @@
 #define THIRD_PARTY_BLINK_RENDERER_CORE_LAYOUT_TABLE_LAYOUT_ALGORITHM_H_
 
 #include "third_party/blink/renderer/platform/geometry/layout_unit.h"
-#include "third_party/blink/renderer/platform/heap/garbage_collected.h"
-#include "third_party/blink/renderer/platform/heap/member.h"
-#include "third_party/blink/renderer/platform/heap/visitor.h"
 #include "third_party/blink/renderer/platform/wtf/allocator/allocator.h"
 
 namespace blink {
 
 class LayoutTable;
 
-class TableLayoutAlgorithm : public GarbageCollected<TableLayoutAlgorithm> {
+class TableLayoutAlgorithm {
+  USING_FAST_MALLOC(TableLayoutAlgorithm);
+
  public:
   explicit TableLayoutAlgorithm(LayoutTable* table) : table_(table) {}
   TableLayoutAlgorithm(const TableLayoutAlgorithm&) = delete;
@@ -48,15 +47,13 @@ class TableLayoutAlgorithm : public GarbageCollected<TableLayoutAlgorithm> {
   virtual void UpdateLayout() = 0;
   virtual void WillChangeTableLayout() = 0;
 
-  virtual void Trace(Visitor* visitor) const { visitor->Trace(table_); }
-
  protected:
   // FIXME: Once we enable SATURATED_LAYOUT_ARITHMETHIC, this should just be
   // LayoutUnit::nearlyMax(). Until then though, using nearlyMax causes
   // overflow in some tests, so we just pick a large number.
   const static int kTableMaxWidth = 1000000;
 
-  Member<LayoutTable> table_;
+  LayoutTable* table_;
 };
 
 }  // namespace blink

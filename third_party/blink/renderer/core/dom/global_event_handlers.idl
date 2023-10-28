@@ -33,8 +33,6 @@
     LegacyTreatAsPartialInterface
 ] interface mixin GlobalEventHandlers {
     attribute EventHandler onabort;
-    attribute EventHandler onbeforeinput;
-    [RuntimeEnabled=BeforeMatchEvent] attribute EventHandler onbeforematch;
     attribute EventHandler onblur;
     attribute EventHandler oncancel;
     attribute EventHandler oncanplay;
@@ -42,10 +40,7 @@
     attribute EventHandler onchange;
     attribute EventHandler onclick;
     attribute EventHandler onclose;
-    [RuntimeEnabled=ContentVisibilityAutoStateChangedEvent] attribute EventHandler oncontentvisibilityautostatechanged;
-    attribute EventHandler oncontextlost;
     attribute EventHandler oncontextmenu;
-    attribute EventHandler oncontextrestored;
     attribute EventHandler oncuechange;
     attribute EventHandler ondblclick;
     attribute EventHandler ondrag;
@@ -88,12 +83,10 @@
     attribute EventHandler onreset;
     attribute EventHandler onresize;
     attribute EventHandler onscroll;
-    [RuntimeEnabled=ScrollEndEvents] attribute EventHandler onscrollend;
-    attribute EventHandler onsecuritypolicyviolation;
+    [RuntimeEnabled=OverscrollCustomization] attribute EventHandler onscrollend;
     attribute EventHandler onseeked;
     attribute EventHandler onseeking;
     attribute EventHandler onselect;
-    attribute EventHandler onslotchange;
     //attribute EventHandler onsort;
     attribute EventHandler onstalled;
     attribute EventHandler onsubmit;
@@ -118,7 +111,7 @@
     attribute EventHandler onlostpointercapture;
     attribute EventHandler onpointerdown;
     attribute EventHandler onpointermove;
-    attribute EventHandler onpointerrawupdate;
+    [RuntimeEnabled=PointerRawUpdate] attribute EventHandler onpointerrawupdate;
     attribute EventHandler onpointerup;
     attribute EventHandler onpointercancel;
     attribute EventHandler onpointerover;

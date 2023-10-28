@@ -1,4 +1,4 @@
-// Copyright 2015 The Chromium Authors
+// Copyright 2015 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,7 +7,7 @@
 
 #include <memory>
 
-#include "base/memory/raw_ptr.h"
+#include "base/macros.h"
 #include "base/memory/ref_counted.h"
 
 class GURL;
@@ -26,13 +26,26 @@ class PermissionSet;
 // extension has been affected by the click-to-script project.
 class ScriptingPermissionsModifier {
  public:
+  struct SiteAccess {
+    // The extension has access to the current domain.
+    bool has_site_access = false;
+    // The extension requested access to the current domain, but it was
+    // withheld.
+    bool withheld_site_access = false;
+    // The extension has access to all sites (or a pattern sufficiently broad
+    // as to be functionally similar, such as https://*.com/*). Note that since
+    // this includes "broad" patterns, this may be true even if
+    // |has_site_access| is false.
+    bool has_all_sites_access = false;
+    // The extension wants access to all sites (or a pattern sufficiently broad
+    // as to be functionally similar, such as https://*.com/*). Note that since
+    // this includes "broad" patterns, this may be true even if
+    // |withheld_site_access| is false.
+    bool withheld_all_sites_access = false;
+  };
+
   ScriptingPermissionsModifier(content::BrowserContext* browser_context,
                                const scoped_refptr<const Extension>& extension);
-
-  ScriptingPermissionsModifier(const ScriptingPermissionsModifier&) = delete;
-  ScriptingPermissionsModifier& operator=(const ScriptingPermissionsModifier&) =
-      delete;
-
   ~ScriptingPermissionsModifier();
 
   // Sets whether Chrome should withhold host permissions from the extension.
@@ -43,14 +56,14 @@ class ScriptingPermissionsModifier {
   // Returns whether Chrome has withheld host permissions from the extension.
   // This may only be called for extensions that can be affected (i.e., for
   // which CanAffectExtension() returns true). Anything else will DCHECK.
-  // TODO(emiliapaz): Prefer using
-  // `PermissionsManager::HasWithheldHostPermissions(extension)`. Remove after
-  // all callers are migrated.
   bool HasWithheldHostPermissions() const;
 
   // Returns true if the associated extension can be affected by
   // runtime host permissions.
   bool CanAffectExtension() const;
+
+  // Returns the current access level for the extension on the specified |url|.
+  SiteAccess GetSiteAccess(const GURL& url) const;
 
   // Grants the extension permission to run on the origin of |url|.
   // This may only be called for extensions that can be affected (i.e., for
@@ -99,17 +112,13 @@ class ScriptingPermissionsModifier {
   // Note: we pass in |permissions| explicitly here, as this is used during
   // permission initialization, where the active permissions on the extension
   // may not be the permissions to compare against.
-  std::unique_ptr<const PermissionSet> WithholdPermissionsIfNecessary(
+  static std::unique_ptr<const PermissionSet> WithholdPermissionsIfNecessary(
+      const Extension& extension,
+      const ExtensionPrefs& extension_prefs,
       const PermissionSet& permissions);
 
   // Returns the subset of active permissions which can be withheld.
   std::unique_ptr<const PermissionSet> GetRevokablePermissions() const;
-
-  // TODO(emiliapaz): Prefer using
-  // `PermissionsManager::GetRuntimePermissionFromPrefs(extension)`. Remove
-  // after all callers are migrated. Returns the effective list of
-  // runtime-granted permissions for a given `extension` from its prefs.
-  std::unique_ptr<const PermissionSet> GetRuntimePermissionsFromPrefs() const;
 
  private:
   // Grants any withheld host permissions.
@@ -118,11 +127,13 @@ class ScriptingPermissionsModifier {
   // Revokes any granted host permissions.
   void WithholdHostPermissions();
 
-  raw_ptr<content::BrowserContext> browser_context_;
+  content::BrowserContext* browser_context_;
 
   scoped_refptr<const Extension> extension_;
 
-  raw_ptr<ExtensionPrefs> extension_prefs_;
+  ExtensionPrefs* extension_prefs_;
+
+  DISALLOW_COPY_AND_ASSIGN(ScriptingPermissionsModifier);
 };
 
 }  // namespace extensions

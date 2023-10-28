@@ -1,4 +1,4 @@
-// Copyright 2015 The Chromium Authors
+// Copyright (c) 2015 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -9,6 +9,7 @@
 
 #include "base/check_op.h"
 #include "base/containers/stack_container.h"
+#include "base/cxx17_backports.h"
 #include "base/notreached.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_piece.h"
@@ -20,6 +21,8 @@
 
 namespace net {
 namespace {
+
+bool g_consider_loopback_ip_to_be_publicly_routable_for_testing = false;
 
 // The prefix for IPv6 mapped IPv4 addresses.
 // https://tools.ietf.org/html/rfc4291#section-2.5.5.2
@@ -65,11 +68,11 @@ bool IsPubliclyRoutableIPv4(const IPAddressBytes& ip_address) {
     const uint8_t address[4];
     size_t prefix_length_in_bits;
   } static const kReservedIPv4Ranges[] = {
-      {{0, 0, 0, 0}, 8},      {{10, 0, 0, 0}, 8},     {{100, 64, 0, 0}, 10},
-      {{127, 0, 0, 0}, 8},    {{169, 254, 0, 0}, 16}, {{172, 16, 0, 0}, 12},
-      {{192, 0, 0, 0}, 24},   {{192, 0, 2, 0}, 24},   {{192, 88, 99, 0}, 24},
-      {{192, 168, 0, 0}, 16}, {{198, 18, 0, 0}, 15},  {{198, 51, 100, 0}, 24},
-      {{203, 0, 113, 0}, 24}, {{224, 0, 0, 0}, 3}};
+      {{0, 0, 0, 0}, 8},     {{10, 0, 0, 0}, 8},      {{100, 64, 0, 0}, 10},
+      {{127, 0, 0, 0}, 8},   {{169, 254, 0, 0}, 16},  {{172, 16, 0, 0}, 12},
+      {{192, 0, 2, 0}, 24},  {{192, 88, 99, 0}, 24},  {{192, 168, 0, 0}, 16},
+      {{198, 18, 0, 0}, 15}, {{198, 51, 100, 0}, 24}, {{203, 0, 113, 0}, 24},
+      {{224, 0, 0, 0}, 3}};
 
   for (const auto& range : kReservedIPv4Ranges) {
     if (IPAddressPrefixCheck(ip_address, range.address,
@@ -233,12 +236,22 @@ bool IPAddress::IsValid() const {
 }
 
 bool IPAddress::IsPubliclyRoutable() const {
+  if (g_consider_loopback_ip_to_be_publicly_routable_for_testing &&
+      IsLoopback()) {
+    return true;
+  }
+
   if (IsIPv4()) {
     return IsPubliclyRoutableIPv4(ip_address_);
   } else if (IsIPv6()) {
     return IsPubliclyRoutableIPv6(ip_address_);
   }
   return true;
+}
+
+// static
+void IPAddress::ConsiderLoopbackIPToBePubliclyRoutableForTesting() {
+  g_consider_loopback_ip_to_be_publicly_routable_for_testing = true;
 }
 
 bool IPAddress::IsZero() const {
@@ -394,7 +407,7 @@ IPAddress ConvertIPv4MappedIPv6ToIPv4(const IPAddress& address) {
 
   base::StackVector<uint8_t, 16> bytes;
   bytes->insert(bytes->end(),
-                address.bytes().begin() + std::size(kIPv4MappedPrefix),
+                address.bytes().begin() + base::size(kIPv4MappedPrefix),
                 address.bytes().end());
   return IPAddress(bytes->data(), bytes->size());
 }

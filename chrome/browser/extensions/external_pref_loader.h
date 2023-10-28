@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -8,7 +8,8 @@
 #include <memory>
 #include <string>
 
-#include "base/memory/raw_ptr.h"
+#include "base/compiler_specific.h"
+#include "base/macros.h"
 #include "base/values.h"
 #include "build/chromeos_buildflags.h"
 #include "chrome/browser/extensions/external_loader.h"
@@ -47,9 +48,6 @@ class ExternalPrefLoader : public ExternalLoader {
   // wait priority sync if DELAY_LOAD_UNTIL_PRIORITY_SYNC set.
   // |options| is combination of |Options|.
   ExternalPrefLoader(int base_path_id, int options, Profile* profile);
-
-  ExternalPrefLoader(const ExternalPrefLoader&) = delete;
-  ExternalPrefLoader& operator=(const ExternalPrefLoader&) = delete;
 
   const base::FilePath GetBaseCrxFilePath() override;
 
@@ -119,7 +117,7 @@ class ExternalPrefLoader : public ExternalLoader {
 
   // Profile that loads these external prefs.
   // Needed for waiting for waiting priority sync.
-  raw_ptr<Profile> profile_;
+  Profile* profile_;
 
   // User type determined by |profile_|. Used to filter extensions. In some unit
   // tests may not be set.
@@ -131,6 +129,8 @@ class ExternalPrefLoader : public ExternalLoader {
 #if BUILDFLAG(IS_CHROMEOS_ASH)
   std::vector<std::unique_ptr<PrioritySyncReadyWaiter>> pending_waiter_list_;
 #endif
+
+  DISALLOW_COPY_AND_ASSIGN(ExternalPrefLoader);
 };
 
 }  // namespace extensions

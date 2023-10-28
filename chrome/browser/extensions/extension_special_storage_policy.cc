@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -13,14 +13,12 @@
 #include "base/check.h"
 #include "base/command_line.h"
 #include "base/feature_list.h"
-#include "base/memory/raw_ptr.h"
 #include "base/memory/ref_counted.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/synchronization/lock.h"
 #include "base/task/task_traits.h"
 #include "base/thread_annotations.h"
-#include "build/chromeos_buildflags.h"
 #include "chrome/browser/content_settings/cookie_settings_factory.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/url_constants.h"
@@ -38,15 +36,18 @@
 #include "extensions/common/permissions/permissions_data.h"
 #include "url/origin.h"
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
-#include "chrome/common/webui_url_constants.h"
-#endif
-
 using content::BrowserThread;
 using extensions::APIPermission;
 using extensions::Extension;
 using extensions::mojom::APIPermissionID;
 using storage::SpecialStoragePolicy;
+
+namespace {
+// Kill switch for default app protected storage. Enable this make
+// default-installed hosted apps have protected storage.
+const base::Feature kDefaultHostedAppsNeedProtection{
+    "DefaultHostedAppsNeedProtection", base::FEATURE_DISABLED_BY_DEFAULT};
+}  // namespace
 
 class ExtensionSpecialStoragePolicy::CookieSettingsObserver
     : public content_settings::CookieSettings::Observer {
@@ -97,7 +98,7 @@ class ExtensionSpecialStoragePolicy::CookieSettingsObserver
   const scoped_refptr<content_settings::CookieSettings> cookie_settings_;
 
   base::Lock policy_lock_;
-  raw_ptr<ExtensionSpecialStoragePolicy> weak_policy_ GUARDED_BY(policy_lock_);
+  ExtensionSpecialStoragePolicy* weak_policy_ GUARDED_BY(policy_lock_);
 };
 
 ExtensionSpecialStoragePolicy::ExtensionSpecialStoragePolicy(
@@ -127,14 +128,6 @@ bool ExtensionSpecialStoragePolicy::IsStorageUnlimited(const GURL& origin) {
       origin.host_piece() == chrome::kChromeUIDevToolsHost)
     return true;
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
-  // chrome-untrusted://terminal/ runs the SSH extension code which can store
-  // SSH known_hosts, config, and Identity keys. Use unlimitedStorage to match
-  // extension config.
-  if (origin == chrome::kChromeUIUntrustedTerminalURL)
-    return true;
-#endif
-
   base::AutoLock locker(lock_);
   return unlimited_extensions_.Contains(origin) ||
          content_capabilities_unlimited_extensions_.GrantsCapabilitiesTo(
@@ -144,19 +137,33 @@ bool ExtensionSpecialStoragePolicy::IsStorageUnlimited(const GURL& origin) {
 bool ExtensionSpecialStoragePolicy::IsStorageSessionOnly(const GURL& origin) {
   if (!cookie_settings_)
     return false;
-  return cookie_settings_->IsCookieSessionOnly(
-      origin, content_settings::CookieSettings::QueryReason::kSiteStorage);
+  return cookie_settings_->IsCookieSessionOnly(origin);
+}
+
+network::DeleteCookiePredicate
+ExtensionSpecialStoragePolicy::CreateDeleteCookieOnExitPredicate() {
+  if (!cookie_settings_)
+    return network::DeleteCookiePredicate();
+  // Fetch the list of cookies related content_settings and bind it
+  // to CookieSettings::ShouldDeleteCookieOnExit to avoid fetching it on
+  // every call.
+  ContentSettingsForOneType entries;
+  cookie_settings_->GetCookieSettings(&entries);
+  return base::BindRepeating(
+      &content_settings::CookieSettings::ShouldDeleteCookieOnExit,
+      cookie_settings_, std::move(entries));
 }
 
 bool ExtensionSpecialStoragePolicy::HasSessionOnlyOrigins() {
   if (!cookie_settings_)
     return false;
-  if (cookie_settings_->GetDefaultCookieSetting(nullptr) ==
+  if (cookie_settings_->GetDefaultCookieSetting(NULL) ==
       CONTENT_SETTING_SESSION_ONLY)
     return true;
-  for (const ContentSettingPatternSource& entry :
-       cookie_settings_->GetCookieSettings()) {
-    if (entry.GetContentSetting() == CONTENT_SETTING_SESSION_ONLY)
+  ContentSettingsForOneType entries;
+  cookie_settings_->GetCookieSettings(&entries);
+  for (size_t i = 0; i < entries.size(); ++i) {
+    if (entries[i].GetContentSetting() == CONTENT_SETTING_SESSION_ONLY)
       return true;
   }
   return false;
@@ -173,14 +180,16 @@ bool ExtensionSpecialStoragePolicy::IsStorageDurable(const GURL& origin) {
 
 bool ExtensionSpecialStoragePolicy::NeedsProtection(
     const extensions::Extension* extension) {
-  // We only consider "protecting" storage for hosted apps.
-  if (!extension->is_hosted_app())
+  // We only consider "protecting" storage for hosted apps (excluding bookmark
+  // apps, which are only hosted apps as an implementation detail).
+  if (!extension->is_hosted_app() || extension->from_bookmark())
     return false;
 
-  // Default-installed apps don't have protected storage.
-  if (extension->was_installed_by_default())
-    return false;
-
+  // Normally, default-installed apps shouldn't have protected storage...
+  if (extension->was_installed_by_default()) {
+    // ... However, we have a kill-switch for this, just in case.
+    return base::FeatureList::IsEnabled(kDefaultHostedAppsNeedProtection);
+  }
   // Otherwise, this is a user-installed hosted app, and we grant it
   // special protected storage.
   return true;

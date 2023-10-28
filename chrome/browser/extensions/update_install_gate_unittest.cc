@@ -1,4 +1,4 @@
-// Copyright 2016 The Chromium Authors
+// Copyright 2016 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -9,7 +9,6 @@
 #include "base/bind.h"
 #include "base/command_line.h"
 #include "base/memory/ptr_util.h"
-#include "base/memory/raw_ptr.h"
 #include "base/run_loop.h"
 #include "build/chromeos_buildflags.h"
 #include "chrome/browser/extensions/extension_service.h"
@@ -108,9 +107,6 @@ class UpdateInstallGateTest : public testing::Test {
         TestingBrowserProcess::GetGlobal());
   }
 
-  UpdateInstallGateTest(const UpdateInstallGateTest&) = delete;
-  UpdateInstallGateTest& operator=(const UpdateInstallGateTest&) = delete;
-
   // testing::Test
   void SetUp() override {
     // Must be called from ::testing::Test::SetUp.
@@ -175,7 +171,7 @@ class UpdateInstallGateTest : public testing::Test {
   void MakeExtensionListenForOnUpdateAvailable(
       const std::string& extension_id) {
     const char kOnUpdateAvailableEvent[] = "runtime.onUpdateAvailable";
-    event_router_->AddEventListener(kOnUpdateAvailableEvent, nullptr,
+    event_router_->AddEventListener(kOnUpdateAvailableEvent, NULL,
                                     extension_id);
   }
 
@@ -211,13 +207,13 @@ class UpdateInstallGateTest : public testing::Test {
   // and RenderProcessHosts.
   content::RenderViewHostTestEnabler render_view_host_test_enabler_;
 
-  raw_ptr<TestingProfile> profile_ = nullptr;
+  TestingProfile* profile_ = nullptr;
   std::unique_ptr<TestingProfileManager> profile_manager_;
 
-  raw_ptr<TestExtensionSystem> system_ = nullptr;
-  raw_ptr<ExtensionService> service_ = nullptr;
-  raw_ptr<ExtensionRegistry> registry_ = nullptr;
-  raw_ptr<EventRouter> event_router_ = nullptr;
+  TestExtensionSystem* system_ = nullptr;
+  ExtensionService* service_ = nullptr;
+  ExtensionRegistry* registry_ = nullptr;
+  EventRouter* event_router_ = nullptr;
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
   // Needed for creating ExtensionService.
@@ -230,6 +226,8 @@ class UpdateInstallGateTest : public testing::Test {
   scoped_refptr<const Extension> new_app_;
   scoped_refptr<const Extension> new_persistent_;
   scoped_refptr<const Extension> new_none_persistent_;
+
+  DISALLOW_COPY_AND_ASSIGN(UpdateInstallGateTest);
 };
 
 TEST_F(UpdateInstallGateTest, InstallOnServiceNotReady) {

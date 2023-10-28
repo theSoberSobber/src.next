@@ -1,4 +1,4 @@
-// Copyright 2017 The Chromium Authors
+// Copyright 2017 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -10,44 +10,30 @@
 #include "content/browser/child_process_launcher.h"
 #include "content/public/browser/child_process_launcher_utils.h"
 #include "content/public/common/sandboxed_process_launcher_delegate.h"
-#include "printing/buildflags/buildflags.h"
-#include "sandbox/policy/mojom/sandbox.mojom.h"
 
 namespace content {
 namespace internal {
 
 namespace {
 
-const char* ProcessNameFromSandboxType(sandbox::mojom::Sandbox sandbox_type) {
+const char* ProcessNameFromSandboxType(
+    sandbox::policy::SandboxType sandbox_type) {
   switch (sandbox_type) {
-    case sandbox::mojom::Sandbox::kNoSandbox:
+    case sandbox::policy::SandboxType::kNoSandbox:
       return nullptr;
-    case sandbox::mojom::Sandbox::kRenderer:
+    case sandbox::policy::SandboxType::kRenderer:
       return "renderer";
-    case sandbox::mojom::Sandbox::kUtility:
+    case sandbox::policy::SandboxType::kUtility:
       return "utility";
-    case sandbox::mojom::Sandbox::kService:
-      return "service";
-    case sandbox::mojom::Sandbox::kServiceWithJit:
-      return "service-with-jit";
-    case sandbox::mojom::Sandbox::kGpu:
+    case sandbox::policy::SandboxType::kGpu:
       return "gpu";
-    case sandbox::mojom::Sandbox::kNetwork:
+    case sandbox::policy::SandboxType::kNetwork:
       return "network";
-    case sandbox::mojom::Sandbox::kVideoCapture:
+    case sandbox::policy::SandboxType::kVideoCapture:
       return "video-capture";
-    case sandbox::mojom::Sandbox::kAudio:
-      return "audio";
-    case sandbox::mojom::Sandbox::kCdm:
-      return "cdm";
-    case sandbox::mojom::Sandbox::kPrintCompositor:
-      return "print-compositor";
-    case sandbox::mojom::Sandbox::kSpeechRecognition:
-      return "speech-recognition";
-#if BUILDFLAG(ENABLE_OOP_PRINTING)
-    case sandbox::mojom::Sandbox::kPrintBackend:
-      return "print-backend";
-#endif
+    default:
+      NOTREACHED() << "Unknown sandbox_type.";
+      return nullptr;
   }
 }
 

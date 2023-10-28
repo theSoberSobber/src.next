@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -8,6 +8,7 @@
 #include "base/bind.h"
 #include "base/command_line.h"
 #include "base/files/file_path.h"
+#include "base/macros.h"
 #include "base/strings/stringprintf.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
@@ -61,9 +62,6 @@ class CacheMaxAgeHandler {
   explicit CacheMaxAgeHandler(const std::string& path)
       : path_(path), request_count_(0) { }
 
-  CacheMaxAgeHandler(const CacheMaxAgeHandler&) = delete;
-  CacheMaxAgeHandler& operator=(const CacheMaxAgeHandler&) = delete;
-
   std::unique_ptr<net::test_server::HttpResponse> HandleRequest(
       const net::test_server::HttpRequest& request) {
     if (request.relative_url != path_)
@@ -81,6 +79,8 @@ class CacheMaxAgeHandler {
  private:
   std::string path_;
   int request_count_;
+
+  DISALLOW_COPY_AND_ASSIGN(CacheMaxAgeHandler);
 };
 
 class CrashRecoveryBrowserTest : public InProcessBrowserTest {
@@ -102,7 +102,7 @@ IN_PROC_BROWSER_TEST_F(CrashRecoveryBrowserTest, Reload) {
   // The title of the active tab should change each time this URL is loaded.
   GURL url(
       "data:text/html,<script>document.title=new Date().valueOf()</script>");
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
+  ui_test_utils::NavigateToURL(browser(), url);
 
   std::u16string title_before_crash;
   std::u16string title_after_crash;
@@ -115,10 +115,9 @@ IN_PROC_BROWSER_TEST_F(CrashRecoveryBrowserTest, Reload) {
   ASSERT_TRUE(ui_test_utils::GetCurrentTabTitle(browser(),
                                                 &title_after_crash));
   EXPECT_NE(title_before_crash, title_after_crash);
-  ASSERT_TRUE(
-      GetActiveWebContents()->GetPrimaryMainFrame()->GetView()->IsShowing());
+  ASSERT_TRUE(GetActiveWebContents()->GetMainFrame()->GetView()->IsShowing());
   ASSERT_FALSE(GetActiveWebContents()
-                   ->GetPrimaryMainFrame()
+                   ->GetMainFrame()
                    ->GetProcess()
                    ->IsProcessBackgrounded());
 }
@@ -133,8 +132,8 @@ IN_PROC_BROWSER_TEST_F(CrashRecoveryBrowserTest, ReloadCacheRevalidate) {
       base::BindRepeating(&CacheMaxAgeHandler::HandleRequest,
                           base::Owned(new CacheMaxAgeHandler(kTestPath))));
   ASSERT_TRUE(embedded_test_server()->Start());
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(
-      browser(), embedded_test_server()->GetURL(kTestPath)));
+  ui_test_utils::NavigateToURL(browser(),
+                               embedded_test_server()->GetURL(kTestPath));
 
   std::u16string title_before_crash;
   std::u16string title_after_crash;
@@ -160,7 +159,7 @@ IN_PROC_BROWSER_TEST_F(CrashRecoveryBrowserTest, LoadInNewTab) {
   GURL url(ui_test_utils::GetTestUrl(
       base::FilePath(base::FilePath::kCurrentDirectory),
       base::FilePath(kTitle2File)));
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
+  ui_test_utils::NavigateToURL(browser(), url);
 
   std::u16string title_before_crash;
   std::u16string title_after_crash;
@@ -183,7 +182,7 @@ IN_PROC_BROWSER_TEST_F(CrashRecoveryBrowserTest, LoadInNewTab) {
 // Regression test for http://crbug.com/348918
 IN_PROC_BROWSER_TEST_F(CrashRecoveryBrowserTest, DoubleReloadWithError) {
   GURL url(content::GetWebUIURL("bogus"));
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
+  ui_test_utils::NavigateToURL(browser(), url);
   ASSERT_EQ(url, GetActiveWebContents()->GetVisibleURL());
 
   SimulateRendererCrash(browser());
@@ -205,7 +204,7 @@ IN_PROC_BROWSER_TEST_F(CrashRecoveryBrowserTest, BeforeUnloadNotRun) {
     "<script>window.onbeforeunload=function(e){return 'foo'}</script>"
     "</body></html>";
   GURL url(std::string("data:text/html,") + kBeforeUnloadHTML);
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
+  ui_test_utils::NavigateToURL(browser(), url);
   SimulateRendererCrash(browser());
 }
 

@@ -1,12 +1,10 @@
-// Copyright 2013 The Chromium Authors
+// Copyright 2013 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 package org.chromium.chrome.browser.download;
 
 import android.graphics.Bitmap;
-
-import androidx.annotation.NonNull;
 
 import org.chromium.base.annotations.CalledByNative;
 import org.chromium.chrome.browser.profiles.OTRProfileID;
@@ -21,21 +19,20 @@ import org.chromium.components.offline_items_collection.OfflineItemSchedule;
 import org.chromium.components.offline_items_collection.OfflineItemState;
 import org.chromium.components.offline_items_collection.OfflineItemVisuals;
 import org.chromium.components.offline_items_collection.PendingState;
-import org.chromium.url.GURL;
 
 /**
  * Class representing the state of a single download.
  */
 public final class DownloadInfo {
-    private final @NonNull GURL mUrl;
+    private final String mUrl;
     private final String mUserAgent;
     private final String mMimeType;
     private final String mCookie;
     private final String mFileName;
     private final String mDescription;
     private final String mFilePath;
-    private final @NonNull GURL mReferrer;
-    private final @NonNull GURL mOriginalUrl;
+    private final String mReferrer;
+    private final String mOriginalUrl;
     private final long mBytesReceived;
     private final long mBytesTotalSize;
     private final String mDownloadGuid;
@@ -67,15 +64,15 @@ public final class DownloadInfo {
     private final OfflineItemSchedule mSchedule;
 
     private DownloadInfo(Builder builder) {
-        mUrl = builder.mUrl == null ? GURL.emptyGURL() : builder.mUrl;
+        mUrl = builder.mUrl;
         mUserAgent = builder.mUserAgent;
         mMimeType = builder.mMimeType;
         mCookie = builder.mCookie;
         mFileName = builder.mFileName;
         mDescription = builder.mDescription;
         mFilePath = builder.mFilePath;
-        mReferrer = builder.mReferrer == null ? GURL.emptyGURL() : builder.mReferrer;
-        mOriginalUrl = builder.mOriginalUrl == null ? GURL.emptyGURL() : builder.mOriginalUrl;
+        mReferrer = builder.mReferrer;
+        mOriginalUrl = builder.mOriginalUrl;
         mBytesReceived = builder.mBytesReceived;
         mBytesTotalSize = builder.mBytesTotalSize;
         mDownloadGuid = builder.mDownloadGuid;
@@ -108,8 +105,7 @@ public final class DownloadInfo {
         mSchedule = builder.mSchedule;
     }
 
-    @NonNull
-    public GURL getUrl() {
+    public String getUrl() {
         return mUrl;
     }
 
@@ -137,13 +133,11 @@ public final class DownloadInfo {
         return mFilePath;
     }
 
-    @NonNull
-    public GURL getReferrer() {
+    public String getReferrer() {
         return mReferrer;
     }
 
-    @NonNull
-    public GURL getOriginalUrl() {
+    public String getOriginalUrl() {
         return mOriginalUrl;
     }
 
@@ -324,15 +318,15 @@ public final class DownloadInfo {
      * Helper class for building the DownloadInfo object.
      */
     public static class Builder {
-        private GURL mUrl;
+        private String mUrl;
         private String mUserAgent;
         private String mMimeType;
         private String mCookie;
         private String mFileName;
         private String mDescription;
         private String mFilePath;
-        private GURL mReferrer;
-        private GURL mOriginalUrl;
+        private String mReferrer;
+        private String mOriginalUrl;
         private long mBytesReceived;
         private long mBytesTotalSize;
         private boolean mIsGETRequest;
@@ -361,7 +355,7 @@ public final class DownloadInfo {
         private boolean mShouldPromoteOrigin;
         private OfflineItemSchedule mSchedule;
 
-        public Builder setUrl(GURL url) {
+        public Builder setUrl(String url) {
             mUrl = url;
             return this;
         }
@@ -396,12 +390,12 @@ public final class DownloadInfo {
             return this;
         }
 
-        public Builder setReferrer(GURL referer) {
+        public Builder setReferrer(String referer) {
             mReferrer = referer;
             return this;
         }
 
-        public Builder setOriginalUrl(GURL originalUrl) {
+        public Builder setOriginalUrl(String originalUrl) {
             mOriginalUrl = originalUrl;
             return this;
         }
@@ -575,12 +569,12 @@ public final class DownloadInfo {
 
     @CalledByNative
     private static DownloadInfo createDownloadInfo(String downloadGuid, String fileName,
-            String filePath, GURL url, String mimeType, long bytesReceived, long bytesTotalSize,
+            String filePath, String url, String mimeType, long bytesReceived, long bytesTotalSize,
             OTRProfileID otrProfileId, int state, int percentCompleted, boolean isPaused,
             boolean hasUserGesture, boolean isResumable, boolean isParallelDownload,
-            GURL originalUrl, GURL referrerUrl, long timeRemainingInMs, long lastAccessTime,
+            String originalUrl, String referrerUrl, long timeRemainingInMs, long lastAccessTime,
             boolean isDangerous, @FailState int failState, OfflineItemSchedule schedule) {
-        String remappedMimeType = MimeUtils.remapGenericMimeType(mimeType, url.getSpec(), fileName);
+        String remappedMimeType = MimeUtils.remapGenericMimeType(mimeType, url, fileName);
 
         Progress progress = new Progress(bytesReceived,
                 percentCompleted == -1 ? null : bytesTotalSize, OfflineItemProgressUnit.BYTES);

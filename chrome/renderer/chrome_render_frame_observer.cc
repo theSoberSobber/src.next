@@ -1,4 +1,4 @@
-// Copyright 2013 The Chromium Authors
+// Copyright 2013 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -9,7 +9,6 @@
 
 #include <limits>
 #include <map>
-#include <set>
 #include <utility>
 
 #include "base/bind.h"
@@ -19,9 +18,7 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/synchronization/lock.h"
-#include "base/time/time.h"
 #include "base/trace_event/trace_event.h"
-#include "build/build_config.h"
 #include "chrome/common/chrome_constants.h"
 #include "chrome/common/chrome_isolated_world_ids.h"
 #include "chrome/common/chrome_switches.h"
@@ -30,7 +27,6 @@
 #include "chrome/renderer/chrome_content_settings_agent_delegate.h"
 #include "chrome/renderer/media/media_feeds.h"
 #include "components/crash/core/common/crash_key.h"
-#include "components/lens/lens_metadata.mojom.h"
 #include "components/no_state_prefetch/renderer/no_state_prefetch_helper.h"
 #include "components/offline_pages/buildflags/buildflags.h"
 #include "components/optimization_guide/content/renderer/page_text_agent.h"
@@ -40,9 +36,10 @@
 #include "content/public/common/bindings_policy.h"
 #include "content/public/common/content_features.h"
 #include "content/public/renderer/render_frame.h"
-#include "content/public/renderer/render_frame_visitor.h"
 #include "content/public/renderer/render_thread.h"
+#include "content/public/renderer/render_view.h"
 #include "content/public/renderer/window_features_converter.h"
+#include "extensions/common/constants.h"
 #include "printing/buildflags/buildflags.h"
 #include "services/service_manager/public/cpp/binder_registry.h"
 #include "skia/ext/image_operations.h"
@@ -64,11 +61,9 @@
 #include "ui/gfx/geometry/size_f.h"
 #include "url/gurl.h"
 
-#if !BUILDFLAG(IS_ANDROID)
-#include "chrome/renderer/accessibility/read_anything_app_controller.h"
+#if !defined(OS_ANDROID)
 #include "chrome/renderer/searchbox/searchbox_extension.h"
-#include "ui/accessibility/accessibility_features.h"
-#endif  // !BUILDFLAG(IS_ANDROID)
+#endif  // !defined(OS_ANDROID)
 
 #if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
 #include "components/safe_browsing/content/renderer/phishing_classifier/phishing_classifier_delegate.h"
@@ -99,7 +94,8 @@ static const char kTranslateCaptureText[] = "Translate.CaptureText";
 
 // For a page that auto-refreshes, we still show the bubble, if
 // the refresh delay is less than this value (in seconds).
-static constexpr base::TimeDelta kLocationChangeInterval = base::Seconds(10);
+static constexpr base::TimeDelta kLocationChangeInterval =
+    base::TimeDelta::FromSeconds(10);
 
 // For the context menu, we want to keep transparency as is instead of
 // replacing transparent pixels with black ones
@@ -111,7 +107,7 @@ const char kGifExtension[] = ".gif";
 const char kPngExtension[] = ".png";
 const char kJpgExtension[] = ".jpg";
 
-#if BUILDFLAG(IS_ANDROID)
+#if defined(OS_ANDROID)
 base::Lock& GetFrameHeaderMapLock() {
   static base::NoDestructor<base::Lock> s;
   return *s;
@@ -126,52 +122,6 @@ FrameHeaderMap& GetFrameHeaderMap() {
 }
 #endif
 
-// Renderers can handle multiple pages, especially in low-memory conditions.
-// Record crash keys for a few origins, in the hope of finding more culprit
-// origins for OOM crashes. Keys are recorded here and not via
-// ChromeContentClient::SetActiveURL() because that method is only invoked in
-// response to IPC messages and most OOMs do not occur in response to an IPC.
-// https://crbug.com/1310046
-void UpdateLoadedOriginCrashKeys() {
-  // Capture the origin for each RenderFrame.
-  struct Visitor : public content::RenderFrameVisitor {
-    bool Visit(RenderFrame* render_frame) override {
-      if (render_frame) {
-        WebLocalFrame* web_frame = render_frame->GetWebFrame();
-        if (web_frame) {
-          frame_count_++;
-          origins_.insert(web_frame->GetSecurityOrigin().ToString().Utf8());
-        }
-      }
-      return true;  // Keep going.
-    }
-    int frame_count_ = 0;
-    std::set<std::string> origins_;  // Use set to collapse duplicate origins.
-  } visitor;
-  RenderFrame::ForEach(&visitor);
-
-  static crash_reporter::CrashKeyString<8> frame_count("web-frame-count");
-  frame_count.Set(base::NumberToString(visitor.frame_count_));
-
-  // Record 3 recently-loaded origins in crash keys (which 3 is arbitrary).
-  using ArrayItemKey = crash_reporter::CrashKeyString<64>;
-  static ArrayItemKey crash_keys[] = {
-      {"loaded-origin-0", ArrayItemKey::Tag::kArray},
-      {"loaded-origin-1", ArrayItemKey::Tag::kArray},
-      {"loaded-origin-2", ArrayItemKey::Tag::kArray},
-  };
-  for (auto& crash_key : crash_keys) {
-    if (!visitor.origins_.empty()) {
-      auto origin_it = visitor.origins_.begin();
-      crash_key.Set(*origin_it);
-      visitor.origins_.erase(origin_it);
-    } else {
-      // If there are fewer than 3 origins, clear the remaining keys.
-      crash_key.Clear();
-    }
-  }
-}
-
 }  // namespace
 
 ChromeRenderFrameObserver::ChromeRenderFrameObserver(
@@ -181,8 +131,8 @@ ChromeRenderFrameObserver::ChromeRenderFrameObserver(
       translate_agent_(nullptr),
       page_text_agent_(new optimization_guide::PageTextAgent(render_frame)),
       web_cache_impl_(web_cache_impl) {
-  render_frame->GetAssociatedInterfaceRegistry()
-      ->AddInterface<chrome::mojom::ChromeRenderFrame>(base::BindRepeating(
+  render_frame->GetAssociatedInterfaceRegistry()->AddInterface(
+      base::BindRepeating(
           &ChromeRenderFrameObserver::OnRenderFrameObserverRequest,
           base::Unretained(this)));
 
@@ -191,23 +141,26 @@ ChromeRenderFrameObserver::ChromeRenderFrameObserver(
     return;
 
 #if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
-  SetClientSidePhishingDetection();
+  const base::CommandLine& command_line =
+      *base::CommandLine::ForCurrentProcess();
+  if (!command_line.HasSwitch(switches::kDisableClientSidePhishingDetection))
+    SetClientSidePhishingDetection();
 #endif
-
   if (!translate::IsSubFrameTranslationEnabled()) {
-    translate_agent_ = new translate::TranslateAgent(
-        render_frame, ISOLATED_WORLD_ID_TRANSLATE);
+    translate_agent_ =
+        new translate::TranslateAgent(render_frame, ISOLATED_WORLD_ID_TRANSLATE,
+                                      extensions::kExtensionScheme);
   }
 }
 
 ChromeRenderFrameObserver::~ChromeRenderFrameObserver() {
-#if BUILDFLAG(IS_ANDROID)
+#if defined(OS_ANDROID)
   base::AutoLock auto_lock(GetFrameHeaderMapLock());
   GetFrameHeaderMap().erase(routing_id());
 #endif
 }
 
-#if BUILDFLAG(IS_ANDROID)
+#if defined(OS_ANDROID)
 std::string ChromeRenderFrameObserver::GetCCTClientHeader(int render_frame_id) {
   base::AutoLock auto_lock(GetFrameHeaderMapLock());
   auto frame_map = GetFrameHeaderMap();
@@ -290,9 +243,6 @@ void ChromeRenderFrameObserver::DidCreateNewDocument() {
 
 void ChromeRenderFrameObserver::DidCommitProvisionalLoad(
     ui::PageTransition transition) {
-  // Update crash keys on any frame transition, not just the main frame.
-  UpdateLoadedOriginCrashKeys();
-
   WebLocalFrame* frame = render_frame()->GetWebFrame();
 
   // Don't do anything for subframes.
@@ -302,7 +252,7 @@ void ChromeRenderFrameObserver::DidCommitProvisionalLoad(
   static crash_reporter::CrashKeyString<8> view_count_key("view-count");
   view_count_key.Set(base::NumberToString(blink::WebView::GetWebViewCount()));
 
-#if !BUILDFLAG(IS_ANDROID)
+#if !defined(OS_ANDROID)
   if (render_frame()->GetEnabledBindings() &
       content::kWebUIBindingsPolicyMask) {
     for (const auto& script : webui_javascript_)
@@ -313,22 +263,12 @@ void ChromeRenderFrameObserver::DidCommitProvisionalLoad(
 }
 
 void ChromeRenderFrameObserver::DidClearWindowObject() {
-#if !BUILDFLAG(IS_ANDROID)
+#if !defined(OS_ANDROID)
   const base::CommandLine& command_line =
       *base::CommandLine::ForCurrentProcess();
   if (command_line.HasSwitch(switches::kInstantProcess))
     SearchBoxExtension::Install(render_frame()->GetWebFrame());
-
-  // Install ReadAnythingAppController on render frames belonging to a WebUIs.
-  // ReadAnythingAppController installs v8 bindings in the chrome.readAnything
-  // namespace which are consumed by read_anything/app.ts, the resource of the
-  // Read Anything WebUI.
-  if (features::IsReadAnythingEnabled() &&
-      render_frame()->GetEnabledBindings() &
-          content::kWebUIBindingsPolicyMask) {
-    ReadAnythingAppController::Install(render_frame());
-  }
-#endif  // !BUILDFLAG(IS_ANDROID)
+#endif  // !defined(OS_ANDROID)
 }
 
 void ChromeRenderFrameObserver::DidMeaningfulLayout(
@@ -341,8 +281,7 @@ void ChromeRenderFrameObserver::OnDestruct() {
 }
 
 void ChromeRenderFrameObserver::DraggableRegionsChanged() {
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
-    BUILDFLAG(IS_CHROMEOS)
+#if defined(OS_WIN) || defined(OS_MAC) || defined(OS_LINUX)
   // Only the main frame is allowed to control draggable regions, to avoid other
   // frames manipulate the regions in the browser process.
   if (!render_frame()->IsMainFrame())
@@ -375,7 +314,7 @@ void ChromeRenderFrameObserver::SetWindowFeatures(
 
 void ChromeRenderFrameObserver::ExecuteWebUIJavaScript(
     const std::u16string& javascript) {
-#if !BUILDFLAG(IS_ANDROID)
+#if !defined(OS_ANDROID)
   webui_javascript_.push_back(javascript);
 #endif
 }
@@ -389,51 +328,27 @@ void ChromeRenderFrameObserver::RequestImageForContextNode(
   std::vector<uint8_t> image_data;
   gfx::Size original_size;
   std::string image_extension;
-  std::vector<lens::mojom::LatencyLogPtr> latency_logs;
-
-  // Map for converting between multiple mojom ImageFormat structures to
-  // prevent a circular dependency (go/lens-logging-in-chromium)
-  // TODO(shivpatel): add default value UNKNOWN for if ImageFormat is updated
-  const std::map<chrome::mojom::ImageFormat, lens::mojom::ImageFormat>
-      image_format_conversion = {
-          {chrome::mojom::ImageFormat::ORIGINAL,
-           lens::mojom::ImageFormat::ORIGINAL},
-          {chrome::mojom::ImageFormat::PNG, lens::mojom::ImageFormat::PNG},
-          {chrome::mojom::ImageFormat::JPEG, lens::mojom::ImageFormat::JPEG},
-      };
 
   if (context_node.IsNull() || !context_node.IsElementNode()) {
-    std::move(callback).Run(image_data, original_size, image_extension,
-                            std::move(latency_logs));
+    std::move(callback).Run(image_data, original_size, image_extension);
     return;
   }
 
   WebElement web_element = context_node.To<WebElement>();
   original_size = web_element.GetImageSize();
   image_extension = "." + web_element.ImageExtension();
-  bool needs_downscale = NeedsDownscale(
-      original_size, thumbnail_min_area_pixels, thumbnail_max_size_pixels);
-  bool needs_encode = NeedsEncodeImage(image_extension, image_format);
-  if (!needs_encode && !needs_downscale) {
+  if (!NeedsEncodeImage(image_extension, image_format) &&
+      !NeedsDownscale(original_size, thumbnail_min_area_pixels,
+                      thumbnail_max_size_pixels)) {
     image_data = web_element.CopyOfImageData();
     std::move(callback).Run(std::move(image_data), original_size,
-                            image_extension, std::move(latency_logs));
+                            image_extension);
     return;
   }
+
   SkBitmap image = web_element.ImageContents();
-  if (needs_downscale) {
-    latency_logs.push_back(lens::mojom::LatencyLog::New(
-        lens::mojom::Phase::DOWNSCALE_START, original_size, gfx::Size(),
-        image_format_conversion.at(image_format), base::Time::Now()));
-  }
   SkBitmap thumbnail =
       Downscale(image, thumbnail_min_area_pixels, thumbnail_max_size_pixels);
-  gfx::Size downscaled_size = gfx::Size(thumbnail.width(), thumbnail.height());
-  if (needs_downscale) {
-    latency_logs.push_back(lens::mojom::LatencyLog::New(
-        lens::mojom::Phase::DOWNSCALE_END, original_size, downscaled_size,
-        image_format_conversion.at(image_format), base::Time::Now()));
-  }
 
   SkBitmap bitmap;
   if (thumbnail.colorType() == kN32_SkColorType) {
@@ -447,6 +362,7 @@ void ChromeRenderFrameObserver::RequestImageForContextNode(
 
   constexpr int kDefaultQuality = 90;
   std::vector<unsigned char> data;
+
   if (image_format == chrome::mojom::ImageFormat::ORIGINAL) {
     // ORIGINAL will only fall back to here if the image needs to downscale.
     // Let's PNG downscale to PNG and JEPG downscale to JPEG.
@@ -457,11 +373,6 @@ void ChromeRenderFrameObserver::RequestImageForContextNode(
     }
   }
 
-  if (needs_encode) {
-    latency_logs.push_back(lens::mojom::LatencyLog::New(
-        lens::mojom::Phase::ENCODE_START, original_size, downscaled_size,
-        image_format_conversion.at(image_format), base::Time::Now()));
-  }
   switch (image_format) {
     case chrome::mojom::ImageFormat::PNG:
       if (gfx::PNGCodec::EncodeBGRASkBitmap(
@@ -479,14 +390,7 @@ void ChromeRenderFrameObserver::RequestImageForContextNode(
       }
       break;
   }
-  if (needs_encode) {
-    latency_logs.push_back(lens::mojom::LatencyLog::New(
-        lens::mojom::Phase::ENCODE_END, original_size, downscaled_size,
-        image_format_conversion.at(image_format), base::Time::Now()));
-  }
-
-  std::move(callback).Run(image_data, original_size, image_extension,
-                          std::move(latency_logs));
+  std::move(callback).Run(image_data, original_size, image_extension);
 }
 
 void ChromeRenderFrameObserver::RequestReloadImageForContextNode() {
@@ -499,7 +403,7 @@ void ChromeRenderFrameObserver::RequestReloadImageForContextNode() {
   }
 }
 
-#if BUILDFLAG(IS_ANDROID)
+#if defined(OS_ANDROID)
 void ChromeRenderFrameObserver::SetCCTClientHeader(const std::string& header) {
   base::AutoLock auto_lock(GetFrameHeaderMapLock());
   GetFrameHeaderMap()[routing_id()] = header;
@@ -596,7 +500,7 @@ bool ChromeRenderFrameObserver::ShouldCapturePageTextForTranslateOrPhishing(
   bool should_capture_for_phishing = false;
 
 #if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
-  should_capture_for_phishing = phishing_classifier_->is_ready();
+  should_capture_for_phishing = !!phishing_classifier_;
 #endif
 
   return should_capture_for_translate || should_capture_for_phishing;

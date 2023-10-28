@@ -1,4 +1,4 @@
-// Copyright 2013 The Chromium Authors
+// Copyright 2013 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,7 +7,6 @@
 
 #include <string>
 
-#include "build/build_config.h"
 #include "extensions/browser/extension_prefs_scope.h"
 
 // Preference keys which are needed by both the ExtensionPrefs and by external
@@ -33,7 +32,7 @@ extern const char kAlertsInitialized[];
 extern const char kAllowedInstallSites[];
 
 // A list of allowed extension types. Extensions can only be installed if their
-// type is on this allowlist or alternatively on kInstallAllowList or
+// type is on this whitelist or alternatively on kInstallAllowList or
 // kInstallForceList.
 extern const char kAllowedTypes[];
 
@@ -55,7 +54,7 @@ extern const char kExtensionManagement[];
 // Policy that indicates whether CRX2 extension updates are allowed.
 extern const char kInsecureExtensionUpdatesEnabled[];
 
-// A allowlist of extension ids the user can install: exceptions from the
+// A whitelist of extension ids the user can install: exceptions from the
 // following denylist.
 extern const char kInstallAllowList[];
 
@@ -93,31 +92,13 @@ extern const char kPinnedExtensions[];
 // on the next start of the browser.
 extern const char kStorageGarbageCollect[];
 
+// A preference that tracks browser action toolbar configuration. This is a list
+// object stored in the Preferences file. The extensions are stored by ID.
+extern const char kToolbar[];
+
 // A preference for a list of Component extensions that have been
 // uninstalled/removed and should not be reloaded.
 extern const char kDeletedComponentExtensions[];
-
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
-    BUILDFLAG(IS_FUCHSIA)
-// A preference for whether Chrome Apps should be allowed. The default depends
-// on the ChromeAppsDeprecation feature flag, and this pref can extend support
-// for Chrome Apps by enterprise policy.
-extern const char kChromeAppsEnabled[];
-#endif
-
-// A boolean indicating whether the deprecated U2F Security Key API, implemented
-// in the CryptoToken component extension, should be forcibly enabled, even if
-// it has been disabled via the `extensions_features::U2FSecurityKeyAPI` feature
-// flag.
-//
-// TODO(1224886): Delete together with CryptoToken code.
-extern const char kU2fSecurityKeyApiEnabled[];
-
-// A boolean indicating whether the CryptoToken component extension should be
-// loaded at startup.
-//
-// TODO(1224886): Delete together with CryptoToken code.
-extern const char kLoadCryptoTokenExtension[];
 
 // Properties in kExtensions dictionaries --------------------------------------
 

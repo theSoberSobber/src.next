@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -9,11 +9,9 @@
 
 #include "base/bind.h"
 #include "base/callback_internal.h"
-#include "base/memory/raw_ptr.h"
 #include "base/memory/ref_counted.h"
 #include "base/notreached.h"
 #include "base/strings/string_number_conversions.h"
-#include "base/test/bind.h"
 #include "base/test/test_timeouts.h"
 #include "base/threading/thread.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -677,9 +675,7 @@ TEST_F(CallbackTest, ThenRepeating) {
 // function.
 class ClassWithAMethod {
  public:
-  void TheMethod() { method_called = true; }
-
-  bool method_called = false;
+  void TheMethod() {}
 };
 
 TEST_F(CallbackTest, MaybeValidInvalidateWeakPtrsOnSameSequence) {
@@ -729,24 +725,6 @@ TEST_F(CallbackTest, MaybeValidInvalidateWeakPtrsOnOtherSequence) {
   // run.
 }
 
-TEST_F(CallbackTest, ThenAfterWeakPtr) {
-  ClassWithAMethod obj;
-  WeakPtrFactory<ClassWithAMethod> factory(&obj);
-  WeakPtr<ClassWithAMethod> ptr = factory.GetWeakPtr();
-
-  // If the first callback of a chain is skipped due to InvalidateWeakPtrs(),
-  // the remaining callbacks should still run.
-  bool chained_closure_called = false;
-  OnceClosure closure =
-      BindOnce(&ClassWithAMethod::TheMethod, ptr)
-          .Then(BindLambdaForTesting(
-              [&chained_closure_called] { chained_closure_called = true; }));
-  factory.InvalidateWeakPtrs();
-  std::move(closure).Run();
-  EXPECT_FALSE(obj.method_called);
-  EXPECT_TRUE(chained_closure_called);
-}
-
 class CallbackOwner : public base::RefCounted<CallbackOwner> {
  public:
   explicit CallbackOwner(bool* deleted) {
@@ -771,7 +749,7 @@ class CallbackOwner : public base::RefCounted<CallbackOwner> {
   }
 
   RepeatingClosure callback_;
-  raw_ptr<bool> deleted_;
+  bool* deleted_;
 };
 
 TEST_F(CallbackTest, CallbackHasLastRefOnContainingObject) {

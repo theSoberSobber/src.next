@@ -1,13 +1,14 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef NET_URL_REQUEST_URL_REQUEST_CONTEXT_GETTER_H_
 #define NET_URL_REQUEST_URL_REQUEST_CONTEXT_GETTER_H_
 
+#include "base/macros.h"
 #include "base/memory/ref_counted.h"
 #include "base/observer_list.h"
-#include "base/task/sequenced_task_runner_helpers.h"
+#include "base/sequenced_task_runner_helpers.h"
 #include "build/build_config.h"
 #include "net/base/net_export.h"
 
@@ -15,11 +16,11 @@ namespace base {
 class SingleThreadTaskRunner;
 }  // namespace base
 
-#if BUILDFLAG(IS_IOS)
+#if defined(OS_IOS)
 namespace web {
 class NetworkContextOwner;
 }
-#endif  // BUILDFLAG(IS_IOS)
+#endif  // defined(OS_IOS)
 
 namespace net {
 class URLRequestContext;
@@ -32,9 +33,6 @@ class NET_EXPORT URLRequestContextGetter
     : public base::RefCountedThreadSafe<URLRequestContextGetter,
                                         URLRequestContextGetterTraits> {
  public:
-  URLRequestContextGetter(const URLRequestContextGetter&) = delete;
-  URLRequestContextGetter& operator=(const URLRequestContextGetter&) = delete;
-
   // Returns the URLRequestContextGetter's URLRequestContext. Must only be
   // called on the network task runner. Once NotifyContextShuttingDown() is
   // invoked, must always return nullptr. Does not transfer ownership of
@@ -71,9 +69,9 @@ class NET_EXPORT URLRequestContextGetter
   // web::NetworkContextOwner to restrict visibility.
   friend class URLFetcherCore;
 
-#if BUILDFLAG(IS_IOS)
+#if defined(OS_IOS)
   friend class web::NetworkContextOwner;
-#endif  // BUILDFLAG(IS_IOS)
+#endif  // defined(OS_IOS)
 
   // Adds / removes an observer to watch for shutdown of |this|'s context. Must
   // only be called on network thread. May not be called once
@@ -86,6 +84,8 @@ class NET_EXPORT URLRequestContextGetter
   void OnDestruct() const;
 
   base::ObserverList<URLRequestContextGetterObserver>::Unchecked observer_list_;
+
+  DISALLOW_COPY_AND_ASSIGN(URLRequestContextGetter);
 };
 
 struct URLRequestContextGetterTraits {

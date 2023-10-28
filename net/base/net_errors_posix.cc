@@ -1,4 +1,4 @@
-// Copyright 2011 The Chromium Authors
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -113,13 +113,13 @@ Error MapSystemError(logging::SystemErrorCode os_error) {
       return ERR_INSUFFICIENT_RESOURCES;
     case ENOPROTOOPT:  // Protocol option not supported.
       return ERR_NOT_IMPLEMENTED;
-#if BUILDFLAG(IS_FUCHSIA)
+#if defined(OS_FUCHSIA)
     case EIO:
       // FDIO maps all unrecognized errors to EIO. If you see this message then
       // consider adding custom error in FDIO for the corresponding error.
       DLOG(FATAL) << "EIO was returned by FDIO.";
       return ERR_FAILED;
-#endif  // BUILDFLAG(IS_FUCHSIA)
+#endif  // OS_FUCHSIA
 
     case 0:
       return OK;

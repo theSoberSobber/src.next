@@ -1,9 +1,11 @@
-// Copyright 2018 The Chromium Authors
+// Copyright 2018 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CONTENT_BROWSER_SCOPED_ACTIVE_URL_H_
 #define CONTENT_BROWSER_SCOPED_ACTIVE_URL_H_
+
+#include "base/macros.h"
 
 class GURL;
 
@@ -38,15 +40,14 @@ class ScopedActiveURL {
   // the frame tree node of |view|'s main frame.
   explicit ScopedActiveURL(RenderViewHost* view);
 
-  ScopedActiveURL(const ScopedActiveURL&) = delete;
-  ScopedActiveURL& operator=(const ScopedActiveURL&) = delete;
-
   // Calls ContentClient::SetActiveURL with empty arguments (to reset the crash
   // keys).
   ~ScopedActiveURL();
 
  private:
   explicit ScopedActiveURL(FrameTreeNode* node);
+
+  DISALLOW_COPY_AND_ASSIGN(ScopedActiveURL);
 };
 
 }  // namespace content

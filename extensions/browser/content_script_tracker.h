@@ -1,4 +1,4 @@
-// Copyright 2021 The Chromium Authors
+// Copyright 2021 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -16,6 +16,7 @@ namespace content {
 class NavigationHandle;
 class RenderFrameHost;
 class RenderProcessHost;
+class WebContents;
 }  // namespace content
 
 namespace extensions {
@@ -25,6 +26,7 @@ class ExtensionWebContentsObserver;
 class UserScriptLoader;
 class RequestContentScript;
 class ScriptExecutor;
+class WebViewGuest;
 
 // Class for
 // 1) observing when a content script gets injected into a process,
@@ -54,18 +56,10 @@ class ContentScriptTracker {
       const content::RenderProcessHost& process,
       const ExtensionId& extension_id);
 
-  // Returns all the IDs for extensions that have ever in the past run a content
-  // script in `process`.
-  static ExtensionIdSet GetExtensionsThatRanScriptsInProcess(
-      const content::RenderProcessHost& process);
-
   // The few methods below are called by ExtensionWebContentsObserver to notify
   // ContentScriptTracker about various events.  The methods correspond directly
   // to methods of content::WebContentsObserver with the same names.
   static void ReadyToCommitNavigation(
-      base::PassKey<ExtensionWebContentsObserver> pass_key,
-      content::NavigationHandle* navigation);
-  static void DidFinishNavigation(
       base::PassKey<ExtensionWebContentsObserver> pass_key,
       content::NavigationHandle* navigation);
   static void RenderFrameCreated(
@@ -74,6 +68,13 @@ class ContentScriptTracker {
   static void RenderFrameDeleted(
       base::PassKey<ExtensionWebContentsObserver> pass_key,
       content::RenderFrameHost* frame);
+
+  // Called before a navigation commits in a GuestView with a non-empty set of
+  // content scripts to inject into the guest.
+  static void ReadyToCommitNavigationWithGuestViewContentScripts(
+      base::PassKey<WebViewGuest> pass_key,
+      content::WebContents* outer_web_contents,
+      content::NavigationHandle* navigation);
 
   // Called before ExtensionMsg_ExecuteCode is sent to a renderer process
   // (typically when handling chrome.tabs.executeScript or a similar API call).

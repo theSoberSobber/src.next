@@ -5,7 +5,6 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_CORE_LAYOUT_LIST_MARKER_H_
 #define THIRD_PARTY_BLINK_RENDERER_CORE_LAYOUT_LIST_MARKER_H_
 
-#include "base/check_op.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/layout/layout_object.h"
 
@@ -14,7 +13,7 @@ namespace blink {
 class CounterStyle;
 class LayoutListItem;
 class LayoutNGListItem;
-class LayoutTextFragment;
+class LayoutText;
 
 // This class holds code shared among all classes for list markers, for both
 // legacy layout and LayoutNG.
@@ -76,11 +75,7 @@ class CORE_EXPORT ListMarker {
   static const CounterStyle& GetCounterStyle(Document&, const ComputedStyle&);
 
  private:
-  enum MarkerTextFormat {
-    kWithPrefixSuffix,
-    kWithoutPrefixSuffix,
-    kAlternativeText
-  };
+  enum MarkerTextFormat { kWithPrefixSuffix, kWithoutPrefixSuffix };
   enum MarkerTextType {
     kNotText,  // The marker doesn't have a LayoutText, either because it has
                // not been created yet or because 'list-style-type' is 'none',
@@ -102,12 +97,10 @@ class CORE_EXPORT ListMarker {
 
   int ListItemValue(const LayoutObject&) const;
 
-  LayoutTextFragment& GetTextChild(const LayoutObject& marker) const;
+  LayoutText& GetTextChild(const LayoutObject& marker) const;
   LayoutObject* GetContentChild(const LayoutObject& marker) const;
 
   unsigned marker_text_type_ : 3;  // MarkerTextType
-
-  friend class StyleEngineTest;
 };
 
 }  // namespace blink

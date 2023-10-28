@@ -31,7 +31,6 @@ class CORE_EXPORT TextPainter : public TextPainterBase {
                         font,
                         text_origin,
                         text_frame_rect,
-                        /* inline_context */ nullptr,
                         horizontal),
         run_(run) {}
   ~TextPainter() = default;
@@ -40,18 +39,21 @@ class CORE_EXPORT TextPainter : public TextPainterBase {
     combined_text_ = combined_text;
   }
 
+  void ClipDecorationsStripe(float upper,
+                             float stripe_width,
+                             float dilation) override;
   void Paint(unsigned start_offset,
              unsigned end_offset,
              unsigned length,
              const TextPaintStyle&,
-             DOMNodeId node_id,
-             const AutoDarkMode& auto_dark_mode);
+             DOMNodeId node_id);
 
   void PaintDecorationsExceptLineThrough(const TextDecorationOffsetBase&,
                                          TextDecorationInfo&,
                                          const PaintInfo&,
                                          const Vector<AppliedTextDecoration>&,
-                                         const TextPaintStyle& text_style);
+                                         const TextPaintStyle& text_style,
+                                         bool* has_line_through_decoration);
   void PaintDecorationsOnlyLineThrough(TextDecorationInfo&,
                                        const PaintInfo&,
                                        const Vector<AppliedTextDecoration>&,
@@ -62,22 +64,13 @@ class CORE_EXPORT TextPainter : public TextPainterBase {
   void PaintInternalRun(TextRunPaintInfo&,
                         unsigned from,
                         unsigned to,
-                        DOMNodeId node_id,
-                        const AutoDarkMode& auto_dark_mode);
+                        DOMNodeId node_id);
 
   template <PaintInternalStep step>
   void PaintInternal(unsigned start_offset,
                      unsigned end_offset,
                      unsigned truncation_point,
-                     DOMNodeId node_id,
-                     const AutoDarkMode& auto_dark_mode);
-
-  void ClipDecorationsStripe(float upper, float stripe_width, float dilation);
-
-  void PaintDecorationUnderOrOverLine(GraphicsContext& context,
-                                      TextDecorationInfo& decoration_info,
-                                      TextDecorationLine line,
-                                      const cc::PaintFlags* flags = nullptr);
+                     DOMNodeId node_id);
 
   const TextRun& run_;
   LayoutTextCombine* combined_text_ = nullptr;

@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -9,10 +9,11 @@
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "build/build_config.h"
-#include "build/chromeos_buildflags.h"
 #include "content/browser/web_contents/web_contents_impl.h"
 #include "content/common/content_navigation_policy.h"
 #include "content/public/browser/navigation_controller.h"
+#include "content/public/browser/notification_service.h"
+#include "content/public/browser/notification_types.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/common/url_constants.h"
@@ -93,8 +94,7 @@ class SessionHistoryTest : public ContentBrowserTest {
   // Navigate session history using history.go(distance).
   void JavascriptGo(const std::string& distance) {
     TestNavigationObserver observer(shell()->web_contents());
-    EXPECT_TRUE(ExecuteScript(ToRenderFrameHost(shell()->web_contents()),
-                              "history.go('" + distance + "')"));
+    shell()->LoadURL(GURL("javascript:history.go('" + distance + "')"));
     observer.Wait();
   }
 
@@ -128,13 +128,17 @@ class SessionHistoryTest : public ContentBrowserTest {
   }
 
   void GoBack() {
-    LoadStopObserver load_stop_observer(shell()->web_contents());
+    WindowedNotificationObserver load_stop_observer(
+        NOTIFICATION_LOAD_STOP,
+        NotificationService::AllSources());
     shell()->web_contents()->GetController().GoBack();
     load_stop_observer.Wait();
   }
 
   void GoForward() {
-    LoadStopObserver load_stop_observer(shell()->web_contents());
+    WindowedNotificationObserver load_stop_observer(
+        NOTIFICATION_LOAD_STOP,
+        NotificationService::AllSources());
     shell()->web_contents()->GetController().GoForward();
     load_stop_observer.Wait();
   }
@@ -341,7 +345,8 @@ IN_PROC_BROWSER_TEST_F(SessionHistoryTest, CrossFrameFormBackForward) {
   // set to "form". If not, the page will be reloaded from scratch, setting the
   // title to "bot1" again.
   GoBack();
-  EXPECT_EQ(IsBackForwardCacheEnabled() ? "form" : "bot1", GetTabTitle());
+  EXPECT_EQ(IsSameSiteBackForwardCacheEnabled() ? "form" : "bot1",
+            GetTabTitle());
   EXPECT_EQ(frames, GetTabURL());
 
   // Submit the form in the "fbot" iframe again . This submits to /echotitle
@@ -400,13 +405,7 @@ IN_PROC_BROWSER_TEST_F(SessionHistoryTest, FragmentBackForward) {
 //
 // TODO(brettw) bug 50648: fix flakyness. This test seems like it was failing
 // about 1/4 of the time on Vista by failing to execute JavascriptGo (see bug).
-// TODO(crbug.com/1280512): Flaky on Linux and Lacros.
-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS_LACROS)
-#define MAYBE_JavascriptHistory DISABLED_JavascriptHistory
-#else
-#define MAYBE_JavascriptHistory JavascriptHistory
-#endif
-IN_PROC_BROWSER_TEST_F(SessionHistoryTest, MAYBE_JavascriptHistory) {
+IN_PROC_BROWSER_TEST_F(SessionHistoryTest, JavascriptHistory) {
   ASSERT_FALSE(CanGoBack());
 
   ASSERT_NO_FATAL_FAILURE(NavigateAndCheckTitle("bot1.html", "bot1"));
@@ -486,8 +485,8 @@ IN_PROC_BROWSER_TEST_F(SessionHistoryTest, LocationChangeInSubframe) {
       "location_redirect.html", "Default Title"));
 
   FrameTreeNode* root = static_cast<WebContentsImpl*>(shell()->web_contents())
-                            ->GetPrimaryFrameTree()
-                            .root();
+                            ->GetFrameTree()
+                            ->root();
   TestFrameNavigationObserver observer(root->child_at(0));
   shell()->LoadURL(GURL("javascript:void(frames[0].navigate())"));
   observer.Wait();
@@ -505,8 +504,8 @@ IN_PROC_BROWSER_TEST_F(SessionHistoryScrollAnchorTest,
       NavigateAndCheckTitle("location_redirect.html", "Default Title"));
 
   FrameTreeNode* root = static_cast<WebContentsImpl*>(shell()->web_contents())
-                            ->GetPrimaryFrameTree()
-                            .root();
+                            ->GetFrameTree()
+                            ->root();
   TestFrameNavigationObserver observer(root->child_at(0));
   shell()->LoadURL(GURL("javascript:void(frames[0].navigate())"));
   observer.Wait();

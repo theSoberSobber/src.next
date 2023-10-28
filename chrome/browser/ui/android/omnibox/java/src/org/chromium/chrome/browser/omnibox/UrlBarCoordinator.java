@@ -1,4 +1,4 @@
-// Copyright 2018 The Chromium Authors
+// Copyright 2018 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -18,7 +18,6 @@ import org.chromium.base.Callback;
 import org.chromium.chrome.browser.omnibox.UrlBar.ScrollType;
 import org.chromium.chrome.browser.omnibox.UrlBar.UrlBarDelegate;
 import org.chromium.chrome.browser.omnibox.UrlBar.UrlTextChangeListener;
-import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
 import org.chromium.ui.KeyboardVisibilityDelegate;
 import org.chromium.ui.base.WindowDelegate;
 import org.chromium.ui.modelutil.PropertyModel;
@@ -67,17 +66,12 @@ public class UrlBarCoordinator implements UrlBarEditingTextStateProvider, UrlFoc
      * @param delegate The primary delegate for the UrlBar view.
      * @param keyboardVisibilityDelegate Delegate that allows querying and changing the keyboard's
      *         visibility.
-     * @param isIncognito Whether incognito mode is initially enabled. This can later be changed
-     *         using {@link #setIncognitoColorsEnabled(boolean)}.
-     * @param reportExceptionCallback A {@link Callback} to report exceptions.
      */
     public UrlBarCoordinator(@NonNull UrlBar urlBar, @Nullable WindowDelegate windowDelegate,
             @NonNull ActionMode.Callback actionModeCallback,
             @NonNull Callback<Boolean> focusChangeCallback, @NonNull UrlBarDelegate delegate,
-            @NonNull KeyboardVisibilityDelegate keyboardVisibilityDelegate, boolean isIncognito,
-            Callback<Throwable> reportExceptionCallback) {
+            @NonNull KeyboardVisibilityDelegate keyboardVisibilityDelegate) {
         mUrlBar = urlBar;
-        urlBar.setTag(R.id.report_exception_callback, reportExceptionCallback);
         mKeyboardVisibilityDelegate = keyboardVisibilityDelegate;
         mWindowDelegate = windowDelegate;
         mFocusChangeCallback = focusChangeCallback;
@@ -87,7 +81,6 @@ public class UrlBarCoordinator implements UrlBarEditingTextStateProvider, UrlFoc
                         .with(UrlBarProperties.ACTION_MODE_CALLBACK, actionModeCallback)
                         .with(UrlBarProperties.WINDOW_DELEGATE, windowDelegate)
                         .with(UrlBarProperties.DELEGATE, delegate)
-                        .with(UrlBarProperties.INCOGNITO_COLORS_ENABLED, isIncognito)
                         .build();
         PropertyModelChangeProcessor.create(model, urlBar, UrlBarViewBinder::bind);
 
@@ -125,14 +118,9 @@ public class UrlBarCoordinator implements UrlBarEditingTextStateProvider, UrlFoc
         mMediator.setAutocompleteText(userText, autocompleteText);
     }
 
-    /** @see UrlBarMediator#setBrandedColorScheme(int) */
-    public boolean setBrandedColorScheme(@BrandedColorScheme int brandedColorScheme) {
-        return mMediator.setBrandedColorScheme(brandedColorScheme);
-    }
-
-    /** @see UrlBarMediator#setIncognitoColorsEnabled(boolean) */
-    public void setIncognitoColorsEnabled(boolean incognitoColorsEnabled) {
-        mMediator.setIncognitoColorsEnabled(incognitoColorsEnabled);
+    /** @see UrlBarMediator#setUseDarkTextColors(boolean) */
+    public boolean setUseDarkTextColors(boolean useDarkColors) {
+        return mMediator.setUseDarkTextColors(useDarkColors);
     }
 
     /** @see UrlBarMediator#setAllowFocus(boolean) */
@@ -196,10 +184,6 @@ public class UrlBarCoordinator implements UrlBarEditingTextStateProvider, UrlFoc
 
     /* package */ void clearFocus() {
         mUrlBar.clearFocus();
-    }
-
-    /* package */ void requestAccessibilityFocus() {
-        mUrlBar.requestAccessibilityFocus();
     }
 
     /**
@@ -276,10 +260,5 @@ public class UrlBarCoordinator implements UrlBarEditingTextStateProvider, UrlFoc
             if (imm.isActive(mUrlBar)) setKeyboardVisibility(false, false);
         }
         mFocusChangeCallback.onResult(hasFocus);
-    }
-
-    /** Signals that's it safe to call code that requires native to be loaded. */
-    public void onFinishNativeInitialization() {
-        mUrlBar.onFinishNativeInitialization();
     }
 }

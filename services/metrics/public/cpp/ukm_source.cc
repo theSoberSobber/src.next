@@ -1,4 +1,4 @@
-// Copyright 2017 The Chromium Authors
+// Copyright 2017 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -57,12 +57,9 @@ SourceType ToProtobufSourceType(SourceIdType source_id_type) {
       return SourceType::DESKTOP_WEB_APP_ID;
     case SourceIdType::WORKER_ID:
       return SourceType::WORKER_ID;
-    case SourceIdType::NO_URL_ID:
-      return SourceType::NO_URL_ID;
-    case SourceIdType::REDIRECT_ID:
-      return SourceType::REDIRECT_ID;
-    case SourceIdType::WEB_IDENTITY_ID:
-      return SourceType::WEB_IDENTITY_ID;
+    default:
+      NOTREACHED();
+      return SourceType::DEFAULT;
   }
 }
 

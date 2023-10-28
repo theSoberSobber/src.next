@@ -29,7 +29,7 @@
 #include <memory>
 #include <utility>
 
-#include "third_party/blink/public/mojom/use_counter/metrics/web_feature.mojom-blink.h"
+#include "third_party/blink/public/mojom/web_feature/web_feature.mojom-blink.h"
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
 #include "third_party/blink/renderer/core/layout/grid_layout_utils.h"
 #include "third_party/blink/renderer/core/layout/layout_state.h"
@@ -40,7 +40,6 @@
 #include "third_party/blink/renderer/core/style/computed_style.h"
 #include "third_party/blink/renderer/core/style/grid_area.h"
 #include "third_party/blink/renderer/platform/geometry/length_functions.h"
-#include "third_party/blink/renderer/platform/heap/garbage_collected.h"
 #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
 #include "third_party/blink/renderer/platform/text/writing_mode.h"
 
@@ -49,23 +48,14 @@ namespace blink {
 LayoutGrid::LayoutGrid(Element* element)
     : LayoutBlock(element),
       grid_(Grid::Create(this)),
-      track_sizing_algorithm_(
-          MakeGarbageCollected<GridTrackSizingAlgorithm>(this, *grid_)) {
+      track_sizing_algorithm_(this, *grid_) {
   DCHECK(!ChildrenInline());
 }
 
 LayoutGrid::~LayoutGrid() = default;
 
-void LayoutGrid::Trace(Visitor* visitor) const {
-  visitor->Trace(grid_);
-  visitor->Trace(track_sizing_algorithm_);
-  visitor->Trace(column_of_positioned_item_);
-  visitor->Trace(row_of_positioned_item_);
-  LayoutBlock::Trace(visitor);
-}
-
 LayoutGrid* LayoutGrid::CreateAnonymous(Document* document) {
-  LayoutGrid* layout_grid = MakeGarbageCollected<LayoutGrid>(nullptr);
+  LayoutGrid* layout_grid = new LayoutGrid(nullptr);
   layout_grid->SetDocumentForAnonymous(document);
   return layout_grid;
 }
@@ -189,70 +179,50 @@ void LayoutGrid::StyleDidChange(StyleDifference diff,
 
   if (ExplicitGridDidResize(*old_style) ||
       NamedGridLinesDefinitionDidChange(*old_style) ||
-      old_style->GetGridAutoFlow() != new_style.GetGridAutoFlow() ||
-      (diff.NeedsLayout() &&
-       (new_style.GridTemplateColumns().auto_repeat_track_sizes.size() ||
-        new_style.GridTemplateRows().auto_repeat_track_sizes.size()))) {
+      old_style->GetGridAutoFlow() != StyleRef().GetGridAutoFlow() ||
+      (diff.NeedsLayout() && (StyleRef().GridAutoRepeatColumns().size() ||
+                              StyleRef().GridAutoRepeatRows().size())))
     DirtyGrid();
-  }
 }
 
 bool LayoutGrid::ExplicitGridDidResize(const ComputedStyle& old_style) const {
   NOT_DESTROYED();
-
-  const ComputedStyle& grid_container_style = StyleRef();
-  const ComputedGridTrackList& old_column_computed_grid_track_list =
-      old_style.GridTemplateColumns();
-  const ComputedGridTrackList& old_row_computed_grid_track_list =
-      old_style.GridTemplateRows();
-  const ComputedGridTrackList& column_computed_grid_track_list =
-      grid_container_style.GridTemplateColumns();
-  const ComputedGridTrackList& row_computed_grid_track_list =
-      grid_container_style.GridTemplateRows();
-
-  return old_column_computed_grid_track_list.track_sizes.LegacyTrackList()
-                 .size() !=
-             column_computed_grid_track_list.track_sizes.LegacyTrackList()
-                 .size() ||
-         old_row_computed_grid_track_list.track_sizes.LegacyTrackList()
-                 .size() !=
-             row_computed_grid_track_list.track_sizes.LegacyTrackList()
-                 .size() ||
+  return old_style.GridTemplateColumns().LegacyTrackList().size() !=
+             StyleRef().GridTemplateColumns().LegacyTrackList().size() ||
+         old_style.GridTemplateRows().LegacyTrackList().size() !=
+             StyleRef().GridTemplateRows().LegacyTrackList().size() ||
          old_style.NamedGridAreaColumnCount() !=
-             grid_container_style.NamedGridAreaColumnCount() ||
+             StyleRef().NamedGridAreaColumnCount() ||
          old_style.NamedGridAreaRowCount() !=
-             grid_container_style.NamedGridAreaRowCount() ||
-         old_column_computed_grid_track_list.auto_repeat_track_sizes.size() !=
-             column_computed_grid_track_list.auto_repeat_track_sizes.size() ||
-         old_row_computed_grid_track_list.auto_repeat_track_sizes.size() !=
-             row_computed_grid_track_list.auto_repeat_track_sizes.size();
+             StyleRef().NamedGridAreaRowCount() ||
+         old_style.GridAutoRepeatColumns().size() !=
+             StyleRef().GridAutoRepeatColumns().size() ||
+         old_style.GridAutoRepeatRows().size() !=
+             StyleRef().GridAutoRepeatRows().size();
 }
 
 bool LayoutGrid::NamedGridLinesDefinitionDidChange(
     const ComputedStyle& old_style) const {
   NOT_DESTROYED();
-
-  const ComputedStyle& grid_container_style = StyleRef();
-  return old_style.GridTemplateRows().named_grid_lines !=
-             grid_container_style.GridTemplateRows().named_grid_lines ||
-         old_style.GridTemplateColumns().named_grid_lines !=
-             grid_container_style.GridTemplateColumns().named_grid_lines ||
+  return old_style.NamedGridRowLines() != StyleRef().NamedGridRowLines() ||
+         old_style.NamedGridColumnLines() !=
+             StyleRef().NamedGridColumnLines() ||
          old_style.ImplicitNamedGridRowLines() !=
-             grid_container_style.ImplicitNamedGridRowLines() ||
+             StyleRef().ImplicitNamedGridRowLines() ||
          old_style.ImplicitNamedGridColumnLines() !=
-             grid_container_style.ImplicitNamedGridColumnLines();
+             StyleRef().ImplicitNamedGridColumnLines();
 }
 
 void LayoutGrid::ComputeTrackSizesForDefiniteSize(
     GridTrackSizingDirection direction,
     LayoutUnit available_space) {
   NOT_DESTROYED();
-  track_sizing_algorithm_->Setup(direction, NumTracks(direction, *grid_),
-                                 available_space);
-  track_sizing_algorithm_->Run();
+  track_sizing_algorithm_.Setup(direction, NumTracks(direction, *grid_),
+                                available_space);
+  track_sizing_algorithm_.Run();
 
 #if DCHECK_IS_ON()
-  DCHECK(track_sizing_algorithm_->TracksAreWiderThanMinTrackBreadth());
+  DCHECK(track_sizing_algorithm_.TracksAreWiderThanMinTrackBreadth());
 #endif
 }
 
@@ -269,7 +239,7 @@ void LayoutGrid::RepeatTracksSizingIfNeeded(
   // more specific condition to detect whether child's min-content contribution
   // has changed or not.
   if (!has_any_orthogonal_item_ &&
-      !track_sizing_algorithm_->HasAnyPercentSizedRowsIndefiniteHeight())
+      !track_sizing_algorithm_.HasAnyPercentSizedRowsIndefiniteHeight())
     return;
 
   // TODO (lajava): Whenever the min-content contribution of a grid item changes
@@ -283,11 +253,11 @@ void LayoutGrid::RepeatTracksSizingIfNeeded(
   // and rows, to determine the final values.
   ComputeTrackSizesForDefiniteSize(kForColumns, available_space_for_columns);
   ComputeContentPositionAndDistributionOffset(
-      kForColumns, track_sizing_algorithm_->FreeSpace(kForColumns).value(),
+      kForColumns, track_sizing_algorithm_.FreeSpace(kForColumns).value(),
       NonCollapsedTracks(kForColumns));
   ComputeTrackSizesForDefiniteSize(kForRows, available_space_for_rows);
   ComputeContentPositionAndDistributionOffset(
-      kForRows, track_sizing_algorithm_->FreeSpace(kForRows).value(),
+      kForRows, track_sizing_algorithm_.FreeSpace(kForRows).value(),
       NonCollapsedTracks(kForRows));
 }
 
@@ -332,11 +302,11 @@ void LayoutGrid::UpdateBlockLayout(bool relayout_children) {
       // cost of evaluating the item's participation in a baseline
       // context during the track sizing algorithm.
       if (IsBaselineAlignmentForChild(*child, kGridColumnAxis)) {
-        track_sizing_algorithm_->CacheBaselineAlignedItem(*child,
-                                                          kGridColumnAxis);
+        track_sizing_algorithm_.CacheBaselineAlignedItem(*child,
+                                                         kGridColumnAxis);
       }
       if (IsBaselineAlignmentForChild(*child, kGridRowAxis)) {
-        track_sizing_algorithm_->CacheBaselineAlignedItem(*child, kGridRowAxis);
+        track_sizing_algorithm_.CacheBaselineAlignedItem(*child, kGridRowAxis);
       }
     }
     baseline_items_cached_ = true;
@@ -347,8 +317,8 @@ void LayoutGrid::UpdateBlockLayout(bool relayout_children) {
     LayoutUnit available_space_for_columns = AvailableLogicalWidth();
     PlaceItemsOnGrid(track_sizing_algorithm_, available_space_for_columns);
 
-    track_sizing_algorithm_->SetAvailableSpace(kForColumns,
-                                               available_space_for_columns);
+    track_sizing_algorithm_.SetAvailableSpace(kForColumns,
+                                              available_space_for_columns);
     PerformGridItemsPreLayout(track_sizing_algorithm_);
 
     // 1- First, the track sizing algorithm is used to resolve the sizes of the
@@ -362,7 +332,7 @@ void LayoutGrid::UpdateBlockLayout(bool relayout_children) {
 
     // 1.5- Compute Content Distribution offsets for column tracks
     ComputeContentPositionAndDistributionOffset(
-        kForColumns, track_sizing_algorithm_->FreeSpace(kForColumns).value(),
+        kForColumns, track_sizing_algorithm_.FreeSpace(kForColumns).value(),
         NonCollapsedTracks(kForColumns));
 
     // 2- Next, the track sizing algorithm resolves the sizes of the grid rows,
@@ -380,7 +350,7 @@ void LayoutGrid::UpdateBlockLayout(bool relayout_children) {
         recompute_with_track_based_height = true;
     }
     LayoutUnit track_based_logical_height =
-        track_sizing_algorithm_->ComputeTrackBasedSize() +
+        track_sizing_algorithm_.ComputeTrackBasedSize() +
         BorderAndPaddingLogicalHeight();
     if (recompute_with_track_based_height)
       ComputeTrackSizesForDefiniteSize(kForRows, track_based_logical_height);
@@ -399,13 +369,13 @@ void LayoutGrid::UpdateBlockLayout(bool relayout_children) {
     // Once grid's indefinite height is resolved, we can compute the
     // available free space for Content Alignment.
     if (!CachedHasDefiniteLogicalHeight()) {
-      track_sizing_algorithm_->SetFreeSpace(
+      track_sizing_algorithm_.SetFreeSpace(
           kForRows, LogicalHeight() - track_based_logical_height);
     }
 
     // 2.5- Compute Content Distribution offsets for rows tracks
     ComputeContentPositionAndDistributionOffset(
-        kForRows, track_sizing_algorithm_->FreeSpace(kForRows).value(),
+        kForRows, track_sizing_algorithm_.FreeSpace(kForRows).value(),
         NonCollapsedTracks(kForRows));
 
     // 3- If the min-content contribution of any grid items have changed based
@@ -421,7 +391,7 @@ void LayoutGrid::UpdateBlockLayout(bool relayout_children) {
           std::max(LogicalHeight(), MinimumLogicalHeightForEmptyLine()));
 
     LayoutGridItems();
-    track_sizing_algorithm_->Reset();
+    track_sizing_algorithm_.Reset();
 
     if (NumTracks(kForRows, *grid_) > 1u && StyleRef().RowGap() &&
         StyleRef().RowGap()->IsPercentOrCalc()) {
@@ -444,7 +414,7 @@ void LayoutGrid::UpdateBlockLayout(bool relayout_children) {
 
   ClearNeedsLayout();
 
-  track_sizing_algorithm_->ClearBaselineItemsCache();
+  track_sizing_algorithm_.ClearBaselineItemsCache();
   baseline_items_cached_ = false;
 }
 
@@ -483,8 +453,8 @@ LayoutUnit LayoutGrid::GridGap(GridTrackSizingDirection direction) const {
 LayoutUnit LayoutGrid::GuttersSize(
     const Grid& grid,
     GridTrackSizingDirection direction,
-    wtf_size_t start_line,
-    wtf_size_t span,
+    size_t start_line,
+    size_t span,
     absl::optional<LayoutUnit> available_size) const {
   NOT_DESTROYED();
   if (span <= 1)
@@ -503,9 +473,9 @@ LayoutUnit LayoutGrid::GuttersSize(
   // becomes 0) or there is a non empty track before that.
 
   LayoutUnit gap_accumulator;
-  wtf_size_t end_line = start_line + span;
+  size_t end_line = start_line + span;
 
-  for (wtf_size_t line = start_line; line < end_line - 1; ++line) {
+  for (size_t line = start_line; line < end_line - 1; ++line) {
     if (!grid.IsEmptyAutoRepeatTrack(direction, line))
       gap_accumulator += gap;
   }
@@ -573,45 +543,44 @@ MinMaxSizes LayoutGrid::ComputeIntrinsicLogicalWidths() const {
     return sizes;
   }
 
-  Grid* grid = Grid::Create(this);
-  GridTrackSizingAlgorithm* algorithm =
-      MakeGarbageCollected<GridTrackSizingAlgorithm>(this, *grid);
+  std::unique_ptr<Grid> grid = Grid::Create(this);
+  GridTrackSizingAlgorithm algorithm(this, *grid);
   PlaceItemsOnGrid(algorithm, absl::nullopt);
 
   PerformGridItemsPreLayout(algorithm);
 
   if (baseline_items_cached_) {
-    algorithm->CopyBaselineItemsCache(track_sizing_algorithm_, kGridRowAxis);
+    algorithm.CopyBaselineItemsCache(track_sizing_algorithm_, kGridRowAxis);
   } else {
     for (auto* child = FirstInFlowChildBox(); child;
          child = child->NextInFlowSiblingBox()) {
       if (IsBaselineAlignmentForChild(*child, kGridRowAxis)) {
-        algorithm->CacheBaselineAlignedItem(*child, kGridRowAxis);
+        algorithm.CacheBaselineAlignedItem(*child, kGridRowAxis);
       }
     }
   }
 
   ComputeTrackSizesForIndefiniteSize(algorithm, kForColumns);
 
-  wtf_size_t number_of_tracks = algorithm->Tracks(kForColumns).size();
+  size_t number_of_tracks = algorithm.Tracks(kForColumns).size();
   LayoutUnit total_gutters_size = GuttersSize(
-      algorithm->GetGrid(), kForColumns, 0, number_of_tracks, absl::nullopt);
+      algorithm.GetGrid(), kForColumns, 0, number_of_tracks, absl::nullopt);
 
-  sizes.min_size += algorithm->MinContentSize() + total_gutters_size;
-  sizes.max_size += algorithm->MaxContentSize() + total_gutters_size;
+  sizes.min_size += algorithm.MinContentSize() + total_gutters_size;
+  sizes.max_size += algorithm.MaxContentSize() + total_gutters_size;
   return sizes;
 }
 
 void LayoutGrid::ComputeTrackSizesForIndefiniteSize(
-    GridTrackSizingAlgorithm* algo,
+    GridTrackSizingAlgorithm& algo,
     GridTrackSizingDirection direction) const {
   NOT_DESTROYED();
-  const Grid& grid = algo->GetGrid();
-  algo->Setup(direction, NumTracks(direction, grid), absl::nullopt);
-  algo->Run();
+  const Grid& grid = algo.GetGrid();
+  algo.Setup(direction, NumTracks(direction, grid), absl::nullopt);
+  algo.Run();
 
 #if DCHECK_IS_ON()
-  DCHECK(algo->TracksAreWiderThanMinTrackBreadth());
+  DCHECK(algo.TracksAreWiderThanMinTrackBreadth());
 #endif
 }
 
@@ -641,36 +610,33 @@ static absl::optional<LayoutUnit> ConvertLayoutUnitToOptional(LayoutUnit size) {
   return size;
 }
 
-wtf_size_t LayoutGrid::ComputeAutoRepeatTracksCount(
+size_t LayoutGrid::ComputeAutoRepeatTracksCount(
     GridTrackSizingDirection direction,
     absl::optional<LayoutUnit> available_size) const {
   NOT_DESTROYED();
   DCHECK(!available_size || available_size.value() != -1);
-
   bool is_row_axis = direction == kForColumns;
-  const ComputedStyle& grid_container_style = StyleRef();
-  const ComputedGridTrackList& computed_grid_track_list =
-      is_row_axis ? grid_container_style.GridTemplateColumns()
-                  : grid_container_style.GridTemplateRows();
-
   // Since auto-fit collapses empty tracks, and contain: size dictates that
   // children should be ignored for the purposes of layout, we can conclude that
   // if these conditions hold we have 0 repetitions.
   if (ShouldApplySizeContainment() &&
-      (computed_grid_track_list.auto_repeat_type == AutoRepeatType::kAutoFit)) {
+      ((is_row_axis &&
+        StyleRef().GridAutoRepeatColumnsType() == AutoRepeatType::kAutoFit) ||
+       (!is_row_axis &&
+        StyleRef().GridAutoRepeatRowsType() == AutoRepeatType::kAutoFit)))
     return 0;
-  }
+  const auto& auto_repeat_tracks = is_row_axis
+                                       ? StyleRef().GridAutoRepeatColumns()
+                                       : StyleRef().GridAutoRepeatRows();
+  size_t auto_repeat_track_list_length = auto_repeat_tracks.size();
 
-  wtf_size_t auto_repeat_track_list_length =
-      computed_grid_track_list.auto_repeat_track_sizes.size();
   if (!auto_repeat_track_list_length)
     return 0;
 
   bool needs_to_fulfill_minimum_size = false;
   if (!available_size) {
-    const Length& max_size = is_row_axis
-                                 ? grid_container_style.LogicalMaxWidth()
-                                 : grid_container_style.LogicalMaxHeight();
+    const Length& max_size = is_row_axis ? StyleRef().LogicalMaxWidth()
+                                         : StyleRef().LogicalMaxHeight();
     absl::optional<LayoutUnit> containing_block_available_size;
     LayoutUnit available_max_size = LayoutUnit();
     if (max_size.IsSpecified()) {
@@ -691,9 +657,8 @@ wtf_size_t LayoutGrid::ComputeAutoRepeatTracksCount(
     absl::optional<LayoutUnit> intrinsic_size_override =
         OverrideIntrinsicContentLogicalSize(direction);
 
-    const Length& min_size = is_row_axis
-                                 ? grid_container_style.LogicalMinWidth()
-                                 : grid_container_style.LogicalMinHeight();
+    const Length& min_size = is_row_axis ? StyleRef().LogicalMinWidth()
+                                         : StyleRef().LogicalMinHeight();
     if (!available_max_size && !min_size.IsSpecified() &&
         !intrinsic_size_override) {
       return auto_repeat_track_list_length;
@@ -741,8 +706,7 @@ wtf_size_t LayoutGrid::ComputeAutoRepeatTracksCount(
   }
 
   LayoutUnit auto_repeat_tracks_size;
-  for (auto auto_track_size :
-       computed_grid_track_list.auto_repeat_track_sizes) {
+  for (auto auto_track_size : auto_repeat_tracks) {
     DCHECK(auto_track_size.MinTrackBreadth().IsLength());
     DCHECK(!auto_track_size.MinTrackBreadth().IsFlex());
     bool has_definite_max_track_sizing_function =
@@ -765,7 +729,8 @@ wtf_size_t LayoutGrid::ComputeAutoRepeatTracksCount(
   // account when computing the total track size.
   LayoutUnit tracks_size = auto_repeat_tracks_size;
   const Vector<GridTrackSize, 1>& track_sizes =
-      computed_grid_track_list.track_sizes.LegacyTrackList();
+      is_row_axis ? StyleRef().GridTemplateColumns().LegacyTrackList()
+                  : StyleRef().GridTemplateRows().LegacyTrackList();
 
   for (const auto& track : track_sizes) {
     bool has_definite_max_track_breadth =
@@ -793,7 +758,7 @@ wtf_size_t LayoutGrid::ComputeAutoRepeatTracksCount(
   LayoutUnit auto_repeat_size_with_gap =
       auto_repeat_tracks_size + gap_size * auto_repeat_track_list_length;
 
-  int repetitions = 1 + (free_space / auto_repeat_size_with_gap).ToInt();
+  size_t repetitions = 1 + (free_space / auto_repeat_size_with_gap).ToInt();
   free_space -= auto_repeat_size_with_gap * (repetitions - 1);
 
   // Provided the grid container does not have a definite size or max-size in
@@ -813,31 +778,31 @@ LayoutGrid::ComputeEmptyTracksForAutoRepeat(
     Grid& grid,
     GridTrackSizingDirection direction) const {
   NOT_DESTROYED();
-
   bool is_row_axis = direction == kForColumns;
-  const ComputedGridTrackList& computed_grid_track_list =
-      is_row_axis ? StyleRef().GridTemplateColumns()
-                  : StyleRef().GridTemplateRows();
-  if (computed_grid_track_list.auto_repeat_type != AutoRepeatType::kAutoFit) {
+  if ((is_row_axis &&
+       StyleRef().GridAutoRepeatColumnsType() != AutoRepeatType::kAutoFit) ||
+      (!is_row_axis &&
+       StyleRef().GridAutoRepeatRowsType() != AutoRepeatType::kAutoFit))
     return nullptr;
-  }
 
   std::unique_ptr<OrderedTrackIndexSet> empty_track_indexes;
-  wtf_size_t first_auto_repeat_track =
-      computed_grid_track_list.auto_repeat_insertion_point +
-      grid.ExplicitGridStart(direction);
-  wtf_size_t last_auto_repeat_track =
+  size_t insertion_point =
+      is_row_axis ? StyleRef().GridAutoRepeatColumnsInsertionPoint()
+                  : StyleRef().GridAutoRepeatRowsInsertionPoint();
+  size_t first_auto_repeat_track =
+      insertion_point + grid.ExplicitGridStart(direction);
+  size_t last_auto_repeat_track =
       first_auto_repeat_track + grid.AutoRepeatTracks(direction);
 
   if (!grid.HasGridItems()) {
     empty_track_indexes = std::make_unique<OrderedTrackIndexSet>();
-    for (wtf_size_t track_index = first_auto_repeat_track;
+    for (size_t track_index = first_auto_repeat_track;
          track_index < last_auto_repeat_track; ++track_index)
       empty_track_indexes->insert(track_index);
   } else {
-    for (wtf_size_t track_index = first_auto_repeat_track;
+    for (size_t track_index = first_auto_repeat_track;
          track_index < last_auto_repeat_track; ++track_index) {
-      auto* iterator = grid.CreateIterator(direction, track_index);
+      auto iterator = grid.CreateIterator(direction, track_index);
       if (!iterator->NextGridItem()) {
         if (!empty_track_indexes)
           empty_track_indexes = std::make_unique<OrderedTrackIndexSet>();
@@ -848,28 +813,25 @@ LayoutGrid::ComputeEmptyTracksForAutoRepeat(
   return empty_track_indexes;
 }
 
-wtf_size_t LayoutGrid::ClampAutoRepeatTracks(
-    GridTrackSizingDirection direction,
-    wtf_size_t auto_repeat_tracks) const {
+size_t LayoutGrid::ClampAutoRepeatTracks(GridTrackSizingDirection direction,
+                                         size_t auto_repeat_tracks) const {
   NOT_DESTROYED();
-
   if (!auto_repeat_tracks)
     return 0;
 
-  wtf_size_t insertion_point =
-      (direction == kForColumns)
-          ? StyleRef().GridTemplateColumns().auto_repeat_insertion_point
-          : StyleRef().GridTemplateRows().auto_repeat_insertion_point;
+  size_t insertion_point =
+      direction == kForColumns
+          ? StyleRef().GridAutoRepeatColumnsInsertionPoint()
+          : StyleRef().GridAutoRepeatRowsInsertionPoint();
 
   if (insertion_point == 0)
-    return std::min<wtf_size_t>(auto_repeat_tracks, kLegacyGridMaxTracks);
+    return std::min<size_t>(auto_repeat_tracks, kGridMaxTracks);
 
-  if (insertion_point >= kLegacyGridMaxTracks)
+  if (insertion_point >= kGridMaxTracks)
     return 0;
 
-  return std::min(
-      auto_repeat_tracks,
-      static_cast<wtf_size_t>(kLegacyGridMaxTracks) - insertion_point);
+  return std::min(auto_repeat_tracks,
+                  static_cast<size_t>(kGridMaxTracks) - insertion_point);
 }
 
 // TODO(svillar): we shouldn't have to pass the available logical width as
@@ -878,14 +840,14 @@ wtf_size_t LayoutGrid::ClampAutoRepeatTracks(
 // (preferred widths). That's why we pass the responsibility to the caller who
 // does know whether the available logical width is indefinite or not.
 void LayoutGrid::PlaceItemsOnGrid(
-    GridTrackSizingAlgorithm* algorithm,
+    GridTrackSizingAlgorithm& algorithm,
     absl::optional<LayoutUnit> available_logical_width) const {
   NOT_DESTROYED();
-  Grid& grid = algorithm->GetMutableGrid();
-  wtf_size_t auto_repeat_rows = ComputeAutoRepeatTracksCount(
+  Grid& grid = algorithm.GetMutableGrid();
+  size_t auto_repeat_rows = ComputeAutoRepeatTracksCount(
       kForRows, ConvertLayoutUnitToOptional(
                     AvailableLogicalHeightForPercentageComputation()));
-  wtf_size_t auto_repeat_columns =
+  size_t auto_repeat_columns =
       ComputeAutoRepeatTracksCount(kForColumns, available_logical_width);
 
   auto_repeat_rows = ClampAutoRepeatTracks(kForRows, auto_repeat_rows);
@@ -903,12 +865,12 @@ void LayoutGrid::PlaceItemsOnGrid(
   DCHECK(!grid.HasGridItems());
   PopulateExplicitGridAndOrderIterator(grid);
 
-  HeapVector<Member<LayoutBox>> auto_major_axis_auto_grid_items;
-  HeapVector<Member<LayoutBox>> specified_major_axis_auto_grid_items;
+  Vector<LayoutBox*> auto_major_axis_auto_grid_items;
+  Vector<LayoutBox*> specified_major_axis_auto_grid_items;
 #if DCHECK_IS_ON()
   DCHECK(!grid.HasAnyGridItemPaintOrder());
 #endif
-  wtf_size_t child_index = 0;
+  size_t child_index = 0;
   for (LayoutBox* child = grid.GetOrderIterator().First(); child;
        child = grid.GetOrderIterator().Next()) {
     if (child->IsOutOfFlowPositioned())
@@ -991,9 +953,9 @@ static bool PrepareOrthogonalWritingModeRootForLayout(LayoutObject& root) {
 }
 
 void LayoutGrid::PerformGridItemsPreLayout(
-    const GridTrackSizingAlgorithm* algorithm) const {
+    const GridTrackSizingAlgorithm& algorithm) const {
   NOT_DESTROYED();
-  DCHECK(!algorithm->GetGrid().NeedsItemsPlacement());
+  DCHECK(!algorithm.GetGrid().NeedsItemsPlacement());
   if (!GetDocument().View()->IsInPerformLayout())
     return;
   for (auto* child = FirstInFlowChildBox(); child;
@@ -1009,7 +971,7 @@ void LayoutGrid::PerformGridItemsPreLayout(
     if (GridLayoutUtils::IsOrthogonalChild(*this, *child)) {
       if (PrepareOrthogonalWritingModeRootForLayout(*child)) {
         UpdateGridAreaLogicalSize(
-            *child, algorithm->EstimatedGridAreaBreadthForChild(*child));
+            *child, algorithm.EstimatedGridAreaBreadthForChild(*child));
         child->LayoutIfNeeded();
         continue;
       }
@@ -1022,7 +984,7 @@ void LayoutGrid::PerformGridItemsPreLayout(
           child->HasRelativeLogicalHeight() ||
           child->StyleRef().LogicalHeight().IsAuto()) {
         UpdateGridAreaLogicalSize(
-            *child, algorithm->EstimatedGridAreaBreadthForChild(*child));
+            *child, algorithm.EstimatedGridAreaBreadthForChild(*child));
       }
       child->LayoutIfNeeded();
     }
@@ -1032,16 +994,15 @@ void LayoutGrid::PerformGridItemsPreLayout(
 void LayoutGrid::PopulateExplicitGridAndOrderIterator(Grid& grid) const {
   NOT_DESTROYED();
   OrderIteratorPopulator populator(grid.GetOrderIterator());
-  wtf_size_t explicit_row_start = 0;
-  wtf_size_t explicit_column_start = 0;
+  size_t explicit_row_start = 0;
+  size_t explicit_column_start = 0;
 
-  wtf_size_t auto_repeat_rows = grid.AutoRepeatTracks(kForRows);
-  wtf_size_t auto_repeat_columns = grid.AutoRepeatTracks(kForColumns);
-  wtf_size_t maximum_row_index =
+  size_t auto_repeat_rows = grid.AutoRepeatTracks(kForRows);
+  size_t auto_repeat_columns = grid.AutoRepeatTracks(kForColumns);
+  size_t maximum_row_index =
       GridPositionsResolver::ExplicitGridRowCount(StyleRef(), auto_repeat_rows);
-  wtf_size_t maximum_column_index =
-      GridPositionsResolver::ExplicitGridColumnCount(StyleRef(),
-                                                     auto_repeat_columns);
+  size_t maximum_column_index = GridPositionsResolver::ExplicitGridColumnCount(
+      StyleRef(), auto_repeat_columns);
 
   for (LayoutBox* child = FirstInFlowChildBox(); child;
        child = child->NextInFlowSiblingBox()) {
@@ -1066,7 +1027,7 @@ void LayoutGrid::PopulateExplicitGridAndOrderIterator(Grid& grid) const {
     } else {
       // Grow the grid for items with a definite row span, getting the largest
       // such span.
-      wtf_size_t span_size = GridPositionsResolver::SpanSizeForAutoPlacedItem(
+      size_t span_size = GridPositionsResolver::SpanSizeForAutoPlacedItem(
           child->StyleRef(), kForRows);
       maximum_row_index = std::max(maximum_row_index, span_size);
     }
@@ -1079,7 +1040,7 @@ void LayoutGrid::PopulateExplicitGridAndOrderIterator(Grid& grid) const {
     } else {
       // Grow the grid for items with a definite column span, getting the
       // largest such span.
-      wtf_size_t span_size = GridPositionsResolver::SpanSizeForAutoPlacedItem(
+      size_t span_size = GridPositionsResolver::SpanSizeForAutoPlacedItem(
           child->StyleRef(), kForColumns);
       maximum_column_index = std::max(maximum_column_index, span_size);
     }
@@ -1099,8 +1060,8 @@ LayoutGrid::CreateEmptyGridAreaAtSpecifiedPositionsOutsideGrid(
   NOT_DESTROYED();
   GridTrackSizingDirection cross_direction =
       specified_direction == kForColumns ? kForRows : kForColumns;
-  const wtf_size_t end_of_cross_direction = grid.NumTracks(cross_direction);
-  wtf_size_t cross_direction_span_size =
+  const size_t end_of_cross_direction = grid.NumTracks(cross_direction);
+  size_t cross_direction_span_size =
       GridPositionsResolver::SpanSizeForAutoPlacedItem(grid_item.StyleRef(),
                                                        cross_direction);
   GridSpan cross_direction_positions = GridSpan::TranslatedDefiniteGridSpan(
@@ -1115,7 +1076,7 @@ LayoutGrid::CreateEmptyGridAreaAtSpecifiedPositionsOutsideGrid(
 
 void LayoutGrid::PlaceSpecifiedMajorAxisItemsOnGrid(
     Grid& grid,
-    const HeapVector<Member<LayoutBox>>& auto_grid_items) const {
+    const Vector<LayoutBox*>& auto_grid_items) const {
   NOT_DESTROYED();
   bool is_for_columns = AutoPlacementMajorAxisDirection() == kForColumns;
   bool is_grid_auto_flow_dense = StyleRef().IsGridAutoFlowAlgorithmDense();
@@ -1128,26 +1089,23 @@ void LayoutGrid::PlaceSpecifiedMajorAxisItemsOnGrid(
           WTF::UnsignedWithZeroKeyHashTraits<unsigned>>
       minor_axis_cursors;
 
-  for (const auto& auto_grid_item : auto_grid_items) {
+  for (auto* const auto_grid_item : auto_grid_items) {
     GridSpan major_axis_positions =
         grid.GridItemSpan(*auto_grid_item, AutoPlacementMajorAxisDirection());
     DCHECK(major_axis_positions.IsTranslatedDefinite());
     DCHECK(
         !grid.GridItemSpan(*auto_grid_item, AutoPlacementMinorAxisDirection())
              .IsTranslatedDefinite());
-    wtf_size_t minor_axis_span_size =
+    size_t minor_axis_span_size =
         GridPositionsResolver::SpanSizeForAutoPlacedItem(
             auto_grid_item->StyleRef(), AutoPlacementMinorAxisDirection());
     unsigned major_axis_initial_position = major_axis_positions.StartLine();
-    auto minor_access_cursor = 0;
-    if (!is_grid_auto_flow_dense) {
-      auto it = minor_axis_cursors.find(major_axis_initial_position);
-      if (it != minor_axis_cursors.end())
-        minor_access_cursor = it->value;
-    }
-    auto* iterator = grid.CreateIterator(AutoPlacementMajorAxisDirection(),
-                                         major_axis_positions.StartLine(),
-                                         minor_access_cursor);
+
+    auto iterator = grid.CreateIterator(
+        AutoPlacementMajorAxisDirection(), major_axis_positions.StartLine(),
+        is_grid_auto_flow_dense
+            ? 0
+            : minor_axis_cursors.at(major_axis_initial_position));
     std::unique_ptr<GridArea> empty_grid_area = iterator->NextEmptyGridArea(
         major_axis_positions.IntegerSpan(), minor_axis_span_size);
     DCHECK(empty_grid_area);
@@ -1164,13 +1122,12 @@ void LayoutGrid::PlaceSpecifiedMajorAxisItemsOnGrid(
 
 void LayoutGrid::PlaceAutoMajorAxisItemsOnGrid(
     Grid& grid,
-    const HeapVector<Member<LayoutBox>>& auto_grid_items) const {
+    const Vector<LayoutBox*>& auto_grid_items) const {
   NOT_DESTROYED();
-  std::pair<wtf_size_t, wtf_size_t> auto_placement_cursor =
-      std::make_pair(0, 0);
+  std::pair<size_t, size_t> auto_placement_cursor = std::make_pair(0, 0);
   bool is_grid_auto_flow_dense = StyleRef().IsGridAutoFlowAlgorithmDense();
 
-  for (const auto& auto_grid_item : auto_grid_items) {
+  for (auto* const auto_grid_item : auto_grid_items) {
     PlaceAutoMajorAxisItemOnGrid(grid, *auto_grid_item, auto_placement_cursor);
 
     // If grid-auto-flow is dense, reset auto-placement cursor.
@@ -1184,23 +1141,23 @@ void LayoutGrid::PlaceAutoMajorAxisItemsOnGrid(
 void LayoutGrid::PlaceAutoMajorAxisItemOnGrid(
     Grid& grid,
     LayoutBox& grid_item,
-    std::pair<wtf_size_t, wtf_size_t>& auto_placement_cursor) const {
+    std::pair<size_t, size_t>& auto_placement_cursor) const {
   NOT_DESTROYED();
   GridSpan minor_axis_positions =
       grid.GridItemSpan(grid_item, AutoPlacementMinorAxisDirection());
   DCHECK(!grid.GridItemSpan(grid_item, AutoPlacementMajorAxisDirection())
               .IsTranslatedDefinite());
-  wtf_size_t major_axis_span_size =
+  size_t major_axis_span_size =
       GridPositionsResolver::SpanSizeForAutoPlacedItem(
           grid_item.StyleRef(), AutoPlacementMajorAxisDirection());
 
-  const wtf_size_t end_of_major_axis =
+  const size_t end_of_major_axis =
       grid.NumTracks(AutoPlacementMajorAxisDirection());
-  wtf_size_t major_axis_auto_placement_cursor =
+  size_t major_axis_auto_placement_cursor =
       AutoPlacementMajorAxisDirection() == kForColumns
           ? auto_placement_cursor.second
           : auto_placement_cursor.first;
-  wtf_size_t minor_axis_auto_placement_cursor =
+  size_t minor_axis_auto_placement_cursor =
       AutoPlacementMajorAxisDirection() == kForColumns
           ? auto_placement_cursor.first
           : auto_placement_cursor.second;
@@ -1213,9 +1170,9 @@ void LayoutGrid::PlaceAutoMajorAxisItemOnGrid(
       major_axis_auto_placement_cursor++;
 
     if (major_axis_auto_placement_cursor < end_of_major_axis) {
-      auto* iterator = grid.CreateIterator(AutoPlacementMinorAxisDirection(),
-                                           minor_axis_positions.StartLine(),
-                                           major_axis_auto_placement_cursor);
+      auto iterator = grid.CreateIterator(AutoPlacementMinorAxisDirection(),
+                                          minor_axis_positions.StartLine(),
+                                          major_axis_auto_placement_cursor);
       empty_grid_area = iterator->NextEmptyGridArea(
           minor_axis_positions.IntegerSpan(), major_axis_span_size);
     }
@@ -1226,15 +1183,15 @@ void LayoutGrid::PlaceAutoMajorAxisItemOnGrid(
           minor_axis_positions);
     }
   } else {
-    wtf_size_t minor_axis_span_size =
+    size_t minor_axis_span_size =
         GridPositionsResolver::SpanSizeForAutoPlacedItem(
             grid_item.StyleRef(), AutoPlacementMinorAxisDirection());
 
-    for (wtf_size_t major_axis_index = major_axis_auto_placement_cursor;
+    for (size_t major_axis_index = major_axis_auto_placement_cursor;
          major_axis_index < end_of_major_axis; ++major_axis_index) {
-      auto* iterator = grid.CreateIterator(AutoPlacementMajorAxisDirection(),
-                                           major_axis_index,
-                                           minor_axis_auto_placement_cursor);
+      auto iterator = grid.CreateIterator(AutoPlacementMajorAxisDirection(),
+                                          major_axis_index,
+                                          minor_axis_auto_placement_cursor);
       empty_grid_area = iterator->NextEmptyGridArea(major_axis_span_size,
                                                     minor_axis_span_size);
       DCHECK(empty_grid_area);
@@ -1246,7 +1203,7 @@ void LayoutGrid::PlaceAutoMajorAxisItemOnGrid(
           AutoPlacementMinorAxisDirection() == kForColumns
               ? empty_grid_area->columns.EndLine()
               : empty_grid_area->rows.EndLine();
-      const wtf_size_t end_of_minor_axis =
+      const size_t end_of_minor_axis =
           grid.NumTracks(AutoPlacementMinorAxisDirection());
       if (minor_axis_final_position_index <= end_of_minor_axis)
         break;
@@ -1296,7 +1253,7 @@ Vector<LayoutUnit, 1> LayoutGrid::TrackSizesForComputedStyle(
   NOT_DESTROYED();
   bool is_row_axis = direction == kForColumns;
   auto& positions = is_row_axis ? column_positions_ : row_positions_;
-  wtf_size_t num_positions = positions.size();
+  size_t num_positions = positions.size();
   LayoutUnit offset_between_tracks =
       is_row_axis ? offset_between_columns_.distribution_offset
                   : offset_between_rows_.distribution_offset;
@@ -1309,7 +1266,7 @@ Vector<LayoutUnit, 1> LayoutGrid::TrackSizesForComputedStyle(
   bool has_collapsed_tracks = grid_->HasAutoRepeatEmptyTracks(direction);
   LayoutUnit gap = !has_collapsed_tracks ? GridGap(direction) : LayoutUnit();
   tracks.ReserveCapacity(num_positions - 1);
-  for (wtf_size_t i = 0; i < num_positions - 2; ++i)
+  for (size_t i = 0; i < num_positions - 2; ++i)
     tracks.push_back(positions[i + 1] - positions[i] - offset_between_tracks -
                      gap);
   tracks.push_back(positions[num_positions - 1] - positions[num_positions - 2]);
@@ -1317,11 +1274,11 @@ Vector<LayoutUnit, 1> LayoutGrid::TrackSizesForComputedStyle(
   if (!has_collapsed_tracks)
     return tracks;
 
-  wtf_size_t remaining_empty_tracks =
+  size_t remaining_empty_tracks =
       grid_->AutoRepeatEmptyTracks(direction)->size();
-  wtf_size_t last_line = tracks.size();
+  size_t last_line = tracks.size();
   gap = GridGap(direction);
-  for (wtf_size_t i = 1; i < last_line; ++i) {
+  for (size_t i = 1; i < last_line; ++i) {
     if (grid_->IsEmptyAutoRepeatTrack(direction, i - 1)) {
       --remaining_empty_tracks;
     } else {
@@ -1425,9 +1382,9 @@ void LayoutGrid::LayoutGridItems() {
 #if DCHECK_IS_ON()
     const GridArea& area = grid_->GridItemArea(*child);
     DCHECK_LT(area.columns.StartLine(),
-              track_sizing_algorithm_->Tracks(kForColumns).size());
+              track_sizing_algorithm_.Tracks(kForColumns).size());
     DCHECK_LT(area.rows.StartLine(),
-              track_sizing_algorithm_->Tracks(kForRows).size());
+              track_sizing_algorithm_.Tracks(kForRows).size());
 #endif
     SetLogicalPositionForChild(*child);
   }
@@ -1464,14 +1421,11 @@ void LayoutGrid::LayoutPositionedObjects(bool relayout_children,
   column_of_positioned_item_.clear();
   row_of_positioned_item_.clear();
 
-  TrackedLayoutBoxLinkedHashSet* positioned_descendants = PositionedObjects();
+  TrackedLayoutBoxListHashSet* positioned_descendants = PositionedObjects();
   if (!positioned_descendants)
     return;
 
-  // Cannot use |const auto&| here and need to get a raw pointer in advance
-  // because |positioned_descendants| may be modified in the loop, triggering
-  // reallocation, and making |child| a dangling pointer.
-  for (LayoutBox* child : *positioned_descendants) {
+  for (auto* child : *positioned_descendants) {
     LayoutUnit column_breadth =
         GridAreaBreadthForOutOfFlowChild(*child, kForColumns);
     LayoutUnit row_breadth = GridAreaBreadthForOutOfFlowChild(*child, kForRows);
@@ -1499,9 +1453,9 @@ LayoutUnit LayoutGrid::GridAreaBreadthForChildIncludingAlignmentOffsets(
   // We need the cached value when available because Content Distribution
   // alignment properties may have some influence in the final grid area
   // breadth.
-  const Vector<GridTrack>& tracks = track_sizing_algorithm_->Tracks(direction);
+  const Vector<GridTrack>& tracks = track_sizing_algorithm_.Tracks(direction);
   const GridSpan& span =
-      track_sizing_algorithm_->GetGrid().GridItemSpan(child, direction);
+      track_sizing_algorithm_.GetGrid().GridItemSpan(child, direction);
   const Vector<LayoutUnit>& line_positions =
       (direction == kForColumns) ? column_positions_ : row_positions_;
   LayoutUnit initial_track_position = line_positions[span.StartLine()];
@@ -1526,12 +1480,12 @@ void LayoutGrid::PopulateGridPositionsForDirection(
   // use the same indexes to identify the columns independently on the
   // inline-axis direction.
   bool is_row_axis = direction == kForColumns;
-  auto& tracks = track_sizing_algorithm_->Tracks(direction);
-  wtf_size_t number_of_tracks = tracks.size();
-  wtf_size_t number_of_lines = number_of_tracks + 1;
-  wtf_size_t last_line = number_of_lines - 1;
+  auto& tracks = track_sizing_algorithm_.Tracks(direction);
+  size_t number_of_tracks = tracks.size();
+  size_t number_of_lines = number_of_tracks + 1;
+  size_t last_line = number_of_lines - 1;
   bool has_collapsed_tracks = grid_->HasAutoRepeatEmptyTracks(direction);
-  wtf_size_t number_of_collapsed_tracks =
+  size_t number_of_collapsed_tracks =
       has_collapsed_tracks ? grid_->AutoRepeatEmptyTracks(direction)->size()
                            : 0;
   const auto& offset =
@@ -1556,8 +1510,8 @@ void LayoutGrid::PopulateGridPositionsForDirection(
     // as we might not compute the gap between two consecutive tracks without
     // examining the surrounding ones.
     LayoutUnit gap = !has_collapsed_tracks ? GridGap(direction) : LayoutUnit();
-    wtf_size_t next_to_last_line = number_of_lines - 2;
-    for (wtf_size_t i = 0; i < next_to_last_line; ++i)
+    size_t next_to_last_line = number_of_lines - 2;
+    for (size_t i = 0; i < next_to_last_line; ++i)
       positions[i + 1] = positions[i] + offset.distribution_offset +
                          tracks[i].BaseSize() + gap;
     positions[last_line] =
@@ -1568,10 +1522,10 @@ void LayoutGrid::PopulateGridPositionsForDirection(
     // they become 0.
     if (has_collapsed_tracks) {
       gap = GridGap(direction);
-      wtf_size_t remaining_empty_tracks = number_of_collapsed_tracks;
+      size_t remaining_empty_tracks = number_of_collapsed_tracks;
       LayoutUnit offset_accumulator;
       LayoutUnit gap_accumulator;
-      for (wtf_size_t i = 1; i < last_line; ++i) {
+      for (size_t i = 1; i < last_line; ++i) {
         if (grid_->IsEmptyAutoRepeatTrack(direction, i - 1)) {
           --remaining_empty_tracks;
           offset_accumulator += offset.distribution_offset;
@@ -1700,7 +1654,7 @@ void LayoutGrid::ApplyStretchAlignmentToChildIfNeeded(LayoutBox& child) {
     if (desired_logical_height != child.LogicalHeight() ||
         child.MaybeHasPercentHeightDescendant()) {
       // Never mess around with the logical-height of any NG children.
-      if (!child.IsLayoutNGObject())
+      if (!child.IsLayoutNGMixin())
         child.SetLogicalHeight(LayoutUnit());
       child.SetSelfNeedsLayoutForAvailableSpace(true);
     }
@@ -1878,11 +1832,11 @@ LayoutUnit LayoutGrid::FirstLineBoxBaseline() const {
   const LayoutBox* first_child = nullptr;
   bool is_baseline_aligned = false;
   // Finding the first grid item in grid order.
-  for (wtf_size_t column = 0;
+  for (size_t column = 0;
        !is_baseline_aligned && column < grid_->NumTracks(kForColumns);
        column++) {
     const GridItemList& cell = grid_->Cell(0, column);
-    for (wtf_size_t index = 0; index < cell.size(); index++) {
+    for (size_t index = 0; index < cell.size(); index++) {
       const LayoutBox* child = cell[index];
       DCHECK(!child->IsOutOfFlowPositioned());
       // If an item participates in baseline alignment, we select such item.
@@ -1953,14 +1907,13 @@ bool LayoutGrid::IsBaselineAlignmentForChild(const LayoutBox& child,
 LayoutUnit LayoutGrid::ColumnAxisBaselineOffsetForChild(
     const LayoutBox& child) const {
   NOT_DESTROYED();
-  return track_sizing_algorithm_->BaselineOffsetForChild(child,
-                                                         kGridColumnAxis);
+  return track_sizing_algorithm_.BaselineOffsetForChild(child, kGridColumnAxis);
 }
 
 LayoutUnit LayoutGrid::RowAxisBaselineOffsetForChild(
     const LayoutBox& child) const {
   NOT_DESTROYED();
-  return track_sizing_algorithm_->BaselineOffsetForChild(child, kGridRowAxis);
+  return track_sizing_algorithm_.BaselineOffsetForChild(child, kGridRowAxis);
 }
 
 GridAxisPosition LayoutGrid::ColumnAxisPositionForChild(
@@ -2189,7 +2142,7 @@ LayoutUnit LayoutGrid::ResolveAutoStartGridPosition(
   if (direction == kForRows || StyleRef().IsLeftToRightDirection())
     return LayoutUnit();
 
-  wtf_size_t last_line = NumTracks(kForColumns, *grid_);
+  int last_line = NumTracks(kForColumns, *grid_);
   ContentPosition position = StyleRef().ResolvedJustifyContentPosition(
       ContentAlignmentNormalBehavior());
   if (position == ContentPosition::kEnd)
@@ -2210,7 +2163,7 @@ LayoutUnit LayoutGrid::ResolveAutoEndGridPosition(
   if (StyleRef().IsLeftToRightDirection())
     return ClientLogicalWidth();
 
-  wtf_size_t last_line = NumTracks(kForColumns, *grid_);
+  int last_line = NumTracks(kForColumns, *grid_);
   ContentPosition position = StyleRef().ResolvedJustifyContentPosition(
       ContentAlignmentNormalBehavior());
   if (position == ContentPosition::kEnd)
@@ -2237,10 +2190,10 @@ LayoutUnit LayoutGrid::GridAreaBreadthForOutOfFlowChild(
   if (span.IsIndefinite())
     return is_row_axis ? ClientLogicalWidth() : ClientLogicalHeight();
 
-  wtf_size_t explicit_start = grid_->ExplicitGridStart(direction);
-  wtf_size_t start_line = span.UntranslatedStartLine() + explicit_start;
-  wtf_size_t end_line = span.UntranslatedEndLine() + explicit_start;
-  wtf_size_t last_line = NumTracks(direction, *grid_);
+  size_t explicit_start = grid_->ExplicitGridStart(direction);
+  size_t start_line = span.UntranslatedStartLine() + explicit_start;
+  size_t end_line = span.UntranslatedEndLine() + explicit_start;
+  size_t last_line = NumTracks(direction, *grid_);
   GridPosition start_position = direction == kForColumns
                                     ? child.StyleRef().GridColumnStart()
                                     : child.StyleRef().GridRowStart();
@@ -2335,10 +2288,9 @@ void LayoutGrid::GridAreaPositionForOutOfFlowChild(
   auto& line_of_positioned_item =
       is_row_axis ? column_of_positioned_item_ : row_of_positioned_item_;
   start = is_row_axis ? BorderLogicalLeft() : BorderBefore();
-  auto it = line_of_positioned_item.find(&child);
-  if (it != line_of_positioned_item.end() && it->value) {
+  if (absl::optional<size_t> line = line_of_positioned_item.at(&child)) {
     auto& positions = is_row_axis ? column_positions_ : row_positions_;
-    start = positions[it->value.value()];
+    start = positions[line.value()];
   }
   start += LogicalOffsetForOutOfFlowChild(child, direction, track_breadth);
   end = start + track_breadth;
@@ -2351,7 +2303,7 @@ void LayoutGrid::GridAreaPositionForInFlowChild(
     LayoutUnit& end) const {
   NOT_DESTROYED();
   DCHECK(!child.IsOutOfFlowPositioned());
-  const Grid& grid = track_sizing_algorithm_->GetGrid();
+  const Grid& grid = track_sizing_algorithm_.GetGrid();
   const GridSpan& span = grid.GridItemSpan(child, direction);
   // TODO (lajava): This is a common pattern, why not defining a function like
   // positions(direction) ?
@@ -2553,8 +2505,7 @@ LayoutUnit LayoutGrid::TranslateOutOfFlowRTLCoordinate(
   DCHECK(child.IsOutOfFlowPositioned());
   DCHECK(!StyleRef().IsLeftToRightDirection());
 
-  auto it = column_of_positioned_item_.find(&child);
-  if (it != column_of_positioned_item_.end() && it->value)
+  if (column_of_positioned_item_.at(&child))
     return TranslateRTLCoordinate(coordinate);
 
   return BorderLogicalLeft() + BorderLogicalRight() + ClientLogicalWidth() -
@@ -2653,20 +2604,20 @@ bool LayoutGrid::CachedHasDefiniteLogicalHeight() const {
   return has_definite_logical_height_.value();
 }
 
-wtf_size_t LayoutGrid::NonCollapsedTracks(
+size_t LayoutGrid::NonCollapsedTracks(
     GridTrackSizingDirection direction) const {
   NOT_DESTROYED();
-  auto& tracks = track_sizing_algorithm_->Tracks(direction);
-  wtf_size_t number_of_tracks = tracks.size();
+  auto& tracks = track_sizing_algorithm_.Tracks(direction);
+  size_t number_of_tracks = tracks.size();
   bool has_collapsed_tracks = grid_->HasAutoRepeatEmptyTracks(direction);
-  wtf_size_t number_of_collapsed_tracks =
+  size_t number_of_collapsed_tracks =
       has_collapsed_tracks ? grid_->AutoRepeatEmptyTracks(direction)->size()
                            : 0;
   return number_of_tracks - number_of_collapsed_tracks;
 }
 
-wtf_size_t LayoutGrid::NumTracks(GridTrackSizingDirection direction,
-                                 const Grid& grid) const {
+size_t LayoutGrid::NumTracks(GridTrackSizingDirection direction,
+                             const Grid& grid) const {
   NOT_DESTROYED();
   // Due to limitations in our internal representation, we cannot know the
   // number of columns from m_grid *if* there is no row (because m_grid would be
@@ -2684,20 +2635,18 @@ wtf_size_t LayoutGrid::NumTracks(GridTrackSizingDirection direction,
                    StyleRef(), grid.AutoRepeatTracks(kForColumns));
 }
 
-wtf_size_t LayoutGrid::ExplicitGridEndForDirection(
+size_t LayoutGrid::ExplicitGridEndForDirection(
     GridTrackSizingDirection direction) const {
   NOT_DESTROYED();
-  wtf_size_t leading = ExplicitGridStartForDirection(direction);
+  size_t leading = ExplicitGridStartForDirection(direction);
 
   if (direction == kForRows) {
-    return base::checked_cast<wtf_size_t>(
-        leading + GridPositionsResolver::ExplicitGridRowCount(
-                      StyleRef(), grid_->AutoRepeatTracks(direction)));
+    return leading + GridPositionsResolver::ExplicitGridRowCount(
+                         StyleRef(), grid_->AutoRepeatTracks(direction));
   }
 
-  return base::checked_cast<wtf_size_t>(
-      leading + GridPositionsResolver::ExplicitGridColumnCount(
-                    StyleRef(), grid_->AutoRepeatTracks(direction)));
+  return leading + GridPositionsResolver::ExplicitGridColumnCount(
+                       StyleRef(), grid_->AutoRepeatTracks(direction));
 }
 
 LayoutUnit LayoutGrid::GridItemOffset(

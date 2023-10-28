@@ -1,4 +1,4 @@
-// Copyright 2018 The Chromium Authors
+// Copyright 2018 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -8,7 +8,7 @@
 #include <memory>
 #include <string>
 
-#include "base/callback.h"
+#include "base/macros.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
 
 namespace policy {
@@ -28,9 +28,6 @@ class EnterpriseStartupDialog {
   // click 'Relaunch Chrome' button on the dialog.
   using DialogResultCallback =
       base::OnceCallback<void(bool was_accepted, bool can_show_browser_window)>;
-
-  EnterpriseStartupDialog(const EnterpriseStartupDialog&) = delete;
-  EnterpriseStartupDialog& operator=(const EnterpriseStartupDialog&) = delete;
 
   virtual ~EnterpriseStartupDialog() = default;
 
@@ -54,6 +51,9 @@ class EnterpriseStartupDialog {
 
  protected:
   EnterpriseStartupDialog() = default;
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(EnterpriseStartupDialog);
 };
 
 }  // namespace policy

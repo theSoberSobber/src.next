@@ -1,4 +1,4 @@
-// Copyright 2021 The Chromium Authors
+// Copyright 2021 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -172,70 +172,6 @@ IN_PROC_BROWSER_TEST_F(CrossOriginIsolationTest, CrossOriginIsolation) {
             non_coi_background_rfh->GetProcess());
 }
 
-// Tests the interaction of Cross-Origin-Embedder-Policy with extension host
-// permissions. See crbug.com/1246109.
-IN_PROC_BROWSER_TEST_F(CrossOriginIsolationTest,
-                       CrossOriginEmbedderPolicy_HostPermissions) {
-  TestExtensionDir test_dir_1;
-  const Extension* coep_strict_extension = LoadExtension(
-      test_dir_1, {.coep_value = "require-corp", .coop_value = "unsafe-none"});
-  ASSERT_TRUE(coep_strict_extension);
-  content::RenderFrameHost* coep_strict_background_rfh =
-      GetBackgroundRenderFrameHost(*coep_strict_extension);
-  ASSERT_TRUE(coep_strict_background_rfh);
-
-  TestExtensionDir test_dir_2;
-  const Extension* coep_lax_extension = LoadExtension(
-      test_dir_2, {.coep_value = "unsafe-none", .coop_value = "unsafe-none"});
-  ASSERT_TRUE(coep_lax_extension);
-  content::RenderFrameHost* coep_lax_background_rfh =
-      GetBackgroundRenderFrameHost(*coep_lax_extension);
-  ASSERT_TRUE(coep_lax_background_rfh);
-
-  auto test_image_load = [](content::RenderFrameHost* rfh,
-                            const GURL& image_url) -> std::string {
-    constexpr char kScript[] = R"(
-      (() => {
-        let img = document.createElement('img');
-        img.addEventListener('load', () => {
-          window.domAutomationController.send('Success');
-        });
-        img.addEventListener('error', (e) => {
-          window.domAutomationController.send('Load failed');
-        });
-        img.src = $1;
-        document.body.appendChild(img);
-      })();
-    )";
-
-    std::string result;
-    if (!content::ExecuteScriptAndExtractString(
-            rfh, content::JsReplace(kScript, image_url), &result)) {
-      return "Execution failed";
-    }
-
-    return result;
-  };
-
-  GURL image_url_with_host_permissions =
-      embedded_test_server()->GetURL("foo.test", "/load_image/image.png");
-  GURL image_url_without_host_permissions =
-      embedded_test_server()->GetURL("bar.test", "/load_image/image.png");
-
-  // Allowed since cross origin embedding is allowed unless COEP: require-corp.
-  EXPECT_EQ("Success", test_image_load(coep_lax_background_rfh,
-                                       image_url_with_host_permissions));
-  EXPECT_EQ("Success", test_image_load(coep_lax_background_rfh,
-                                       image_url_without_host_permissions));
-
-  // Disallowed due to COEP: require-corp.
-  // TODO(crbug.com/1246109): Should host permissions override behavior here?
-  EXPECT_EQ("Load failed", test_image_load(coep_strict_background_rfh,
-                                           image_url_with_host_permissions));
-  EXPECT_EQ("Load failed", test_image_load(coep_strict_background_rfh,
-                                           image_url_without_host_permissions));
-}
-
 // Tests that platform apps can opt into cross origin isolation.
 IN_PROC_BROWSER_TEST_F(CrossOriginIsolationTest,
                        CrossOriginIsolation_PlatformApps) {
@@ -285,21 +221,21 @@ IN_PROC_BROWSER_TEST_F(CrossOriginIsolationTest, WebAccessibleFrame) {
   EXPECT_TRUE(IsCrossOriginIsolated(coi_background_rfh));
 
   GURL extension_test_url = coi_extension->GetResourceURL("test.html");
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), extension_test_url));
+  ui_test_utils::NavigateToURL(browser(), extension_test_url);
   content::WebContents* web_contents =
       browser()->tab_strip_model()->GetActiveWebContents();
-  EXPECT_TRUE(IsCrossOriginIsolated(web_contents->GetPrimaryMainFrame()));
-  EXPECT_EQ(web_contents->GetPrimaryMainFrame()->GetProcess(),
+  EXPECT_TRUE(IsCrossOriginIsolated(web_contents->GetMainFrame()));
+  EXPECT_EQ(web_contents->GetMainFrame()->GetProcess(),
             coi_background_rfh->GetProcess());
 
   // Load test.html as a web accessible resource inside a web frame.
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(
-      browser(), embedded_test_server()->GetURL("/iframe_blank.html")));
+  ui_test_utils::NavigateToURL(
+      browser(), embedded_test_server()->GetURL("/iframe_blank.html"));
   ASSERT_TRUE(
       content::NavigateIframeToURL(web_contents, "test", extension_test_url));
 
   content::RenderFrameHost* extension_iframe =
-      content::ChildFrameAt(web_contents->GetPrimaryMainFrame(), 0);
+      content::ChildFrameAt(web_contents->GetMainFrame(), 0);
   ASSERT_TRUE(extension_iframe);
   EXPECT_EQ(extension_test_url, extension_iframe->GetLastCommittedURL());
 
@@ -309,7 +245,7 @@ IN_PROC_BROWSER_TEST_F(CrossOriginIsolationTest, WebAccessibleFrame) {
   EXPECT_FALSE(IsCrossOriginIsolated(extension_iframe));
   EXPECT_NE(extension_iframe->GetProcess(), coi_background_rfh->GetProcess());
   EXPECT_NE(extension_iframe->GetProcess(),
-            web_contents->GetPrimaryMainFrame()->GetProcess());
+            web_contents->GetMainFrame()->GetProcess());
 
   // Check ProcessManager APIs to ensure they work correctly for the case where
   // an extension has multiple processes for the same profile.
@@ -413,7 +349,8 @@ IN_PROC_BROWSER_TEST_F(CrossOriginIsolationTest, ServiceWorker) {
     chrome.test.sendMessage(readyMessage, () => {});
   )";
 
-  ExtensionTestMessageListener ready_listener("notCrossOriginIsolated");
+  ExtensionTestMessageListener ready_listener("notCrossOriginIsolated",
+                                              true /* will_reply */);
   TestExtensionDir coi_test_dir;
   const Extension* coi_extension =
       LoadExtension(coi_test_dir, {.coep_value = "require-corp",
@@ -458,6 +395,10 @@ IN_PROC_BROWSER_TEST_F(CrossOriginIsolationTest, ServiceWorker) {
   EXPECT_EQ(Feature::BLESSED_EXTENSION_CONTEXT,
             process_map->GetMostLikelyContextType(
                 coi_extension, service_worker_process->GetID(), url));
+
+  // Reply to the service worker. This is not useful for the test but is
+  // required by ExtensionTestMessageListener.
+  ready_listener.Reply("");
 }
 
 // Tests certain extension APIs which retrieve in-process extension windows.
@@ -475,14 +416,14 @@ IN_PROC_BROWSER_TEST_F(CrossOriginIsolationTest,
   ASSERT_TRUE(coi_background_rfh);
 
   GURL extension_test_url = coi_extension->GetResourceURL("test.html");
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(
-      browser(), embedded_test_server()->GetURL("/iframe_blank.html")));
+  ui_test_utils::NavigateToURL(
+      browser(), embedded_test_server()->GetURL("/iframe_blank.html"));
   content::WebContents* web_contents =
       browser()->tab_strip_model()->GetActiveWebContents();
   ASSERT_TRUE(
       content::NavigateIframeToURL(web_contents, "test", extension_test_url));
   content::RenderFrameHost* extension_iframe =
-      content::ChildFrameAt(web_contents->GetPrimaryMainFrame(), 0);
+      content::ChildFrameAt(web_contents->GetMainFrame(), 0);
   ASSERT_TRUE(extension_iframe);
 
   content::RenderFrameHost* extension_tab =
@@ -582,8 +523,8 @@ IN_PROC_BROWSER_TEST_F(CrossOriginIsolationTest, ExtensionMessaging_Frames) {
                                    .test_js = kTestJs});
   ASSERT_TRUE(coi_extension);
 
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(
-      browser(), embedded_test_server()->GetURL("/iframe_blank.html")));
+  ui_test_utils::NavigateToURL(
+      browser(), embedded_test_server()->GetURL("/iframe_blank.html"));
   content::WebContents* web_contents =
       browser()->tab_strip_model()->GetActiveWebContents();
 
@@ -591,7 +532,7 @@ IN_PROC_BROWSER_TEST_F(CrossOriginIsolationTest, ExtensionMessaging_Frames) {
   ASSERT_TRUE(
       content::NavigateIframeToURL(web_contents, "test", extension_test_url));
   content::RenderFrameHost* extension_iframe =
-      content::ChildFrameAt(web_contents->GetPrimaryMainFrame(), 0);
+      content::ChildFrameAt(web_contents->GetMainFrame(), 0);
   ASSERT_TRUE(extension_iframe);
 
   content::RenderFrameHost* extension_tab =
@@ -673,8 +614,7 @@ IN_PROC_BROWSER_TEST_F(CrossOriginIsolationTest,
     });
   )";
 
-  ExtensionTestMessageListener ready_listener("ready",
-                                              ReplyBehavior::kWillReply);
+  ExtensionTestMessageListener ready_listener("ready", true /* will_reply */);
   TestExtensionDir coi_test_dir;
   const Extension* coi_extension =
       LoadExtension(coi_test_dir, {.coep_value = "require-corp",

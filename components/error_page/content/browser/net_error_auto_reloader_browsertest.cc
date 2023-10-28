@@ -1,4 +1,4 @@
-// Copyright 2020 The Chromium Authors
+// Copyright 2020 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,7 +7,6 @@
 #include <memory>
 #include <utility>
 
-#include "base/memory/raw_ptr.h"
 #include "base/test/bind.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/web_contents.h"
@@ -15,8 +14,6 @@
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/content_browser_test.h"
-#include "content/public/test/content_browser_test_utils.h"
-#include "content/public/test/fenced_frame_test_util.h"
 #include "content/public/test/test_navigation_throttle.h"
 #include "content/public/test/test_navigation_throttle_inserter.h"
 #include "content/public/test/url_loader_interceptor.h"
@@ -148,7 +145,7 @@ class DeferNextNavigationThrottleInserter
   }
 
   const content::TestNavigationThrottleInserter throttle_inserter_;
-  raw_ptr<DeferringThrottle> throttle_ = nullptr;
+  DeferringThrottle* throttle_ = nullptr;
   base::RunLoop defer_wait_loop_;
   base::RunLoop finish_wait_loop_;
 };
@@ -220,7 +217,7 @@ class NetErrorAutoReloaderBrowserTest : public content::ContentBrowserTest {
   // immediate side effects, such as the scheduling of an auto-reload timer.
   //
   // Return true if the navigation was successful, or false if it failed.
-  [[nodiscard]] bool NavigateMainFrame(const GURL& url) {
+  bool NavigateMainFrame(const GURL& url) WARN_UNUSED_RESULT {
     content::TestNavigationManager navigation(shell()->web_contents(), url);
     shell()->web_contents()->GetController().LoadURL(
         url, content::Referrer(), ui::PAGE_TRANSITION_TYPED,
@@ -538,37 +535,6 @@ IN_PROC_BROWSER_TEST_F(NetErrorAutoReloaderBrowserTest,
   EXPECT_EQ(absl::nullopt, GetCurrentAutoReloadDelay());
 
   shell()->web_contents()->WasShown();
-  EXPECT_EQ(absl::nullopt, GetCurrentAutoReloadDelay());
-}
-
-class NetErrorAutoReloaderFencedFrameBrowserTest
-    : public NetErrorAutoReloaderBrowserTest {
- public:
-  ~NetErrorAutoReloaderFencedFrameBrowserTest() override = default;
-
-  content::test::FencedFrameTestHelper& fenced_frame_test_helper() {
-    return fenced_frame_helper_;
-  }
-
- private:
-  content::test::FencedFrameTestHelper fenced_frame_helper_;
-};
-
-IN_PROC_BROWSER_TEST_F(NetErrorAutoReloaderFencedFrameBrowserTest,
-                       NoAutoReloadOnFencedFrames) {
-  const GURL main_url = embedded_test_server()->GetURL("/title1.html");
-  EXPECT_TRUE(NavigateToURL(shell(), main_url));
-
-  const GURL fenced_frame_url = embedded_test_server()->GetURL("/title2.html");
-  content::RenderFrameHost* fenced_frame_host =
-      fenced_frame_test_helper().CreateFencedFrame(
-          shell()->web_contents()->GetPrimaryMainFrame(), fenced_frame_url,
-          net::ERR_BLOCKED_BY_RESPONSE);
-
-  // The fenced frame navigation failed since it doesn't have the
-  // Supports-Loading-Mode HTTP response header "fenced-frame".
-  EXPECT_TRUE(fenced_frame_host->GetLastCommittedOrigin().opaque());
-  EXPECT_TRUE(fenced_frame_host->IsErrorDocument());
   EXPECT_EQ(absl::nullopt, GetCurrentAutoReloadDelay());
 }
 

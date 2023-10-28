@@ -1,4 +1,4 @@
-// Copyright 2014 The Chromium Authors
+// Copyright 2014 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -6,6 +6,7 @@
 #define EXTENSIONS_BROWSER_PROCESS_MAP_FACTORY_H_
 
 #include "base/compiler_specific.h"
+#include "base/macros.h"
 #include "base/memory/singleton.h"
 #include "components/keyed_service/content/browser_context_keyed_service_factory.h"
 
@@ -17,9 +18,6 @@ class ProcessMap;
 // incognito browser context and its original browser context.
 class ProcessMapFactory : public BrowserContextKeyedServiceFactory {
  public:
-  ProcessMapFactory(const ProcessMapFactory&) = delete;
-  ProcessMapFactory& operator=(const ProcessMapFactory&) = delete;
-
   static ProcessMap* GetForBrowserContext(content::BrowserContext* context);
 
   static ProcessMapFactory* GetInstance();
@@ -35,6 +33,9 @@ class ProcessMapFactory : public BrowserContextKeyedServiceFactory {
       content::BrowserContext* context) const override;
   content::BrowserContext* GetBrowserContextToUse(
       content::BrowserContext* context) const override;
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(ProcessMapFactory);
 };
 
 }  // namespace extensions

@@ -1,4 +1,4 @@
-// Copyright 2014 The Chromium Authors
+// Copyright 2014 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -96,19 +96,22 @@ public class ApplicationStatus {
     /**
      * A list of observers to be notified when any {@link Activity} has a state change.
      */
-    private static ObserverList<ActivityStateListener> sGeneralActivityStateListeners;
+    private static final ObserverList<ActivityStateListener> sGeneralActivityStateListeners =
+            new ObserverList<>();
 
     /**
      * A list of observers to be notified when the visibility state of this {@link Application}
      * changes.  See {@link #getStateForApplication()}.
      */
-    private static ObserverList<ApplicationStateListener> sApplicationStateListeners;
+    private static final ObserverList<ApplicationStateListener> sApplicationStateListeners =
+            new ObserverList<>();
 
     /**
      * A list of observers to be notified when the window focus changes.
      * See {@link #registerWindowFocusChangedListener}.
      */
-    private static ObserverList<WindowFocusChangedListener> sWindowFocusListeners;
+    private static final ObserverList<WindowFocusChangedListener> sWindowFocusListeners =
+            new ObserverList<>();
 
     /**
      * Interface to be implemented by listeners.
@@ -154,7 +157,6 @@ public class ApplicationStatus {
     @MainThread
     public static void registerWindowFocusChangedListener(WindowFocusChangedListener listener) {
         assert isInitialized();
-        if (sWindowFocusListeners == null) sWindowFocusListeners = new ObserverList<>();
         sWindowFocusListeners.addObserver(listener);
     }
 
@@ -164,7 +166,6 @@ public class ApplicationStatus {
      */
     @MainThread
     public static void unregisterWindowFocusChangedListener(WindowFocusChangedListener listener) {
-        if (sWindowFocusListeners == null) return;
         sWindowFocusListeners.removeObserver(listener);
     }
 
@@ -212,10 +213,8 @@ public class ApplicationStatus {
         public void onWindowFocusChanged(boolean hasFocus) {
             mCallback.onWindowFocusChanged(hasFocus);
 
-            if (sWindowFocusListeners != null) {
-                for (WindowFocusChangedListener listener : sWindowFocusListeners) {
-                    listener.onWindowFocusChanged(mActivity, hasFocus);
-                }
+            for (WindowFocusChangedListener listener : sWindowFocusListeners) {
+                listener.onWindowFocusChanged(mActivity, hasFocus);
             }
         }
     }
@@ -398,14 +397,12 @@ public class ApplicationStatus {
 
         // Notify all state observers that are listening globally for all activity state
         // changes.
-        if (sGeneralActivityStateListeners != null) {
-            for (ActivityStateListener listener : sGeneralActivityStateListeners) {
-                listener.onActivityStateChange(activity, newState);
-            }
+        for (ActivityStateListener listener : sGeneralActivityStateListeners) {
+            listener.onActivityStateChange(activity, newState);
         }
 
         int applicationState = getStateForApplication();
-        if (applicationState != oldApplicationState && sApplicationStateListeners != null) {
+        if (applicationState != oldApplicationState) {
             for (ApplicationStateListener listener : sApplicationStateListeners) {
                 listener.onApplicationStateChange(applicationState);
             }
@@ -537,9 +534,6 @@ public class ApplicationStatus {
     @MainThread
     public static void registerStateListenerForAllActivities(ActivityStateListener listener) {
         assert isInitialized();
-        if (sGeneralActivityStateListeners == null) {
-            sGeneralActivityStateListeners = new ObserverList<>();
-        }
         sGeneralActivityStateListeners.addObserver(listener);
     }
 
@@ -569,9 +563,7 @@ public class ApplicationStatus {
      */
     @MainThread
     public static void unregisterActivityStateListener(ActivityStateListener listener) {
-        if (sGeneralActivityStateListeners != null) {
-            sGeneralActivityStateListeners.removeObserver(listener);
-        }
+        sGeneralActivityStateListeners.removeObserver(listener);
 
         // Loop through all observer lists for all activities and remove the listener.
         synchronized (sActivityInfo) {
@@ -587,9 +579,6 @@ public class ApplicationStatus {
      */
     @MainThread
     public static void registerApplicationStateListener(ApplicationStateListener listener) {
-        if (sApplicationStateListeners == null) {
-            sApplicationStateListeners = new ObserverList<>();
-        }
         sApplicationStateListeners.addObserver(listener);
     }
 
@@ -599,7 +588,6 @@ public class ApplicationStatus {
      */
     @MainThread
     public static void unregisterApplicationStateListener(ApplicationStateListener listener) {
-        if (sApplicationStateListeners == null) return;
         sApplicationStateListeners.removeObserver(listener);
     }
 
@@ -611,10 +599,10 @@ public class ApplicationStatus {
     @MainThread
     public static void destroyForJUnitTests() {
         synchronized (sActivityInfo) {
-            if (sApplicationStateListeners != null) sApplicationStateListeners.clear();
-            if (sGeneralActivityStateListeners != null) sGeneralActivityStateListeners.clear();
+            sApplicationStateListeners.clear();
+            sGeneralActivityStateListeners.clear();
             sActivityInfo.clear();
-            if (sWindowFocusListeners != null) sWindowFocusListeners.clear();
+            sWindowFocusListeners.clear();
             sCurrentApplicationState = ApplicationState.UNKNOWN;
             sActivity = null;
             sNativeApplicationStateListener = null;

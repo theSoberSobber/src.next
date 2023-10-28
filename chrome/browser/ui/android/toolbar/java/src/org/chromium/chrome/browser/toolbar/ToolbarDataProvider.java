@@ -1,10 +1,9 @@
-// Copyright 2015 The Chromium Authors
+// Copyright 2015 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 package org.chromium.chrome.browser.toolbar;
 
-import androidx.annotation.DrawableRes;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
@@ -68,15 +67,4 @@ public interface ToolbarDataProvider {
      * @return Whether the current primary color is a brand color.
      */
     boolean isUsingBrandColor();
-
-    /**
-     * Returns the resource ID of the icon that should be displayed or 0 if no icon should be shown.
-     *
-     * @param isTablet Whether or not the display context of the icon is a tablet.
-     */
-    @DrawableRes
-    int getSecurityIconResource(boolean isTablet);
-
-    /** Returns whether the page currently shown is a paint preview. */
-    boolean isPaintPreview();
 }

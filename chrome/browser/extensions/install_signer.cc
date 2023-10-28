@@ -1,4 +1,4 @@
-// Copyright 2013 The Chromium Authors
+// Copyright 2013 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -16,6 +16,7 @@
 #include "base/json/json_reader.h"
 #include "base/json/json_writer.h"
 #include "base/lazy_instance.h"
+#include "base/macros.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/stl_util.h"
 #include "base/strings/string_number_conversions.h"
@@ -101,7 +102,7 @@ bool HashWithMachineId(const std::string& salt, std::string* result) {
   hash->Update(salt.data(), salt.size());
 
   std::string result_bytes(crypto::kSHA256Length, 0);
-  hash->Finish(std::data(result_bytes), result_bytes.size());
+  hash->Finish(base::data(result_bytes), result_bytes.size());
 
   base::Base64Encode(result_bytes, result);
   return true;
@@ -129,7 +130,7 @@ void SetExtensionIdSet(base::DictionaryValue* dictionary,
                        const ExtensionIdSet& ids) {
   auto id_list = std::make_unique<base::ListValue>();
   for (auto i = ids.begin(); i != ids.end(); ++i)
-    id_list->Append(*i);
+    id_list->AppendString(*i);
   dictionary->Set(key, std::move(id_list));
 }
 
@@ -165,18 +166,18 @@ InstallSignature::~InstallSignature() {
 void InstallSignature::ToValue(base::DictionaryValue* value) const {
   CHECK(value);
 
-  value->SetIntKey(kSignatureFormatVersionKey, kSignatureFormatVersion);
+  value->SetInteger(kSignatureFormatVersionKey, kSignatureFormatVersion);
   SetExtensionIdSet(value, kIdsKey, ids);
   SetExtensionIdSet(value, kInvalidIdsKey, invalid_ids);
-  value->SetStringKey(kExpireDateKey, expire_date);
+  value->SetString(kExpireDateKey, expire_date);
   std::string salt_base64;
   std::string signature_base64;
   base::Base64Encode(salt, &salt_base64);
   base::Base64Encode(signature, &signature_base64);
-  value->SetStringKey(kSaltKey, salt_base64);
-  value->SetStringKey(kSignatureKey, signature_base64);
-  value->SetStringKey(kTimestampKey,
-                      base::NumberToString(timestamp.ToInternalValue()));
+  value->SetString(kSaltKey, salt_base64);
+  value->SetString(kSignatureKey, signature_base64);
+  value->SetString(kTimestampKey,
+                   base::NumberToString(timestamp.ToInternalValue()));
 }
 
 // static
@@ -186,31 +187,31 @@ std::unique_ptr<InstallSignature> InstallSignature::FromValue(
 
   // For now we don't want to support any backwards compability, but in the
   // future if we do, we would want to put the migration code here.
-  absl::optional<int> format_version =
-      value.FindIntKey(kSignatureFormatVersionKey);
-  if (format_version != kSignatureFormatVersion) {
+  int format_version = 0;
+  if (!value.GetInteger(kSignatureFormatVersionKey, &format_version) ||
+      format_version != kSignatureFormatVersion) {
     result.reset();
     return result;
   }
 
-  const base::Value::Dict& dict = value.GetDict();
-  const std::string* expire_date = dict.FindString(kExpireDateKey);
-  const std::string* salt_base64 = dict.FindString(kSaltKey);
-  const std::string* signature_base64 = dict.FindString(kSignatureKey);
-  if (!expire_date || !salt_base64 || !signature_base64 ||
-      !base::Base64Decode(*salt_base64, &result->salt) ||
-      !base::Base64Decode(*signature_base64, &result->signature)) {
+  std::string salt_base64;
+  std::string signature_base64;
+  if (!value.GetString(kExpireDateKey, &result->expire_date) ||
+      !value.GetString(kSaltKey, &salt_base64) ||
+      !value.GetString(kSignatureKey, &signature_base64) ||
+      !base::Base64Decode(salt_base64, &result->salt) ||
+      !base::Base64Decode(signature_base64, &result->signature)) {
     result.reset();
     return result;
   }
-  result->expire_date = *expire_date;
 
   // Note: earlier versions of the code did not write out a timestamp value
   // so older entries will not necessarily have this.
-  if (const base::Value* timestamp = value.FindKey(kTimestampKey)) {
+  if (value.HasKey(kTimestampKey)) {
+    std::string timestamp;
     int64_t timestamp_value = 0;
-    if (!timestamp->is_string() ||
-        !base::StringToInt64(timestamp->GetString(), &timestamp_value)) {
+    if (!value.GetString(kTimestampKey, &timestamp) ||
+        !base::StringToInt64(timestamp, &timestamp_value)) {
       result.reset();
       return result;
     }
@@ -292,7 +293,7 @@ void InstallSigner::GetSignature(SignatureCallback callback) {
   }
 
   salt_ = std::string(kSaltBytes, 0);
-  crypto::RandBytes(std::data(salt_), salt_.size());
+  crypto::RandBytes(base::data(salt_), salt_.size());
 
   std::string hash_base64;
   if (!HashWithMachineId(salt_, &hash_base64)) {
@@ -343,11 +344,11 @@ void InstallSigner::GetSignature(SignatureCallback callback) {
   //   "ids": [ "<id1>", "id2" ]
   // }
   base::DictionaryValue dictionary;
-  dictionary.SetIntKey(kProtocolVersionKey, 1);
-  dictionary.SetStringKey(kHashKey, hash_base64);
+  dictionary.SetInteger(kProtocolVersionKey, 1);
+  dictionary.SetString(kHashKey, hash_base64);
   std::unique_ptr<base::ListValue> id_list(new base::ListValue);
   for (auto i = ids_.begin(); i != ids_.end(); ++i) {
-    id_list->Append(*i);
+    id_list->AppendString(*i);
   }
   dictionary.Set(kIdsKey, std::move(id_list));
   std::string json;
@@ -399,27 +400,23 @@ void InstallSigner::ParseFetchResponse(
   // where |invalid_ids| is a list of ids from the original request that
   // could not be verified to be in the webstore.
 
-  absl::optional<base::Value> parsed = base::JSONReader::Read(*response_body);
-  bool json_success = parsed && parsed->is_dict();
+  base::DictionaryValue* dictionary = NULL;
+  std::unique_ptr<base::Value> parsed =
+      base::JSONReader::ReadDeprecated(*response_body);
+  bool json_success = parsed.get() && parsed->GetAsDictionary(&dictionary);
   if (!json_success) {
     ReportErrorViaCallback();
     return;
   }
-  base::Value::Dict& dictionary = parsed->GetDict();
 
-  int protocol_version = dictionary.FindInt(kProtocolVersionKey).value_or(0);
+  int protocol_version = 0;
   std::string signature_base64;
   std::string signature;
   std::string expire_date;
 
-  if (const std::string* maybe_signature_base64 =
-          dictionary.FindString(kSignatureKey)) {
-    signature_base64 = *maybe_signature_base64;
-  }
-  if (const std::string* maybe_expire_date =
-          dictionary.FindString(kExpiryKey)) {
-    expire_date = *maybe_expire_date;
-  }
+  dictionary->GetInteger(kProtocolVersionKey, &protocol_version);
+  dictionary->GetString(kSignatureKey, &signature_base64);
+  dictionary->GetString(kExpiryKey, &expire_date);
 
   bool fields_success =
       protocol_version == 1 && !signature_base64.empty() &&
@@ -431,16 +428,15 @@ void InstallSigner::ParseFetchResponse(
   }
 
   ExtensionIdSet invalid_ids;
-  const base::Value::List* invalid_ids_list =
-      dictionary.FindList(kInvalidIdsKey);
-  if (invalid_ids_list) {
-    for (const base::Value& invalid_id : *invalid_ids_list) {
-      const std::string* id = invalid_id.GetIfString();
-      if (!id) {
+  const base::ListValue* invalid_ids_list = NULL;
+  if (dictionary->GetList(kInvalidIdsKey, &invalid_ids_list)) {
+    for (size_t i = 0; i < invalid_ids_list->GetSize(); i++) {
+      std::string id;
+      if (!invalid_ids_list->GetString(i, &id)) {
         ReportErrorViaCallback();
         return;
       }
-      invalid_ids.insert(*id);
+      invalid_ids.insert(id);
     }
   }
 

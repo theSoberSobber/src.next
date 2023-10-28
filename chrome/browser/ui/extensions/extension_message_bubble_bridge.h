@@ -1,4 +1,4 @@
-// Copyright 2015 The Chromium Authors
+// Copyright 2015 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,6 +7,7 @@
 
 #include <memory>
 
+#include "base/macros.h"
 #include "chrome/browser/ui/toolbar/toolbar_actions_bar_bubble_delegate.h"
 
 namespace extensions {
@@ -20,11 +21,6 @@ class ExtensionMessageBubbleBridge : public ToolbarActionsBarBubbleDelegate {
  public:
   explicit ExtensionMessageBubbleBridge(
       std::unique_ptr<extensions::ExtensionMessageBubbleController> controller);
-
-  ExtensionMessageBubbleBridge(const ExtensionMessageBubbleBridge&) = delete;
-  ExtensionMessageBubbleBridge& operator=(const ExtensionMessageBubbleBridge&) =
-      delete;
-
   ~ExtensionMessageBubbleBridge() override;
 
  private:
@@ -44,6 +40,8 @@ class ExtensionMessageBubbleBridge : public ToolbarActionsBarBubbleDelegate {
   void OnBubbleClosed(CloseAction action) override;
 
   std::unique_ptr<extensions::ExtensionMessageBubbleController> controller_;
+
+  DISALLOW_COPY_AND_ASSIGN(ExtensionMessageBubbleBridge);
 };
 
 #endif  // CHROME_BROWSER_UI_EXTENSIONS_EXTENSION_MESSAGE_BUBBLE_BRIDGE_H_

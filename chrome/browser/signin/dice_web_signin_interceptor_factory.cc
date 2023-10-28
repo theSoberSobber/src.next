@@ -1,4 +1,4 @@
-// Copyright 2020 The Chromium Authors
+// Copyright 2020 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -8,6 +8,7 @@
 #include "chrome/browser/signin/dice_web_signin_interceptor.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/ui/signin/dice_web_signin_interceptor_delegate.h"
+#include "components/keyed_service/content/browser_context_dependency_manager.h"
 
 // static
 DiceWebSigninInterceptor* DiceWebSigninInterceptorFactory::GetForProfile(
@@ -23,7 +24,9 @@ DiceWebSigninInterceptorFactory::GetInstance() {
 }
 
 DiceWebSigninInterceptorFactory::DiceWebSigninInterceptorFactory()
-    : ProfileKeyedServiceFactory("DiceWebSigninInterceptor") {
+    : BrowserContextKeyedServiceFactory(
+          "DiceWebSigninInterceptor",
+          BrowserContextDependencyManager::GetInstance()) {
   DependsOn(IdentityManagerFactory::GetInstance());
 }
 

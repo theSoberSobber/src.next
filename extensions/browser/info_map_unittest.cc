@@ -1,4 +1,4 @@
-// Copyright 2013 The Chromium Authors
+// Copyright 2013 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -56,7 +56,8 @@ TEST_F(InfoMapTest, RefCounting) {
   EXPECT_TRUE(weak_extension1->HasOneRef());
 
   // Remove extension2, and the extension2 object should have the only ref.
-  info_map->RemoveExtension(extension2->id());
+  info_map->RemoveExtension(extension2->id(),
+                            UnloadedExtensionReason::UNINSTALL);
   EXPECT_TRUE(extension2->HasOneRef());
 
   // Delete the info map, and the extension3 object should have the only ref.

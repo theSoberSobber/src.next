@@ -38,6 +38,12 @@ enum LoadStartType {
   kNavigationWithinSameDocument
 };
 
+enum SameDocumentNavigationSource {
+  kSameDocumentNavigationDefault,
+  kSameDocumentNavigationHistoryApi,
+  kSameDocumentNavigationAppHistoryRespondWith,
+};
+
 enum class SavePreviousDocumentResources {
   kNever,
   kUntilOnDOMContentLoaded,
@@ -53,7 +59,7 @@ enum SinglePageAppNavigationType {
   kSPANavTypeHistoryPushStateOrReplaceState = 0,
   kSPANavTypeSameDocumentBackwardOrForward = 1,
   kSPANavTypeOtherFragmentNavigation = 2,
-  kSPANavTypeNavigationApiTransitionWhile = 3,
+  kSPANavTypeAppHistoryRespondWith = 3,
   kSPANavTypeCount
 };
 
@@ -67,14 +73,6 @@ enum class ClientNavigationReason {
   kPageBlock,
   kReload,
   kNone
-};
-
-enum class CancelNavigationReason {
-  // The navigation was dropped, e.g. due to a 204, 205, or Content-Disposition:
-  // attachment.
-  kDropped,
-  // Anything else (including error cases that don't drop the navigation).
-  kOther
 };
 
 enum class CommitReason {

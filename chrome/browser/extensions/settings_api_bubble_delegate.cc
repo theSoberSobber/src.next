@@ -1,4 +1,4 @@
-// Copyright 2014 The Chromium Authors
+// Copyright 2014 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -10,7 +10,6 @@
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/settings_api_helpers.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/sessions/exit_type_service.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/startup/startup_browser_creator.h"
 #include "chrome/common/extensions/manifest_handlers/settings_overrides_handler.h"
@@ -51,7 +50,7 @@ bool SettingsApiBubbleDelegate::ShouldIncludeExtension(
   // If the browser is showing the 'Chrome crashed' infobar, it won't be showing
   // the startup pages, so there's no point in showing the bubble now.
   if (type_ == BUBBLE_TYPE_STARTUP_PAGES &&
-      ExitTypeService::GetLastSessionExitType(profile()) == ExitType::kCrashed)
+      profile()->GetLastSessionExitType() == Profile::EXIT_CRASHED)
     return false;
 
   if (HasBubbleInfoBeenAcknowledged(extension->id()))
@@ -112,15 +111,15 @@ std::u16string SettingsApiBubbleDelegate::GetMessageBody(
   const Extension* extension =
       registry()->GetExtensionById(extension_id_, ExtensionRegistry::ENABLED);
   const SettingsOverrides* settings =
-      extension ? SettingsOverrides::Get(extension) : nullptr;
+      extension ? SettingsOverrides::Get(extension) : NULL;
   if (!extension || !settings) {
     NOTREACHED();
     return std::u16string();
   }
 
-  bool home_change = settings->homepage.has_value();
+  bool home_change = settings->homepage != NULL;
   bool startup_change = !settings->startup_pages.empty();
-  bool search_change = settings->search_engine.has_value();
+  bool search_change = settings->search_engine != NULL;
 
   int first_line_id = 0;
   int second_line_id = 0;

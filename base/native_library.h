@@ -1,4 +1,4 @@
-// Copyright 2011 The Chromium Authors
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -15,17 +15,17 @@
 #include "base/strings/string_piece.h"
 #include "build/build_config.h"
 
-#if BUILDFLAG(IS_WIN)
+#if defined(OS_WIN)
 #include <windows.h>
-#elif BUILDFLAG(IS_APPLE)
+#elif defined(OS_APPLE)
 #import <CoreFoundation/CoreFoundation.h>
 #endif  // OS_*
 
 namespace base {
 
-#if BUILDFLAG(IS_WIN)
+#if defined(OS_WIN)
 using NativeLibrary = HMODULE;
-#elif BUILDFLAG(IS_APPLE)
+#elif defined(OS_APPLE)
 enum NativeLibraryType {
   BUNDLE,
   DYNAMIC_LIB
@@ -45,23 +45,23 @@ struct NativeLibraryStruct {
   };
 };
 using NativeLibrary = NativeLibraryStruct*;
-#elif BUILDFLAG(IS_POSIX) || BUILDFLAG(IS_FUCHSIA)
+#elif defined(OS_POSIX) || defined(OS_FUCHSIA)
 using NativeLibrary = void*;
 #endif  // OS_*
 
 struct BASE_EXPORT NativeLibraryLoadError {
-#if BUILDFLAG(IS_WIN)
+#if defined(OS_WIN)
   NativeLibraryLoadError() : code(0) {}
-#endif  // BUILDFLAG(IS_WIN)
+#endif  // OS_WIN
 
   // Returns a string representation of the load error.
   std::string ToString() const;
 
-#if BUILDFLAG(IS_WIN)
+#if defined(OS_WIN)
   DWORD code;
-#elif BUILDFLAG(IS_POSIX) || BUILDFLAG(IS_FUCHSIA)
+#elif defined(OS_POSIX) || defined(OS_FUCHSIA)
   std::string message;
-#endif  // BUILDFLAG(IS_WIN)
+#endif  // OS_WIN
 };
 
 struct BASE_EXPORT NativeLibraryOptions {
@@ -82,7 +82,7 @@ struct BASE_EXPORT NativeLibraryOptions {
 BASE_EXPORT NativeLibrary LoadNativeLibrary(const FilePath& library_path,
                                             NativeLibraryLoadError* error);
 
-#if BUILDFLAG(IS_WIN)
+#if defined(OS_WIN)
 // Loads a native library from the system directory using the appropriate flags.
 // The function first checks to see if the library is already loaded and will
 // get a handle if so. This method results in a lock that may block the calling

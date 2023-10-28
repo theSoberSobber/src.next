@@ -23,8 +23,8 @@
 
 namespace blink {
 
-LayoutTableCaption::LayoutTableCaption(ContainerNode* node)
-    : LayoutBlockFlow(node) {}
+LayoutTableCaption::LayoutTableCaption(Element* element)
+    : LayoutBlockFlow(element) {}
 
 LayoutTableCaption::~LayoutTableCaption() = default;
 

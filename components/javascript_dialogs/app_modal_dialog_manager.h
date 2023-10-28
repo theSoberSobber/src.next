@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -9,13 +9,10 @@
 
 #include "base/callback.h"
 #include "base/gtest_prod_util.h"
+#include "base/macros.h"
 #include "base/memory/singleton.h"
 #include "components/javascript_dialogs/app_modal_dialog_controller.h"
 #include "content/public/browser/javascript_dialog_manager.h"
-
-namespace url {
-class Origin;
-}
 
 namespace javascript_dialogs {
 
@@ -31,9 +28,6 @@ class AppModalDialogManager : public content::JavaScriptDialogManager {
 
   static AppModalDialogManager* GetInstance();
 
-  AppModalDialogManager(const AppModalDialogManager&) = delete;
-  AppModalDialogManager& operator=(const AppModalDialogManager&) = delete;
-
   // Sets the AppModalViewFactory used to create platform specific
   // dialog window instances.
   void SetNativeDialogFactory(AppModalViewFactory factory);
@@ -47,7 +41,7 @@ class AppModalDialogManager : public content::JavaScriptDialogManager {
 
   // Gets the title for a dialog.
   std::u16string GetTitle(content::WebContents* web_contents,
-                          const url::Origin& alerting_frame_origin);
+                          const GURL& alerting_frame_url);
 
   // Displays a dialog asking the user if they want to leave a page. Displays
   // a different message if the site is in an app window.
@@ -90,8 +84,8 @@ class AppModalDialogManager : public content::JavaScriptDialogManager {
                       bool success,
                       const std::u16string& user_input);
 
-  static std::u16string GetTitleImpl(const url::Origin& main_frame_origin,
-                                     const url::Origin& alerting_frame_origin);
+  static std::u16string GetTitleImpl(const GURL& parent_frame_url,
+                                     const GURL& alerting_frame_url);
 
   // Mapping between the WebContents and their extra data. The key
   // is a void* because the pointer is just a cookie and is never dereferenced.
@@ -99,6 +93,8 @@ class AppModalDialogManager : public content::JavaScriptDialogManager {
 
   AppModalViewFactory view_factory_;
   std::unique_ptr<ExtensionsClient> extensions_client_;
+
+  DISALLOW_COPY_AND_ASSIGN(AppModalDialogManager);
 };
 
 }  // namespace javascript_dialogs

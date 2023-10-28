@@ -97,7 +97,6 @@ class CORE_EXPORT LayoutBlockFlow : public LayoutBlock {
  public:
   explicit LayoutBlockFlow(ContainerNode*);
   ~LayoutBlockFlow() override;
-  void Trace(Visitor*) const override;
 
   static LayoutBlockFlow* CreateAnonymous(Document*,
                                           scoped_refptr<ComputedStyle>,
@@ -264,8 +263,6 @@ class CORE_EXPORT LayoutBlockFlow : public LayoutBlock {
                 LayoutObject* before_child = nullptr) override;
   void RemoveChild(LayoutObject*) override;
 
-  bool CreatesAnonymousWrapper() const override;
-
   void MoveAllChildrenIncludingFloatsTo(LayoutBlock* to_block,
                                         bool full_remove_insert);
 
@@ -357,17 +354,6 @@ class CORE_EXPORT LayoutBlockFlow : public LayoutBlock {
       rare_data_->multi_column_flow_thread_ = nullptr;
   }
 
-  // Return true if this block establishes a fragmentation context root (e.g. a
-  // multicol container).
-  //
-  // Implementation detail: At some point in the future there should be no flow
-  // threads. Callers that only want to know if this is a fragmentation context
-  // root (and don't depend on flow threads) should call this method.
-  bool IsFragmentationContextRoot() const override {
-    NOT_DESTROYED();
-    return MultiColumnFlowThread();
-  }
-
   void AddVisualOverflowFromInlineChildren();
 
   void AddLayoutOverflowFromInlineChildren();
@@ -378,7 +364,7 @@ class CORE_EXPORT LayoutBlockFlow : public LayoutBlock {
                                            LayoutUnit& max_logical_width);
 
   // Return true if this object is allowed to establish a multicol container.
-  virtual bool AllowsColumns() const;
+  bool AllowsColumns() const;
 
   bool AllowsPaginationStrut() const;
   // Pagination strut caused by the first line or child block inside this
@@ -428,7 +414,7 @@ class CORE_EXPORT LayoutBlockFlow : public LayoutBlock {
   LayoutUnit XPositionForFloatIncludingMargin(
       const FloatingObject& child) const {
     NOT_DESTROYED();
-    LayoutUnit scrollbar_adjustment(OriginAdjustmentForScrollbars().x());
+    LayoutUnit scrollbar_adjustment(OriginAdjustmentForScrollbars().Width());
     if (IsHorizontalWritingMode()) {
       return child.X() + child.GetLayoutObject()->MarginLeft() +
              scrollbar_adjustment;
@@ -485,7 +471,7 @@ class CORE_EXPORT LayoutBlockFlow : public LayoutBlock {
 
   FloatingObject* LastFloatFromPreviousLine() const {
     NOT_DESTROYED();
-    return ContainsFloats() ? floating_objects_->Set().back().Get() : nullptr;
+    return ContainsFloats() ? floating_objects_->Set().back().get() : nullptr;
   }
 
   void SetShouldDoFullPaintInvalidationForFirstLine();
@@ -539,8 +525,6 @@ class CORE_EXPORT LayoutBlockFlow : public LayoutBlock {
   }
   virtual void WillCollectInlines() { NOT_DESTROYED(); }
 
-  void StopDeferringShaping() const;
-
 #if DCHECK_IS_ON()
   void ShowLineTreeAndMark(const InlineBox* = nullptr,
                            const char* = nullptr,
@@ -563,11 +547,12 @@ class CORE_EXPORT LayoutBlockFlow : public LayoutBlock {
 
   void UpdateBlockChildDirtyBitsBeforeLayout(bool relayout_children,
                                              LayoutBox&);
-  void AbsoluteQuads(Vector<gfx::QuadF>&,
+  void AbsoluteQuads(Vector<FloatQuad>&,
                      MapCoordinatesFlags mode = 0) const override;
-  void LocalQuadsForSelf(Vector<gfx::QuadF>& quads) const override;
-  void AbsoluteQuadsForSelf(Vector<gfx::QuadF>& quads,
+  void LocalQuadsForSelf(Vector<FloatQuad>& quads) const override;
+  void AbsoluteQuadsForSelf(Vector<FloatQuad>& quads,
                             MapCoordinatesFlags mode = 0) const override;
+  LayoutObject* HoverAncestor() const final;
 
   LayoutUnit LogicalRightOffsetForLine(
       LayoutUnit logical_top,
@@ -601,7 +586,6 @@ class CORE_EXPORT LayoutBlockFlow : public LayoutBlock {
   void DetermineLogicalLeftPositionForChild(LayoutBox& child);
 
   void AddOutlineRects(Vector<PhysicalRect>&,
-                       OutlineInfo*,
                        const PhysicalOffset& additional_offset,
                        NGOutlineType) const override;
 
@@ -611,12 +595,12 @@ class CORE_EXPORT LayoutBlockFlow : public LayoutBlock {
   bool HitTestChildren(HitTestResult&,
                        const HitTestLocation&,
                        const PhysicalOffset& accumulated_offset,
-                       HitTestPhase) override;
+                       HitTestAction) override;
 
   PhysicalOffset AccumulateRelativePositionOffsets() const override;
 
  private:
-  void QuadsForSelfInternal(Vector<gfx::QuadF>& quads,
+  void QuadsForSelfInternal(Vector<FloatQuad>& quads,
                             MapCoordinatesFlags mode,
                             bool map_to_absolute) const;
 
@@ -768,14 +752,12 @@ class CORE_EXPORT LayoutBlockFlow : public LayoutBlock {
  public:
   struct FloatWithRect {
     DISALLOW_NEW();
-    explicit FloatWithRect(LayoutBox* f)
+    FloatWithRect(LayoutBox* f)
         : object(f), rect(f->FrameRect()), ever_had_layout(f->EverHadLayout()) {
       rect.Expand(f->MarginBoxOutsets());
     }
 
-    void Trace(Visitor* visitor) const { visitor->Trace(object); }
-
-    Member<LayoutBox> object;
+    LayoutBox* object;
     LayoutRect rect;
     bool ever_had_layout;
   };
@@ -853,20 +835,20 @@ class CORE_EXPORT LayoutBlockFlow : public LayoutBlock {
       return (-block->MarginAfter()).ClampNegativeToZero();
     }
 
-    void Trace(Visitor*) const;
+    void Trace(Visitor*) const {}
 
     MarginValues margins_;
     LayoutUnit pagination_strut_propagated_from_child_;
 
     LayoutUnit first_forced_break_offset_;
 
-    Member<LayoutMultiColumnFlowThread> multi_column_flow_thread_;
+    LayoutMultiColumnFlowThread* multi_column_flow_thread_ = nullptr;
 
     // |offset_mapping_| is used only for legacy layout tree for caching offset
     // mapping for |NGInlineNode::GetOffsetMapping()|.
     // TODO(yosin): Once we have no legacy support, we should get rid of
     // |offset_mapping_| here.
-    Member<NGOffsetMapping> offset_mapping_;
+    std::unique_ptr<NGOffsetMapping> offset_mapping_;
 
     // Name of the start page for this object, if propagated from a descendant;
     // see https://drafts.csswg.org/css-page-3/#start-page-value
@@ -884,12 +866,15 @@ class CORE_EXPORT LayoutBlockFlow : public LayoutBlock {
 
   void ClearOffsetMappingIfNeeded();
   const NGOffsetMapping* GetOffsetMapping() const;
-  void SetOffsetMapping(NGOffsetMapping*);
+  void SetOffsetMapping(std::unique_ptr<NGOffsetMapping>);
 
   const FloatingObjects* GetFloatingObjects() const {
     NOT_DESTROYED();
-    return floating_objects_;
+    return floating_objects_.get();
   }
+
+  static void UpdateAncestorShouldPaintFloatingObject(
+      const LayoutBox& float_box);
 
   bool ShouldTruncateOverflowingText() const;
 
@@ -1018,8 +1003,8 @@ class CORE_EXPORT LayoutBlockFlow : public LayoutBlock {
   bool CheckIfIsSelfCollapsingBlock() const;
 
  protected:
-  Member<LayoutBlockFlowRareData> rare_data_;
-  Member<FloatingObjects> floating_objects_;
+  Persistent<LayoutBlockFlowRareData> rare_data_;
+  std::unique_ptr<FloatingObjects> floating_objects_;
 
   friend class MarginInfo;
   friend class LineWidth;  // needs to know FloatingObject
@@ -1087,7 +1072,7 @@ class CORE_EXPORT LayoutBlockFlow : public LayoutBlock {
                                   const InlineIterator& clean_line_start,
                                   const BidiStatus& clean_line_bidi_status);
   void LinkToEndLineIfNeeded(LineLayoutState&);
-  void MarkDirtyFloatsForPaintInvalidation(HeapVector<FloatWithRect>& floats);
+  void MarkDirtyFloatsForPaintInvalidation(Vector<FloatWithRect>& floats);
   RootInlineBox* DetermineStartPosition(LineLayoutState&, InlineBidiResolver&);
   void DetermineEndPosition(LineLayoutState&,
                             RootInlineBox* start_box,
@@ -1123,8 +1108,5 @@ struct DowncastTraits<LayoutBlockFlow> {
 };
 
 }  // namespace blink
-
-WTF_ALLOW_CLEAR_UNUSED_SLOTS_WITH_MEM_FUNCTIONS(
-    blink::LayoutBlockFlow::FloatWithRect)
 
 #endif  // THIRD_PARTY_BLINK_RENDERER_CORE_LAYOUT_LAYOUT_BLOCK_FLOW_H_

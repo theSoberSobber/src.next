@@ -16,23 +16,8 @@
 #include "third_party/blink/renderer/core/testing/sim/sim_compositor.h"
 #include "third_party/blink/renderer/core/testing/sim/sim_request.h"
 #include "third_party/blink/renderer/core/testing/sim/sim_test.h"
-#include "third_party/blink/renderer/platform/graphics/paint/paint_controller.h"
 
 namespace blink {
-namespace {
-
-Color SelectionWebkitTextFillColor(const Document& document,
-                                   Node* node,
-                                   const ComputedStyle& originating_style) {
-  scoped_refptr<const ComputedStyle> pseudo_style =
-      HighlightPaintingUtils::HighlightPseudoStyle(node, originating_style,
-                                                   kPseudoIdSelection);
-  return HighlightPaintingUtils::ResolveColor(
-      document, originating_style, pseudo_style.get(), kPseudoIdSelection,
-      GetCSSPropertyWebkitTextFillColor(), Color::kBlack);
-}
-
-}  // namespace
 
 class HighlightPaintingUtilsTest : public SimTest {};
 
@@ -55,6 +40,7 @@ TEST_F(HighlightPaintingUtilsTest, CachedPseudoStylesWindowInactive) {
 
   auto* body = GetDocument().body();
   auto* text_node = body->firstChild();
+  GlobalPaintFlags flags{0};
 
   Compositor().BeginFrame();
 
@@ -71,14 +57,16 @@ TEST_F(HighlightPaintingUtilsTest, CachedPseudoStylesWindowInactive) {
   EXPECT_FALSE(body_style.GetCachedPseudoElementStyle(kPseudoIdSelection));
 
   EXPECT_FALSE(GetPage().IsActive());
-  EXPECT_EQ(Color(255, 0, 0),
-            SelectionWebkitTextFillColor(GetDocument(), text_node, text_style));
+  EXPECT_EQ(Color(255, 0, 0), HighlightPaintingUtils::HighlightForegroundColor(
+                                  GetDocument(), text_style, text_node,
+                                  kPseudoIdSelection, flags));
 
   // Focus the window.
   GetPage().SetActive(true);
   Compositor().BeginFrame();
-  EXPECT_EQ(Color(0, 128, 0),
-            SelectionWebkitTextFillColor(GetDocument(), text_node, text_style));
+  EXPECT_EQ(Color(0, 128, 0), HighlightPaintingUtils::HighlightForegroundColor(
+                                  GetDocument(), text_style, text_node,
+                                  kPseudoIdSelection, flags));
   const ComputedStyle* active_style =
       body_style.GetCachedPseudoElementStyle(kPseudoIdSelection);
   EXPECT_TRUE(active_style);
@@ -86,8 +74,9 @@ TEST_F(HighlightPaintingUtilsTest, CachedPseudoStylesWindowInactive) {
   // Unfocus the window.
   GetPage().SetActive(false);
   Compositor().BeginFrame();
-  EXPECT_EQ(Color(255, 0, 0),
-            SelectionWebkitTextFillColor(GetDocument(), text_node, text_style));
+  EXPECT_EQ(Color(255, 0, 0), HighlightPaintingUtils::HighlightForegroundColor(
+                                  GetDocument(), text_style, text_node,
+                                  kPseudoIdSelection, flags));
   EXPECT_EQ(active_style,
             body_style.GetCachedPseudoElementStyle(kPseudoIdSelection));
 }
@@ -110,6 +99,7 @@ TEST_F(HighlightPaintingUtilsTest, CachedPseudoStylesNoWindowInactive) {
 
   auto* body = GetDocument().body();
   auto* text_node = body->firstChild();
+  GlobalPaintFlags flags{0};
 
   Compositor().BeginFrame();
 
@@ -129,22 +119,25 @@ TEST_F(HighlightPaintingUtilsTest, CachedPseudoStylesNoWindowInactive) {
   EXPECT_TRUE(active_style);
 
   EXPECT_FALSE(GetPage().IsActive());
-  EXPECT_EQ(Color(0, 128, 0),
-            SelectionWebkitTextFillColor(GetDocument(), text_node, text_style));
+  EXPECT_EQ(Color(0, 128, 0), HighlightPaintingUtils::HighlightForegroundColor(
+                                  GetDocument(), text_style, text_node,
+                                  kPseudoIdSelection, flags));
 
   // Focus the window.
   GetPage().SetActive(true);
   Compositor().BeginFrame();
-  EXPECT_EQ(Color(0, 128, 0),
-            SelectionWebkitTextFillColor(GetDocument(), text_node, text_style));
+  EXPECT_EQ(Color(0, 128, 0), HighlightPaintingUtils::HighlightForegroundColor(
+                                  GetDocument(), text_style, text_node,
+                                  kPseudoIdSelection, flags));
   EXPECT_EQ(active_style,
             body_style.GetCachedPseudoElementStyle(kPseudoIdSelection));
 
   // Unfocus the window.
   GetPage().SetActive(false);
   Compositor().BeginFrame();
-  EXPECT_EQ(Color(0, 128, 0),
-            SelectionWebkitTextFillColor(GetDocument(), text_node, text_style));
+  EXPECT_EQ(Color(0, 128, 0), HighlightPaintingUtils::HighlightForegroundColor(
+                                  GetDocument(), text_style, text_node,
+                                  kPseudoIdSelection, flags));
   EXPECT_EQ(active_style,
             body_style.GetCachedPseudoElementStyle(kPseudoIdSelection));
 }
@@ -177,7 +170,8 @@ TEST_F(HighlightPaintingUtilsTest, SelectedTextInputShadow) {
   std::unique_ptr<PaintController> controller{
       std::make_unique<PaintController>()};
   GraphicsContext context(*controller);
-  PaintInfo paint_info(context, CullRect(), PaintPhase::kForeground);
+  PaintInfo paint_info(context, CullRect(), PaintPhase::kForeground,
+                       kGlobalPaintNormalPhase, 0 /* paint_flags */);
   TextPaintStyle paint_style;
 
   paint_style = HighlightPaintingUtils::HighlightPaintingStyle(

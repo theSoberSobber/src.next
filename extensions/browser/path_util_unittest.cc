@@ -1,4 +1,4 @@
-// Copyright 2014 The Chromium Authors
+// Copyright 2014 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -55,7 +55,7 @@ TEST(ExtensionPathUtilTest, ResolveHomeDirTest) {
   const FilePath rel_path_with_tilde_no_separator(FILE_PATH_LITERAL("~foobar"));
 
 // This function is a no-op on Windows.
-#if BUILDFLAG(IS_WIN)
+#if defined(OS_WIN)
   EXPECT_EQ(rel_path_with_tilde,
             path_util::ResolveHomeDirectory(rel_path_with_tilde));
 #else

@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 //
@@ -14,13 +14,10 @@
 #include <string>
 #include <vector>
 
-#include "base/containers/flat_set.h"
+#include "base/macros.h"
 #include "base/strings/string_piece.h"
 #include "net/base/net_export.h"
-#include "net/filter/source_stream.h"
 #include "net/log/net_log_capture_mode.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
-#include "url/gurl.h"
 
 namespace base {
 class Value;
@@ -44,10 +41,6 @@ class NET_EXPORT HttpRequestHeaders {
   class NET_EXPORT Iterator {
    public:
     explicit Iterator(const HttpRequestHeaders& headers);
-
-    Iterator(const Iterator&) = delete;
-    Iterator& operator=(const Iterator&) = delete;
-
     ~Iterator();
 
     // Advances the iterator to the next header, if any.  Returns true if there
@@ -60,9 +53,11 @@ class NET_EXPORT HttpRequestHeaders {
     const std::string& value() const { return curr_->value; }
 
    private:
-    bool started_ = false;
+    bool started_;
     HttpRequestHeaders::HeaderVector::const_iterator curr_;
     const HttpRequestHeaders::HeaderVector::const_iterator end_;
+
+    DISALLOW_COPY_AND_ASSIGN(Iterator);
   };
 
   static const char kConnectMethod[];
@@ -189,14 +184,6 @@ class NET_EXPORT HttpRequestHeaders {
                            NetLogCaptureMode capture_mode) const;
 
   const HeaderVector& GetHeaderVector() const { return headers_; }
-
-  // Sets Accept-Encoding header based on `url` and `accepted_stream_types`, if
-  // it does not exist. "br" is appended only when `enable_brotli` is true.
-  void SetAcceptEncodingIfMissing(
-      const GURL& url,
-      const absl::optional<base::flat_set<SourceStream::SourceType>>&
-          accepted_stream_types,
-      bool enable_brotli);
 
  private:
   HeaderVector::iterator FindHeader(const base::StringPiece& key);

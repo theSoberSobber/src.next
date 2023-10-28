@@ -5,7 +5,6 @@
 #ifndef CHROME_BROWSER_SIGNIN_INVESTIGATOR_DEPENDENCY_PROVIDER_H_
 #define CHROME_BROWSER_SIGNIN_INVESTIGATOR_DEPENDENCY_PROVIDER_H_
 
-#include "base/memory/raw_ptr.h"
 #include "chrome/browser/profiles/profile.h"
 #include "components/prefs/pref_service.h"
 #include "components/signin/core/browser/signin_investigator.h"
@@ -16,18 +15,13 @@ class InvestigatorDependencyProvider
     : public SigninInvestigator::DependencyProvider {
  public:
   explicit InvestigatorDependencyProvider(Profile* profile);
-
-  InvestigatorDependencyProvider(const InvestigatorDependencyProvider&) =
-      delete;
-  InvestigatorDependencyProvider& operator=(
-      const InvestigatorDependencyProvider&) = delete;
-
   ~InvestigatorDependencyProvider() override;
   PrefService* GetPrefs() override;
 
  private:
   // Non-owning pointer.
-  raw_ptr<Profile> profile_;
+  Profile* profile_;
+  DISALLOW_COPY_AND_ASSIGN(InvestigatorDependencyProvider);
 };
 
 #endif  // CHROME_BROWSER_SIGNIN_INVESTIGATOR_DEPENDENCY_PROVIDER_H_

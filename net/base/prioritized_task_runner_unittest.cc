@@ -1,4 +1,4 @@
-// Copyright 2018 The Chromium Authors
+// Copyright (c) 2018 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -14,11 +14,12 @@
 #include "base/location.h"
 #include "base/rand_util.h"
 #include "base/run_loop.h"
+#include "base/sequenced_task_runner.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/synchronization/lock.h"
 #include "base/synchronization/waitable_event.h"
-#include "base/task/sequenced_task_runner.h"
+#include "base/task/post_task.h"
 #include "base/task/thread_pool.h"
 #include "base/test/task_environment.h"
 #include "base/threading/thread_restrictions.h"
@@ -109,8 +110,7 @@ class PrioritizedTaskRunnerTest : public testing::Test {
 TEST_F(PrioritizedTaskRunnerTest, PostTaskAndReplyThreadCheck) {
   auto task_runner = base::ThreadPool::CreateSequencedTaskRunner({});
   auto prioritized_task_runner =
-      base::MakeRefCounted<PrioritizedTaskRunner>(base::TaskTraits());
-  prioritized_task_runner->SetTaskRunnerForTesting(task_runner);
+      base::MakeRefCounted<PrioritizedTaskRunner>(task_runner);
 
   base::RunLoop run_loop;
 
@@ -122,7 +122,8 @@ TEST_F(PrioritizedTaskRunnerTest, PostTaskAndReplyThreadCheck) {
       };
 
   prioritized_task_runner->PostTaskAndReply(
-      FROM_HERE, base::BindOnce(thread_check, task_runner, base::DoNothing()),
+      FROM_HERE,
+      base::BindOnce(thread_check, task_runner, base::DoNothing::Once()),
       base::BindOnce(thread_check, task_environment_.GetMainThreadTaskRunner(),
                      run_loop.QuitClosure()),
       0);
@@ -133,8 +134,7 @@ TEST_F(PrioritizedTaskRunnerTest, PostTaskAndReplyThreadCheck) {
 TEST_F(PrioritizedTaskRunnerTest, PostTaskAndReplyRunsBothTasks) {
   auto task_runner = base::ThreadPool::CreateSequencedTaskRunner({});
   auto prioritized_task_runner =
-      base::MakeRefCounted<PrioritizedTaskRunner>(base::TaskTraits());
-  prioritized_task_runner->SetTaskRunnerForTesting(task_runner);
+      base::MakeRefCounted<PrioritizedTaskRunner>(task_runner);
 
   prioritized_task_runner->PostTaskAndReply(
       FROM_HERE,
@@ -152,8 +152,7 @@ TEST_F(PrioritizedTaskRunnerTest, PostTaskAndReplyRunsBothTasks) {
 TEST_F(PrioritizedTaskRunnerTest, PostTaskAndReplyTestPriority) {
   auto task_runner = base::ThreadPool::CreateSequencedTaskRunner({});
   auto prioritized_task_runner =
-      base::MakeRefCounted<PrioritizedTaskRunner>(base::TaskTraits());
-  prioritized_task_runner->SetTaskRunnerForTesting(task_runner);
+      base::MakeRefCounted<PrioritizedTaskRunner>(task_runner);
 
   BlockTaskRunner(task_runner.get());
   prioritized_task_runner->PostTaskAndReply(
@@ -193,8 +192,7 @@ TEST_F(PrioritizedTaskRunnerTest, PostTaskAndReplyTestPriority) {
 TEST_F(PrioritizedTaskRunnerTest, PostTaskAndReplyTestReplyPriority) {
   auto task_runner = base::ThreadPool::CreateSequencedTaskRunner({});
   auto prioritized_task_runner =
-      base::MakeRefCounted<PrioritizedTaskRunner>(base::TaskTraits());
-  prioritized_task_runner->SetTaskRunnerForTesting(task_runner);
+      base::MakeRefCounted<PrioritizedTaskRunner>(task_runner);
 
   // Add a couple of tasks to run right away, but don't run their replies yet.
   BlockTaskRunner(task_runner.get());
@@ -240,8 +238,7 @@ TEST_F(PrioritizedTaskRunnerTest, PostTaskAndReplyTestReplyPriority) {
 TEST_F(PrioritizedTaskRunnerTest, PriorityOverflow) {
   auto task_runner = base::ThreadPool::CreateSequencedTaskRunner({});
   auto prioritized_task_runner =
-      base::MakeRefCounted<PrioritizedTaskRunner>(base::TaskTraits());
-  prioritized_task_runner->SetTaskRunnerForTesting(task_runner);
+      base::MakeRefCounted<PrioritizedTaskRunner>(task_runner);
 
   const uint32_t kMaxPriority = std::numeric_limits<uint32_t>::max();
 
@@ -284,8 +281,7 @@ TEST_F(PrioritizedTaskRunnerTest, PriorityOverflow) {
 TEST_F(PrioritizedTaskRunnerTest, PostTaskAndReplyWithResultRunsBothTasks) {
   auto task_runner = base::ThreadPool::CreateSequencedTaskRunner({});
   auto prioritized_task_runner =
-      base::MakeRefCounted<PrioritizedTaskRunner>(base::TaskTraits());
-  prioritized_task_runner->SetTaskRunnerForTesting(task_runner);
+      base::MakeRefCounted<PrioritizedTaskRunner>(task_runner);
 
   prioritized_task_runner->PostTaskAndReplyWithResult(
       FROM_HERE,
@@ -303,8 +299,7 @@ TEST_F(PrioritizedTaskRunnerTest, PostTaskAndReplyWithResultRunsBothTasks) {
 TEST_F(PrioritizedTaskRunnerTest, PostTaskAndReplyWithResultTestPriority) {
   auto task_runner = base::ThreadPool::CreateSequencedTaskRunner({});
   auto prioritized_task_runner =
-      base::MakeRefCounted<PrioritizedTaskRunner>(base::TaskTraits());
-  prioritized_task_runner->SetTaskRunnerForTesting(task_runner);
+      base::MakeRefCounted<PrioritizedTaskRunner>(task_runner);
 
   BlockTaskRunner(task_runner.get());
   prioritized_task_runner->PostTaskAndReplyWithResult(
@@ -342,8 +337,7 @@ TEST_F(PrioritizedTaskRunnerTest, PostTaskAndReplyWithResultTestPriority) {
 TEST_F(PrioritizedTaskRunnerTest, OrderSamePriorityByPostOrder) {
   auto task_runner = base::ThreadPool::CreateSequencedTaskRunner({});
   auto prioritized_task_runner =
-      base::MakeRefCounted<PrioritizedTaskRunner>(base::TaskTraits());
-  prioritized_task_runner->SetTaskRunnerForTesting(task_runner);
+      base::MakeRefCounted<PrioritizedTaskRunner>(task_runner);
 
   std::vector<int> expected;
 
@@ -359,7 +353,7 @@ TEST_F(PrioritizedTaskRunnerTest, OrderSamePriorityByPostOrder) {
         FROM_HERE,
         base::BindOnce(&PrioritizedTaskRunnerTest::PushName,
                        base::Unretained(this), base::NumberToString(id)),
-        base::DoNothing(), priority);
+        base::BindOnce(base::DoNothing::Once()), priority);
   }
   ReleaseTaskRunner();
 

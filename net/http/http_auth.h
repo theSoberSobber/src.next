@@ -1,4 +1,4 @@
-// Copyright 2011 The Chromium Authors
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -11,15 +11,12 @@
 
 #include "net/base/auth.h"
 #include "net/base/net_export.h"
+#include "net/http/http_util.h"
 
 template <class T> class scoped_refptr;
 
 namespace base {
 class Value;
-}
-
-namespace url {
-class SchemeHostPort;
 }
 
 namespace net {
@@ -35,7 +32,7 @@ class SSLInfo;
 // Utility class for http authentication.
 class NET_EXPORT_PRIVATE HttpAuth {
  public:
-  // Http authentication can be done to the proxy server, origin server,
+  // Http authentication can be done the the proxy server, origin server,
   // or both. This enum tracks who the target is.
   enum Target {
     AUTH_NONE = -1,
@@ -118,8 +115,8 @@ class NET_EXPORT_PRIVATE HttpAuth {
     kNone,
     // Delegate if approved by KDC policy. Implemented in GSSAPI.
     kByKdcPolicy,
-    // Unconstrained delegation. On Windows, both kByKdcPolicy and
-    // kUnconstrained will check KDC policy.
+    // Unconstrained delegation. On Windows both kByKdcPolicy and kUnconstraned
+    // check KDC policy.
     kUnconstrained,
   };
 
@@ -128,8 +125,8 @@ class NET_EXPORT_PRIVATE HttpAuth {
   struct Identity {
     Identity();
 
-    IdentitySource source = IDENT_SRC_NONE;
-    bool invalid = true;
+    IdentitySource source;
+    bool invalid;
     AuthCredentials credentials;
   };
 
@@ -168,9 +165,8 @@ class NET_EXPORT_PRIVATE HttpAuth {
   //
   // |disabled_schemes| is the set of schemes that we should not use.
   //
-  // |scheme_host_port| is used by the NTLM and Negotiation authentication
-  // scheme to construct the service principal name. It is ignored by other
-  // schemes.
+  // |origin| is used by the NTLM and Negotiation authentication scheme to
+  // construct the service principal name. It is ignored by other schemes.
   //
   // |ssl_info| is passed through to the scheme specific authentication handlers
   // to use as appropriate.
@@ -180,7 +176,7 @@ class NET_EXPORT_PRIVATE HttpAuth {
       const SSLInfo& ssl_info,
       const NetworkIsolationKey& network_isolation_key,
       Target target,
-      const url::SchemeHostPort& scheme_host_port,
+      const GURL& origin,
       const std::set<Scheme>& disabled_schemes,
       const NetLogWithSource& net_log,
       HostResolver* host_resolver,

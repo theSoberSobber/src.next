@@ -2,7 +2,6 @@
 // used property according to: https://www.chromestatus.com/metrics/css/popularity
 {
     "data": [
-        "IsStackingContextWithoutContainment",
         "width",
         "height",
         "display",
@@ -183,6 +182,7 @@
         "border-top-style",
         "-webkit-transition-duration",
         "-webkit-flex-shrink",
+        "grid-template-columns",
         "-webkit-flex-grow",
         "-webkit-transition-timing-function",
         "animation-direction",
@@ -242,6 +242,7 @@
         "column-count",
         "-webkit-opacity",
         "text-decoration-skip",
+        "grid-template-rows",
         "padding-inline-end",
         "border-image",
         "-webkit-user-drag",
@@ -616,6 +617,7 @@
         "motion-path",
         "-epub-text-transform",
         "-epub-writing-mode",
+        "text-justify",
         "scale",
         "rotate",
         "translate",

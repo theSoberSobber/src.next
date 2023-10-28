@@ -1,4 +1,4 @@
-// Copyright 2018 The Chromium Authors
+// Copyright 2018 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -6,10 +6,12 @@
 
 #include <string>
 
+#include "base/macros.h"
 #include "base/metrics/histogram_base.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "build/build_config.h"
+#include "components/network_session_configurator/common/network_switches.h"
 #include "content/browser/keyboard_lock/keyboard_lock_metrics.h"
 #include "content/browser/renderer_host/render_widget_host_impl.h"
 #include "content/browser/web_contents/web_contents_impl.h"
@@ -18,7 +20,6 @@
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/content_browser_test.h"
 #include "content/public/test/content_browser_test_utils.h"
-#include "content/public/test/content_mock_cert_verifier.h"
 #include "content/public/test/test_utils.h"
 #include "content/shell/browser/shell.h"
 #include "content/test/content_browser_test_utils_internal.h"
@@ -108,7 +109,7 @@ constexpr char kFocusInputFieldScript[] =
 void SimulateKeyPress(WebContents* web_contents,
                       const std::string& code_string,
                       const std::string& expected_result) {
-  DOMMessageQueue msg_queue(web_contents);
+  DOMMessageQueue msg_queue;
   std::string reply;
   ui::DomKey dom_key = ui::KeycodeConverter::KeyStringToDomKey(code_string);
   ui::DomCode dom_code = ui::KeycodeConverter::CodeStringToDomCode(code_string);
@@ -142,12 +143,6 @@ class TestRenderWidgetHostView : public RenderWidgetHostViewAura {
 class FakeKeyboardLockWebContentsDelegate : public WebContentsDelegate {
  public:
   FakeKeyboardLockWebContentsDelegate() {}
-
-  FakeKeyboardLockWebContentsDelegate(
-      const FakeKeyboardLockWebContentsDelegate&) = delete;
-  FakeKeyboardLockWebContentsDelegate& operator=(
-      const FakeKeyboardLockWebContentsDelegate&) = delete;
-
   ~FakeKeyboardLockWebContentsDelegate() override {}
 
   // WebContentsDelegate overrides.
@@ -163,6 +158,8 @@ class FakeKeyboardLockWebContentsDelegate : public WebContentsDelegate {
  private:
   bool is_fullscreen_ = false;
   bool keyboard_lock_requested_ = false;
+
+  DISALLOW_COPY_AND_ASSIGN(FakeKeyboardLockWebContentsDelegate);
 };
 
 void FakeKeyboardLockWebContentsDelegate::EnterFullscreenModeForTab(
@@ -226,8 +223,6 @@ class KeyboardLockBrowserTest : public ContentBrowserTest {
   void SetUp() override;
   void SetUpCommandLine(base::CommandLine* command_line) override;
   void SetUpOnMainThread() override;
-  void SetUpInProcessBrowserTestFixture() override;
-  void TearDownInProcessBrowserTestFixture() override;
 
   // Helper methods for common tasks.
   bool KeyboardLockApiExists();
@@ -265,7 +260,6 @@ class KeyboardLockBrowserTest : public ContentBrowserTest {
   }
 
  private:
-  content::ContentMockCertVerifier mock_cert_verifier_;
   base::test::ScopedFeatureList scoped_feature_list_;
   net::EmbeddedTestServer https_test_server_;
   FakeKeyboardLockWebContentsDelegate web_contents_delegate_;
@@ -285,14 +279,13 @@ void KeyboardLockBrowserTest::SetUp() {
 
 void KeyboardLockBrowserTest::SetUpCommandLine(
     base::CommandLine* command_line) {
-  ContentBrowserTest::SetUpCommandLine(command_line);
-  mock_cert_verifier_.SetUpCommandLine(command_line);
+  // Ignore cert errors so that the sign-in URL can be loaded from a site other
+  // than localhost (the EmbeddedTestServer serves a certificate that is valid
+  // for localhost).
+  command_line->AppendSwitch(switches::kIgnoreCertificateErrors);
 }
 
 void KeyboardLockBrowserTest::SetUpOnMainThread() {
-  ContentBrowserTest::SetUpOnMainThread();
-  mock_cert_verifier_.mock_cert_verifier()->set_default_result(net::OK);
-
   web_contents()->SetDelegate(&web_contents_delegate_);
 
   // KeyboardLock requires a secure context (HTTPS).
@@ -300,16 +293,6 @@ void KeyboardLockBrowserTest::SetUpOnMainThread() {
   host_resolver()->AddRule("*", "127.0.0.1");
   SetupCrossSiteRedirector(https_test_server());
   ASSERT_TRUE(https_test_server()->Start());
-}
-
-void KeyboardLockBrowserTest::SetUpInProcessBrowserTestFixture() {
-  ContentBrowserTest::SetUpInProcessBrowserTestFixture();
-  mock_cert_verifier_.SetUpInProcessBrowserTestFixture();
-}
-
-void KeyboardLockBrowserTest::TearDownInProcessBrowserTestFixture() {
-  ContentBrowserTest::TearDownInProcessBrowserTestFixture();
-  mock_cert_verifier_.TearDownInProcessBrowserTestFixture();
 }
 
 bool KeyboardLockBrowserTest::KeyboardLockApiExists() {
@@ -331,7 +314,7 @@ void KeyboardLockBrowserTest::RequestKeyboardLock(
     const base::Location& from_here,
     bool lock_all_keys /*=true*/) {
   // keyboard.lock() is an async call which requires a promise handling dance.
-  bool result = EvalJs(web_contents()->GetPrimaryMainFrame(),
+  bool result = EvalJs(web_contents()->GetMainFrame(),
                        lock_all_keys ? kKeyboardLockMethodCallWithAllKeys
                                      : kKeyboardLockMethodCallWithSomeKeys,
                        EXECUTE_SCRIPT_USE_MANUAL_REPLY)
@@ -349,7 +332,7 @@ void KeyboardLockBrowserTest::CancelKeyboardLock(
     const base::Location& from_here) {
   // keyboard.unlock() is a synchronous call.
   ASSERT_TRUE(
-      ExecJs(web_contents()->GetPrimaryMainFrame(), kKeyboardUnlockMethodCall));
+      ExecJs(web_contents()->GetMainFrame(), kKeyboardUnlockMethodCall));
 
   ASSERT_EQ(nullptr, web_contents()->GetKeyboardLockWidget())
       << "Location: " << from_here.ToString();
@@ -358,8 +341,7 @@ void KeyboardLockBrowserTest::CancelKeyboardLock(
 }
 
 void KeyboardLockBrowserTest::EnterFullscreen(const base::Location& from_here) {
-  web_contents()->EnterFullscreenMode(web_contents()->GetPrimaryMainFrame(),
-                                      {});
+  web_contents()->EnterFullscreenMode(web_contents()->GetMainFrame(), {});
 
   ASSERT_TRUE(web_contents()->IsFullscreen())
       << "Location: " << from_here.ToString();
@@ -658,9 +640,8 @@ IN_PROC_BROWSER_TEST_F(KeyboardLockBrowserTest,
   NavigateToTestURL(https_cross_site_frame());
 
   // The first child has the same origin as the top-level domain.
-  RenderFrameHost* child_frame =
-      ChildFrameAt(web_contents()->GetPrimaryMainFrame(),
-                   /*index=*/0);
+  RenderFrameHost* child_frame = ChildFrameAt(web_contents()->GetMainFrame(),
+                                              /*index=*/0);
   ASSERT_TRUE(child_frame);
 
   ASSERT_EQ(true, EvalJs(child_frame, kKeyboardLockMethodExistanceCheck));
@@ -676,9 +657,8 @@ IN_PROC_BROWSER_TEST_F(KeyboardLockBrowserTest,
   NavigateToTestURL(https_cross_site_frame());
 
   // The second child has a different origin as the top-level domain.
-  RenderFrameHost* child_frame =
-      ChildFrameAt(web_contents()->GetPrimaryMainFrame(),
-                   /*index=*/1);
+  RenderFrameHost* child_frame = ChildFrameAt(web_contents()->GetMainFrame(),
+                                              /*index=*/1);
   ASSERT_TRUE(child_frame);
 
   ASSERT_EQ(true, EvalJs(child_frame, kKeyboardLockMethodExistanceCheck));
@@ -780,7 +760,7 @@ IN_PROC_BROWSER_TEST_F(KeyboardLockBrowserTest,
       NavigateIframeToURL(web_contents(), kChildIframeName_1, iframe_url));
   ASSERT_TRUE(web_contents()->GetRenderWidgetHostView()->IsKeyboardLocked());
 
-  RenderFrameHost* main_frame = web_contents()->GetPrimaryMainFrame();
+  RenderFrameHost* main_frame = web_contents()->GetMainFrame();
   RenderFrameHost* child = ChildFrameAt(main_frame, 1);
   ASSERT_TRUE(child);
 
@@ -816,7 +796,7 @@ IN_PROC_BROWSER_TEST_F(KeyboardLockBrowserTest,
       NavigateIframeToURL(web_contents(), kChildIframeName_2,
                           https_test_server()->GetURL(kCrossSiteChildDomain2,
                                                       kFullscreenFramePath)));
-  RenderFrameHost* main_frame = web_contents()->GetPrimaryMainFrame();
+  RenderFrameHost* main_frame = web_contents()->GetMainFrame();
   RenderFrameHost* child = ChildFrameAt(main_frame, 2);
   ASSERT_TRUE(child);
 
@@ -839,7 +819,7 @@ IN_PROC_BROWSER_TEST_F(KeyboardLockBrowserTest,
       NavigateIframeToURL(web_contents(), kChildIframeName_2,
                           https_test_server()->GetURL(kCrossSiteChildDomain2,
                                                       kFullscreenFramePath)));
-  RenderFrameHost* main_frame = web_contents()->GetPrimaryMainFrame();
+  RenderFrameHost* main_frame = web_contents()->GetMainFrame();
   RenderFrameHost* child = ChildFrameAt(main_frame, 2);
   ASSERT_TRUE(child);
 
@@ -857,7 +837,7 @@ IN_PROC_BROWSER_TEST_F(KeyboardLockBrowserTest,
   NavigateToTestURL(https_cross_site_frame());
 
   // The first child is a same-origin iframe.
-  RenderFrameHost* main_frame = web_contents()->GetPrimaryMainFrame();
+  RenderFrameHost* main_frame = web_contents()->GetMainFrame();
   RenderFrameHost* child = ChildFrameAt(main_frame, 0);
   ASSERT_TRUE(child);
 

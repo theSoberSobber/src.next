@@ -9,7 +9,6 @@
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/local_frame_client.h"
 #include "third_party/blink/renderer/core/frame/settings.h"
-#include "third_party/blink/renderer/core/frame/visual_viewport.h"
 #include "third_party/blink/renderer/core/mobile_metrics/mobile_friendliness_checker.h"
 #include "third_party/blink/renderer/core/page/chrome_client.h"
 #include "third_party/blink/renderer/core/page/page.h"
@@ -104,9 +103,10 @@ void ViewportData::UpdateViewportDescription() {
     viewport_fit_ = current_viewport_fit;
   }
 
-  if (document_->GetFrame()->IsMainFrame() &&
-      document_->GetPage()->GetVisualViewport().IsActiveViewport()) {
+  if (document_->GetFrame()->IsMainFrame()) {
     document_->GetPage()->GetChromeClient().DispatchViewportPropertiesDidChange(
+        GetViewportDescription());
+    document_->View()->GetMobileFriendlinessChecker()->NotifyViewportUpdated(
         GetViewportDescription());
   }
 }

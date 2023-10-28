@@ -1,4 +1,4 @@
-// Copyright 2014 The Chromium Authors
+// Copyright 2014 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -9,6 +9,7 @@
 #include <utility>
 
 #include "base/command_line.h"
+#include "base/cxx17_backports.h"
 #include "base/files/file_util.h"
 #include "base/path_service.h"
 #include "base/run_loop.h"
@@ -37,7 +38,9 @@
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/extension_system.h"
 #include "extensions/browser/info_map.h"
+#include "extensions/browser/media_router_extension_access_logger.h"
 #include "extensions/browser/unloaded_extension_reason.h"
+#include "extensions/common/constants.h"
 #include "extensions/common/extension.h"
 #include "extensions/common/extension_builder.h"
 #include "extensions/common/extension_paths.h"
@@ -53,6 +56,7 @@
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
+#include "third_party/blink/public/common/loader/previews_state.h"
 #include "third_party/blink/public/common/loader/referrer_utils.h"
 #include "third_party/blink/public/common/privacy_budget/identifiability_metrics.h"
 #include "third_party/blink/public/common/privacy_budget/identifiable_surface.h"
@@ -86,11 +90,10 @@ scoped_refptr<Extension> CreateTestExtension(const std::string& name,
                                              bool incognito_split_mode,
                                              const ExtensionId& extension_id) {
   base::DictionaryValue manifest;
-  manifest.SetStringKey("name", name);
-  manifest.SetStringKey("version", "1");
-  manifest.SetIntKey("manifest_version", 2);
-  manifest.SetStringKey("incognito",
-                        incognito_split_mode ? "split" : "spanning");
+  manifest.SetString("name", name);
+  manifest.SetString("version", "1");
+  manifest.SetInteger("manifest_version", 2);
+  manifest.SetString("incognito", incognito_split_mode ? "split" : "spanning");
 
   base::FilePath path = GetTestPath("response_headers");
 
@@ -153,10 +156,18 @@ network::ResourceRequest CreateResourceRequest(
       url::Origin::Create(url);  // ensure initiator set.
   request.referrer_policy = blink::ReferrerUtils::GetDefaultNetReferrerPolicy();
   request.destination = destination;
-  request.is_outermost_main_frame =
+  request.is_main_frame =
       destination == network::mojom::RequestDestination::kDocument;
   return request;
 }
+
+class MockMediaRouterExtensionAccessLogger
+    : public MediaRouterExtensionAccessLogger {
+ public:
+  ~MockMediaRouterExtensionAccessLogger() override = default;
+  MOCK_CONST_METHOD2(LogMediaRouterComponentExtensionUse,
+                     void(const url::Origin&, content::BrowserContext*));
+};
 
 // The result of either a URLRequest of a URLLoader response (but not both)
 // depending on the on test type.
@@ -165,10 +176,6 @@ class GetResult {
   GetResult(network::mojom::URLResponseHeadPtr response, int result)
       : response_(std::move(response)), result_(result) {}
   GetResult(GetResult&& other) : result_(other.result_) {}
-
-  GetResult(const GetResult&) = delete;
-  GetResult& operator=(const GetResult&) = delete;
-
   ~GetResult() = default;
 
   std::string GetResponseHeaderByName(const std::string& name) const {
@@ -183,6 +190,8 @@ class GetResult {
  private:
   network::mojom::URLResponseHeadPtr response_;
   int result_;
+
+  DISALLOW_COPY_AND_ASSIGN(GetResult);
 };
 
 }  // namespace
@@ -212,6 +221,10 @@ class ExtensionProtocolsTestBase : public testing::Test {
         browser_context(),
         std::make_unique<ChromeContentVerifierDelegate>(browser_context()));
     info_map()->SetContentVerifier(content_verifier_.get());
+
+    // Set up mocks.
+    ChromeExtensionsBrowserClient::SetMediaRouterAccessLoggerForTesting(
+        &media_router_access_logger_);
   }
 
   void TearDown() override {
@@ -219,6 +232,10 @@ class ExtensionProtocolsTestBase : public testing::Test {
     content_verifier_->Shutdown();
     // Shut down the PowerMonitor if initialized.
     base::PowerMonitor::ShutdownForTesting();
+
+    // Remove mocks.
+    ChromeExtensionsBrowserClient::SetMediaRouterAccessLoggerForTesting(
+        nullptr);
   }
 
   void SetProtocolHandler(bool is_incognito) {
@@ -243,7 +260,7 @@ class ExtensionProtocolsTestBase : public testing::Test {
 
   void RemoveExtension(const scoped_refptr<const Extension>& extension,
                        const UnloadedExtensionReason reason) {
-    info_map()->RemoveExtension(extension->id());
+    info_map()->RemoveExtension(extension->id(), reason);
     EXPECT_TRUE(extension_registry()->RemoveEnabled(extension->id()));
     if (reason == UnloadedExtensionReason::DISABLE)
       EXPECT_TRUE(extension_registry()->AddDisabled(extension));
@@ -317,6 +334,7 @@ class ExtensionProtocolsTestBase : public testing::Test {
 
  protected:
   scoped_refptr<ContentVerifier> content_verifier_;
+  StrictMock<MockMediaRouterExtensionAccessLogger> media_router_access_logger_;
 
  private:
   GetResult LoadURL(const GURL& url,
@@ -353,7 +371,7 @@ class ExtensionProtocolsTestBase : public testing::Test {
   content::WebContents* web_contents() { return contents_.get(); }
 
   content::RenderFrameHost* main_rfh() {
-    return web_contents()->GetPrimaryMainFrame();
+    return web_contents()->GetMainFrame();
   }
 
   content::BrowserTaskEnvironment task_environment_;
@@ -404,7 +422,7 @@ TEST_F(ExtensionProtocolsIncognitoTest, IncognitoRequest) {
       {"split enabled", true, true, true, false},
   };
 
-  for (size_t i = 0; i < std::size(cases); ++i) {
+  for (size_t i = 0; i < base::size(cases); ++i) {
     scoped_refptr<Extension> extension =
         CreateTestExtension(cases[i].name, cases[i].incognito_split_mode);
     AddExtension(extension, cases[i].incognito_enabled, false);
@@ -623,7 +641,6 @@ TEST_F(ExtensionProtocolsTest, VerificationSeenForFileAccessErrors) {
     EXPECT_EQ(ContentVerifyJob::NONE, observer.WaitForJobFinished());
   }
 
-#if !BUILDFLAG(IS_FUCHSIA)  // Fuchsia does not support file permissions.
   // chmod -r 1024.js.
   {
     TestContentVerifySingleJobObserver observer(extension_id, kRelativePath);
@@ -637,7 +654,6 @@ TEST_F(ExtensionProtocolsTest, VerificationSeenForFileAccessErrors) {
     // TODO(lazyboy): We may want to update this to more closely reflect the
     // real flow.
   }
-#endif  // !BUILDFLAG(IS_FUCHSIA)
 
   // Delete 1024.js.
   {
@@ -686,19 +702,18 @@ TEST_F(ExtensionProtocolsTest, VerificationSeenForZeroByteFile) {
     EXPECT_EQ(ContentVerifyJob::NONE, observer.WaitForJobFinished());
   }
 
-#if !BUILDFLAG(IS_FUCHSIA)  // Fuchsia does not support file permissions.
   // chmod -r empty.js.
   // Unreadable empty file doesn't generate hash mismatch. Note that this is the
   // current behavior of ContentVerifyJob.
   // TODO(lazyboy): The behavior is probably incorrect.
   {
     TestContentVerifySingleJobObserver observer(extension_id, kRelativePath);
+    base::FilePath file_path = unzipped_path.AppendASCII(kEmptyJs);
     ASSERT_TRUE(base::MakeFileUnreadable(file_path));
     EXPECT_EQ(net::ERR_ACCESS_DENIED,
               DoRequestOrLoad(extension, kEmptyJs).result());
     EXPECT_EQ(ContentVerifyJob::NONE, observer.WaitForJobFinished());
   }
-#endif  // !BUILDFLAG(IS_FUCHSIA)
 
   // rm empty.js.
   // Deleted empty file doesn't generate hash mismatch. Note that this is the
@@ -706,6 +721,7 @@ TEST_F(ExtensionProtocolsTest, VerificationSeenForZeroByteFile) {
   // TODO(lazyboy): The behavior is probably incorrect.
   {
     TestContentVerifySingleJobObserver observer(extension_id, kRelativePath);
+    base::FilePath file_path = unzipped_path.AppendASCII(kEmptyJs);
     ASSERT_TRUE(base::DieFileDie(file_path, false));
     EXPECT_EQ(net::ERR_FILE_NOT_FOUND,
               DoRequestOrLoad(extension, kEmptyJs).result());
@@ -842,6 +858,20 @@ TEST_F(ExtensionProtocolsTest, ExtensionRequestsNotAborted) {
   // Request the background.js file. Ensure the request completes successfully.
   EXPECT_EQ(net::OK,
             DoRequestOrLoad(extension.get(), "background.js").result());
+}
+
+TEST_F(ExtensionProtocolsTest, MetricGeneratedForReleaseCastExtension) {
+  ExtensionId extension_id(extension_misc::kCastExtensionIdRelease);
+  EXPECT_CALL(media_router_access_logger_,
+              LogMediaRouterComponentExtensionUse(_, _));
+  AddExtensionAndPerformResourceLoad(extension_id);
+}
+
+TEST_F(ExtensionProtocolsTest, MetricGeneratedForDevCastExtension) {
+  ExtensionId extension_id(extension_misc::kCastExtensionIdDev);
+  EXPECT_CALL(media_router_access_logger_,
+              LogMediaRouterComponentExtensionUse(_, _));
+  AddExtensionAndPerformResourceLoad(extension_id);
 }
 
 }  // namespace extensions

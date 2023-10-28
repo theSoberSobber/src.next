@@ -8,7 +8,7 @@
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/core/scroll/scroll_types.h"
-#include "third_party/blink/renderer/platform/heap/garbage_collected.h"
+#include "third_party/blink/renderer/platform/heap/handle.h"
 
 namespace blink {
 
@@ -40,7 +40,7 @@ class CORE_EXPORT ResizeViewportAnchor final
     ResizeViewportAnchor* anchor_;
   };
 
-  void ResizeFrameView(const gfx::Size&);
+  void ResizeFrameView(const IntSize&);
 
   void Trace(Visitor* visitor) const { visitor->Trace(page_); }
 

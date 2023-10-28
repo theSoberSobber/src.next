@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -17,7 +17,6 @@
 #include "base/trace_event/trace_event.h"
 #include "base/values.h"
 #include "chrome/browser/browser_process.h"
-#include "chrome/browser/extensions/corrupted_extension_reinstaller.h"
 #include "chrome/browser/extensions/extension_management.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/extension_util.h"
@@ -28,7 +27,6 @@
 #include "chrome/common/extensions/chrome_manifest_url_handlers.h"
 #include "chrome/common/extensions/manifest_handlers/settings_overrides_handler.h"
 #include "chrome/common/webui_url_constants.h"
-#include "components/safe_browsing/core/common/safe_browsing_prefs.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/common/url_constants.h"
@@ -97,15 +95,18 @@ enum ExternalItemState {
   EXTERNAL_ITEM_MAX_ITEMS
 };
 
-bool IsManifestCorrupt(const base::DictionaryValue& manifest) {
+bool IsManifestCorrupt(const base::DictionaryValue* manifest) {
+  if (!manifest)
+    return false;
+
   // Because of bug #272524 sometimes manifests got mangled in the preferences
   // file, one particularly bad case resulting in having both a background page
   // and background scripts values. In those situations we want to reload the
   // manifest from the extension to fix this.
   const base::Value* background_page;
   const base::Value* background_scripts;
-  return manifest.Get(manifest_keys::kBackgroundPage, &background_page) &&
-         manifest.Get(manifest_keys::kBackgroundScripts, &background_scripts);
+  return manifest->Get(manifest_keys::kBackgroundPage, &background_page) &&
+      manifest->Get(manifest_keys::kBackgroundScripts, &background_scripts);
 }
 
 ManifestReloadReason ShouldReloadExtensionManifest(const ExtensionInfo& info) {
@@ -114,16 +115,13 @@ ManifestReloadReason ShouldReloadExtensionManifest(const ExtensionInfo& info) {
   if (Manifest::IsUnpackedLocation(info.extension_location))
     return UNPACKED_DIR;
 
-  if (!info.extension_manifest)
-    return NOT_NEEDED;
-
   // Reload the manifest if it needs to be relocalized.
   if (extension_l10n_util::ShouldRelocalizeManifest(
-          info.extension_manifest->GetDict()))
+          info.extension_manifest.get()))
     return NEEDS_RELOCALIZATION;
 
   // Reload if the copy of the manifest in the preferences is corrupt.
-  if (IsManifestCorrupt(*info.extension_manifest))
+  if (IsManifestCorrupt(info.extension_manifest.get()))
     return CORRUPT_PREFERENCES;
 
   return NOT_NEEDED;
@@ -319,26 +317,27 @@ void InstalledLoader::Load(const ExtensionInfo& info, bool write_to_prefs) {
     }
 
     if ((disable_reasons & disable_reason::DISABLE_CORRUPTED)) {
-      CorruptedExtensionReinstaller* corrupted_extension_reinstaller =
-          extension_service_->corrupted_extension_reinstaller();
+      PendingExtensionManager* pending_manager =
+          extension_service_->pending_extension_manager();
       if (policy->MustRemainEnabled(extension.get(), nullptr)) {
         // This extension must have been disabled due to corruption on a
         // previous run of chrome, and for some reason we weren't successful in
-        // auto-reinstalling it. So we want to notify the reinstaller that we'd
-        // still like to keep attempt to re-download and reinstall it whenever
-        // the ExtensionService checks for external updates.
+        // auto-reinstalling it. So we want to notify the
+        // PendingExtensionManager that we'd still like to keep attempt to
+        // re-download and reinstall it whenever the ExtensionService checks for
+        // external updates.
         LOG(ERROR) << "Expecting reinstall for extension id: "
                    << extension->id()
                    << " due to corruption detected in prior session.";
-        corrupted_extension_reinstaller->ExpectReinstallForCorruption(
+        pending_manager->ExpectReinstallForCorruption(
             extension->id(),
-            CorruptedExtensionReinstaller::PolicyReinstallReason::
+            PendingExtensionManager::PolicyReinstallReason::
                 CORRUPTION_DETECTED_IN_PRIOR_SESSION,
             extension->location());
       } else if (extension->from_webstore()) {
         // Non-policy extensions are repaired on startup. Add any corrupted
-        // user-installed extensions to the reinstaller as well.
-        corrupted_extension_reinstaller->ExpectReinstallForCorruption(
+        // user-installed extensions to the PendingExtensionManager as well.
+        pending_manager->ExpectReinstallForCorruption(
             extension->id(), absl::nullopt, extension->location());
       }
     }
@@ -402,9 +401,9 @@ void InstalledLoader::LoadAllExtensions() {
         continue;
       }
 
-      extensions_info->at(i)->extension_manifest =
-          base::DictionaryValue::From(base::Value::ToUniquePtrValue(
-              extension->manifest()->value()->Clone()));
+      extensions_info->at(i)->extension_manifest.reset(
+          static_cast<base::DictionaryValue*>(
+              extension->manifest()->value()->DeepCopy()));
       should_write_prefs = true;
     }
   }
@@ -632,9 +631,9 @@ void InstalledLoader::RecordExtensionsMetrics() {
     // we want to know how many extensions have a given type of action as part
     // of their code, rather than as part of the extension action redesign
     // (which gives each extension an action).
-    if (extension->manifest()->FindKey(manifest_keys::kPageAction))
+    if (extension->manifest()->HasKey(manifest_keys::kPageAction))
       ++page_action_count;
-    else if (extension->manifest()->FindKey(manifest_keys::kBrowserAction))
+    else if (extension->manifest()->HasKey(manifest_keys::kBrowserAction))
       ++browser_action_count;
     else
       ++no_action_count;

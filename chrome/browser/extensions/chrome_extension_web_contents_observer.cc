@@ -1,4 +1,4 @@
-// Copyright 2014 The Chromium Authors
+// Copyright 2014 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -34,9 +34,7 @@ namespace extensions {
 
 ChromeExtensionWebContentsObserver::ChromeExtensionWebContentsObserver(
     content::WebContents* web_contents)
-    : ExtensionWebContentsObserver(web_contents),
-      content::WebContentsUserData<ChromeExtensionWebContentsObserver>(
-          *web_contents) {}
+    : ExtensionWebContentsObserver(web_contents) {}
 
 ChromeExtensionWebContentsObserver::~ChromeExtensionWebContentsObserver() {}
 
@@ -145,8 +143,8 @@ void ChromeExtensionWebContentsObserver::InitializeRenderFrame(
   ExtensionWebContentsObserver::InitializeRenderFrame(render_frame_host);
   WindowController* controller = dispatcher()->GetExtensionWindowController();
   if (controller) {
-    GetLocalFrame(render_frame_host)
-        ->UpdateBrowserWindowId(controller->GetWindowId());
+    render_frame_host->Send(new ExtensionMsg_UpdateBrowserWindowId(
+        render_frame_host->GetRoutingID(), controller->GetWindowId()));
   }
 }
 
@@ -169,6 +167,6 @@ void ChromeExtensionWebContentsObserver::ReloadIfTerminated(
   }
 }
 
-WEB_CONTENTS_USER_DATA_KEY_IMPL(ChromeExtensionWebContentsObserver);
+WEB_CONTENTS_USER_DATA_KEY_IMPL(ChromeExtensionWebContentsObserver)
 
 }  // namespace extensions

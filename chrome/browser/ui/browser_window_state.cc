@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -9,6 +9,7 @@
 #include <utility>
 
 #include "base/command_line.h"
+#include "base/macros.h"
 #include "base/strings/string_number_conversions.h"
 #include "build/chromeos_buildflags.h"
 #include "chrome/browser/buildflags.h"
@@ -55,24 +56,23 @@ class WindowPlacementPrefUpdate : public DictionaryPrefUpdate {
       : DictionaryPrefUpdate(service, prefs::kAppWindowPlacement),
         window_name_(window_name) {}
 
-  WindowPlacementPrefUpdate(const WindowPlacementPrefUpdate&) = delete;
-  WindowPlacementPrefUpdate& operator=(const WindowPlacementPrefUpdate&) =
-      delete;
-
   ~WindowPlacementPrefUpdate() override {}
 
-  base::Value* Get() override {
-    base::Value* all_apps_dict = DictionaryPrefUpdate::Get();
-    base::Value* this_app_dict = all_apps_dict->FindDictPath(window_name_);
-    if (!this_app_dict) {
-      this_app_dict = all_apps_dict->SetPath(
-          window_name_, base::Value(base::Value::Type::DICTIONARY));
+  base::DictionaryValue* Get() override {
+    base::DictionaryValue* all_apps_dict = DictionaryPrefUpdate::Get();
+    base::DictionaryValue* this_app_dict_weak = nullptr;
+    if (!all_apps_dict->GetDictionary(window_name_, &this_app_dict_weak)) {
+      auto this_app_dict = std::make_unique<base::DictionaryValue>();
+      this_app_dict_weak = this_app_dict.get();
+      all_apps_dict->Set(window_name_, std::move(this_app_dict));
     }
-    return this_app_dict;
+    return this_app_dict_weak;
   }
 
  private:
   const std::string window_name_;
+
+  DISALLOW_COPY_AND_ASSIGN(WindowPlacementPrefUpdate);
 };
 
 }  // namespace
@@ -85,7 +85,6 @@ std::string GetWindowName(const Browser* browser) {
 #endif
       return prefs::kBrowserWindowPlacement;
     case Browser::TYPE_POPUP:
-    case Browser::TYPE_PICTURE_IN_PICTURE:
       return prefs::kBrowserWindowPlacementPopup;
     case Browser::TYPE_APP:
     case Browser::TYPE_DEVTOOLS:
@@ -103,27 +102,31 @@ std::unique_ptr<DictionaryPrefUpdate> GetWindowPlacementDictionaryReadWrite(
   if (prefs->FindPreference(window_name)) {
     return std::make_unique<DictionaryPrefUpdate>(prefs, window_name);
   }
-  return std::make_unique<WindowPlacementPrefUpdate>(prefs, window_name);
+  return std::unique_ptr<DictionaryPrefUpdate>(
+      new WindowPlacementPrefUpdate(prefs, window_name));
 }
 
-const base::Value::Dict* GetWindowPlacementDictionaryReadOnly(
+const base::DictionaryValue* GetWindowPlacementDictionaryReadOnly(
     const std::string& window_name,
     PrefService* prefs) {
   DCHECK(!window_name.empty());
   if (prefs->FindPreference(window_name))
-    return &prefs->GetDict(window_name);
+    return prefs->GetDictionary(window_name);
 
-  const base::Value::Dict& app_windows =
-      prefs->GetDict(prefs::kAppWindowPlacement);
-  return app_windows.FindDict(window_name);
+  const base::DictionaryValue* app_windows =
+      prefs->GetDictionary(prefs::kAppWindowPlacement);
+  if (!app_windows)
+    return nullptr;
+  const base::DictionaryValue* to_return = nullptr;
+  app_windows->GetDictionary(window_name, &to_return);
+  return to_return;
 }
 
 bool ShouldSaveWindowPlacement(const Browser* browser) {
-  // Never track app windows that do not have a trusted source (i.e. windows
-  // spawned by an app).  See similar code in
-  // SessionServiceBase::ShouldTrackBrowser().
-  return !(browser->is_type_app() || browser->is_type_app_popup()) ||
-         browser->is_trusted_source();
+  // Never track app popup windows that do not have a trusted source (i.e.
+  // popup windows spawned by an app).  See similar code in
+  // SessionService::ShouldTrackBrowser().
+  return !browser->deprecated_is_app() || browser->is_trusted_source();
 }
 
 bool SavedBoundsAreContentBounds(const Browser* browser) {

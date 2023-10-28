@@ -25,7 +25,6 @@
 
 #include "third_party/blink/renderer/core/dom/scripted_animation_controller.h"
 
-#include "third_party/blink/public/mojom/frame/lifecycle.mojom-blink.h"
 #include "third_party/blink/renderer/core/css/media_query_list_listener.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/events/event.h"
@@ -35,7 +34,6 @@
 #include "third_party/blink/renderer/core/inspector/inspector_trace_events.h"
 #include "third_party/blink/renderer/core/loader/document_loader.h"
 #include "third_party/blink/renderer/core/page/page.h"
-#include "third_party/blink/renderer/core/page/page_animator.h"
 #include "third_party/blink/renderer/core/probe/core_probes.h"
 
 namespace blink {
@@ -82,15 +80,13 @@ void ScriptedAnimationController::ContextLifecycleStateChanged(
 }
 
 void ScriptedAnimationController::DispatchEventsAndCallbacksForPrinting() {
-  DispatchEvents([](const Event* event) {
-    return event->InterfaceName() ==
-           event_interface_names::kMediaQueryListEvent;
-  });
+  DispatchEvents(event_interface_names::kMediaQueryListEvent);
   CallMediaQueryListListeners();
 }
 
 void ScriptedAnimationController::ScheduleVideoFrameCallbacksExecution(
     ExecuteVfcCallback execute_vfc_callback) {
+  DCHECK(RuntimeEnabledFeatures::RequestVideoFrameCallbackEnabled());
   vfc_execution_queue_.push_back(std::move(execute_vfc_callback));
   ScheduleAnimationIfNeeded();
 }
@@ -118,15 +114,16 @@ void ScriptedAnimationController::RunTasks() {
     std::move(task).Run();
 }
 
-void ScriptedAnimationController::DispatchEvents(const DispatchFilter& filter) {
+void ScriptedAnimationController::DispatchEvents(
+    const AtomicString& event_interface_filter) {
   HeapVector<Member<Event>> events;
-  if (!filter.has_value()) {
+  if (event_interface_filter.IsEmpty()) {
     events.swap(event_queue_);
     per_frame_events_.clear();
   } else {
     HeapVector<Member<Event>> remaining;
     for (auto& event : event_queue_) {
-      if (event && filter.value()(event)) {
+      if (event && event->InterfaceName() == event_interface_filter) {
         EraseFromPerFrameEventsMap(event.Get());
         events.push_back(event.Release());
       } else {
@@ -143,7 +140,7 @@ void ScriptedAnimationController::DispatchEvents(const DispatchFilter& filter) {
     // FIXME: We should not fire events for nodes that are no longer in the
     // tree.
     probe::AsyncTask async_task(event_target->GetExecutionContext(),
-                                event->async_task_context());
+                                event->async_task_id());
     if (LocalDOMWindow* window = event_target->ToLocalDOMWindow())
       window->DispatchEvent(*event, nullptr);
     else
@@ -195,20 +192,12 @@ PageAnimator* ScriptedAnimationController::GetPageAnimator() {
 }
 
 void ScriptedAnimationController::ServiceScriptedAnimations(
-    base::TimeTicks monotonic_time_now,
-    bool can_throttle) {
+    base::TimeTicks monotonic_time_now) {
   if (!GetExecutionContext() || GetExecutionContext()->IsContextPaused())
     return;
   auto* loader = GetWindow()->document()->Loader();
   if (!loader)
     return;
-
-  if (can_throttle) {
-    DispatchEvents([](const Event* event) {
-      return event->type() == event_type_names::kResize;
-    });
-    return;
-  }
 
   current_frame_time_ms_ =
       loader->GetTiming()
@@ -224,9 +213,6 @@ void ScriptedAnimationController::ServiceScriptedAnimations(
 
   if (!HasScheduledFrameTasks())
     return;
-
-  // https://gpuweb.github.io/gpuweb/#abstract-opdef-expire-stale-external-textures
-  WebGPUCheckStateToExpireVideoFrame();
 
   // https://html.spec.whatwg.org/C/#update-the-rendering
 
@@ -254,9 +240,11 @@ void ScriptedAnimationController::ServiceScriptedAnimations(
   // steps for that Document, passing in now as the timestamp.
   RunTasks();
 
-  // Run the fulfilled HTMLVideoELement.requestVideoFrameCallback() callbacks.
-  // See https://wicg.github.io/video-rvfc/.
-  ExecuteVideoFrameCallbacks();
+  if (RuntimeEnabledFeatures::RequestVideoFrameCallbackEnabled()) {
+    // Run the fulfilled HTMLVideoELement.requestVideoFrameCallback() callbacks.
+    // See https://wicg.github.io/video-rvfc/.
+    ExecuteVideoFrameCallbacks();
+  }
 
   // 10.11. For each fully active Document in docs, run the animation
   // frame callbacks for that Document, passing in now as the timestamp.
@@ -275,8 +263,8 @@ void ScriptedAnimationController::EnqueueTask(base::OnceClosure task) {
 }
 
 void ScriptedAnimationController::EnqueueEvent(Event* event) {
-  event->async_task_context()->Schedule(event->target()->GetExecutionContext(),
-                                        event->type());
+  probe::AsyncTaskScheduled(event->target()->GetExecutionContext(),
+                            event->type(), event->async_task_id());
   event_queue_.push_back(event);
   ScheduleAnimationIfNeeded();
 }
@@ -316,25 +304,6 @@ void ScriptedAnimationController::ScheduleAnimationIfNeeded() {
 
 LocalDOMWindow* ScriptedAnimationController::GetWindow() const {
   return To<LocalDOMWindow>(GetExecutionContext());
-}
-
-void ScriptedAnimationController::WebGPURegisterVideoFrameStateCallback(
-    WebGPUVideoFrameStateCallback webgpu_video_frame_state_callback) {
-  webgpu_video_frame_state_callbacks_.push_back(
-      std::move(webgpu_video_frame_state_callback));
-}
-
-// If a callback |IsCancelled| or returns false, remove that callback
-// from the list. Otherwise, keep it to be checked again later.
-void ScriptedAnimationController::WebGPUCheckStateToExpireVideoFrame() {
-  for (auto* it = webgpu_video_frame_state_callbacks_.begin();
-       it != webgpu_video_frame_state_callbacks_.end();) {
-    if (it->IsCancelled() || !it->Run()) {
-      it = webgpu_video_frame_state_callbacks_.erase(it);
-    } else {
-      ++it;
-    }
-  }
 }
 
 }  // namespace blink

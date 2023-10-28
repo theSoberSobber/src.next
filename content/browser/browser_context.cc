@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -18,11 +18,14 @@
 #include "base/bind.h"
 #include "base/check_op.h"
 #include "base/command_line.h"
+#include "base/containers/contains.h"
 #include "base/files/file_path.h"
 #include "base/lazy_instance.h"
+#include "base/macros.h"
 #include "base/memory/ptr_util.h"
 #include "base/memory/weak_ptr.h"
 #include "base/metrics/field_trial_params.h"
+#include "base/no_destructor.h"
 #include "base/notreached.h"
 #include "base/threading/sequenced_task_runner_handle.h"
 #include "base/threading/thread_task_runner_handle.h"
@@ -30,13 +33,11 @@
 #include "base/unguessable_token.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
-#include "components/services/storage/privileged/mojom/indexed_db_control.mojom.h"
 #include "content/browser/blob_storage/chrome_blob_storage_context.h"
 #include "content/browser/browser_context_impl.h"
 #include "content/browser/child_process_security_policy_impl.h"
 #include "content/browser/media/browser_feature_provider.h"
 #include "content/browser/push_messaging/push_messaging_router.h"
-#include "content/browser/site_info.h"
 #include "content/browser/storage_partition_impl_map.h"
 #include "content/common/child_process_host_impl.h"
 #include "content/public/browser/blob_handle.h"
@@ -54,7 +55,6 @@
 #include "media/capabilities/in_memory_video_decode_stats_db_impl.h"
 #include "media/capabilities/video_decode_stats_db_impl.h"
 #include "media/mojo/services/video_decode_perf_history.h"
-#include "media/mojo/services/webrtc_video_perf_history.h"
 #include "storage/browser/blob/blob_storage_context.h"
 #include "storage/browser/database/database_tracker.h"
 #include "storage/browser/file_system/external_mount_points.h"
@@ -69,6 +69,10 @@ namespace {
 using perfetto::protos::pbzero::ChromeBrowserContext;
 using perfetto::protos::pbzero::ChromeTrackEvent;
 
+void SaveSessionStateOnIOThread(AppCacheServiceImpl* appcache_service) {
+  appcache_service->set_force_keep_session_state();
+}
+
 base::WeakPtr<storage::BlobStorageContext> BlobStorageContextGetterForBrowser(
     scoped_refptr<ChromeBlobStorageContext> blob_context) {
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
@@ -78,7 +82,7 @@ base::WeakPtr<storage::BlobStorageContext> BlobStorageContextGetterForBrowser(
 }  // namespace
 
 BrowserContext::BrowserContext() {
-  impl_ = base::WrapUnique(new BrowserContextImpl(this));
+  impl_ = std::make_unique<Impl>(this);
   TRACE_EVENT("shutdown", "BrowserContext::BrowserContext",
               ChromeTrackEvent::kChromeBrowserContext, *this);
   TRACE_EVENT_BEGIN("shutdown", "Browser.BrowserContext",
@@ -121,9 +125,11 @@ StoragePartition* BrowserContext::GetStoragePartition(
   if (site_instance)
     DCHECK_EQ(this, site_instance->GetBrowserContext());
 
-  auto partition_config = site_instance
-                              ? site_instance->GetStoragePartitionConfig()
-                              : StoragePartitionConfig::CreateDefault(this);
+  auto* site_instance_impl = static_cast<SiteInstanceImpl*>(site_instance);
+  auto partition_config =
+      site_instance_impl
+          ? site_instance_impl->GetSiteInfo().GetStoragePartitionConfig(this)
+          : StoragePartitionConfig::CreateDefault(this);
   return GetStoragePartition(partition_config, can_create);
 }
 
@@ -157,15 +163,6 @@ void BrowserContext::ForEachStoragePartition(
   partition_map->ForEach(std::move(callback));
 }
 
-void BrowserContext::DisposeStoragePartition(
-    StoragePartition* storage_partition) {
-  StoragePartitionImplMap* partition_map = impl()->storage_partition_map();
-  if (!partition_map)
-    return;
-
-  partition_map->DisposeInMemory(storage_partition);
-}
-
 size_t BrowserContext::GetStoragePartitionCount() {
   StoragePartitionImplMap* partition_map = impl()->storage_partition_map();
   return partition_map ? partition_map->size() : 0;
@@ -173,14 +170,13 @@ size_t BrowserContext::GetStoragePartitionCount() {
 
 void BrowserContext::AsyncObliterateStoragePartition(
     const std::string& partition_domain,
-    base::OnceClosure on_gc_required,
-    base::OnceClosure done_callback) {
+    base::OnceClosure on_gc_required) {
   impl()->GetOrCreateStoragePartitionMap()->AsyncObliterate(
-      partition_domain, std::move(on_gc_required), std::move(done_callback));
+      partition_domain, std::move(on_gc_required));
 }
 
 void BrowserContext::GarbageCollectStoragePartitions(
-    std::unordered_set<base::FilePath> active_paths,
+    std::unique_ptr<std::unordered_set<base::FilePath>> active_paths,
     base::OnceClosure done) {
   impl()->GetOrCreateStoragePartitionMap()->GarbageCollect(
       std::move(active_paths), std::move(done));
@@ -268,6 +264,16 @@ void BrowserContext::SaveSessionState() {
       base::BindOnce(&storage::DatabaseTracker::SetForceKeepSessionState,
                      base::WrapRefCounted(database_tracker)));
 
+  if (BrowserThread::IsThreadInitialized(BrowserThread::IO)) {
+    auto* appcache_service = static_cast<AppCacheServiceImpl*>(
+        storage_partition->GetAppCacheService());
+    if (appcache_service) {
+      GetIOThreadTaskRunner({})->PostTask(
+          FROM_HERE,
+          base::BindOnce(&SaveSessionStateOnIOThread, appcache_service));
+    }
+  }
+
   storage_partition->GetCookieManagerForBrowserProcess()
       ->SetForceKeepSessionState();
 
@@ -313,10 +319,6 @@ media::VideoDecodePerfHistory* BrowserContext::GetVideoDecodePerfHistory() {
   return impl()->GetVideoDecodePerfHistory();
 }
 
-media::WebrtcVideoPerfHistory* BrowserContext::GetWebrtcVideoPerfHistory() {
-  return impl()->GetWebrtcVideoPerfHistory();
-}
-
 media::learning::LearningSession* BrowserContext::GetLearningSession() {
   return impl()->GetLearningSession();
 }
@@ -331,9 +333,19 @@ std::string BrowserContext::CreateRandomMediaDeviceIDSalt() {
   return base::UnguessableToken::Create().ToString();
 }
 
+void BrowserContext::WriteIntoTrace(perfetto::TracedValue context) {
+  auto dict = std::move(context).WriteDictionary();
+
+  // `impl()` is destroyed by the destuctor of BrowserContext and might not
+  // exist when producing traces from underneath the destructor.
+  if (impl())
+    dict.Add("id", impl()->UniqueId());
+}
+
 void BrowserContext::WriteIntoTrace(
-    perfetto::TracedProto<ChromeBrowserContext> proto) const {
-  perfetto::WriteIntoTracedProto(std::move(proto), impl());
+    perfetto::TracedProto<ChromeBrowserContext> proto) {
+  if (impl())
+    proto->set_id(impl()->UniqueId());
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -391,23 +403,13 @@ BrowserContext::CreateVideoDecodePerfHistory() {
       std::move(stats_db), BrowserFeatureProvider::GetFactoryCB());
 }
 
-FederatedIdentityApiPermissionContextDelegate*
-BrowserContext::GetFederatedIdentityApiPermissionContext() {
-  return nullptr;
-}
-
-FederatedIdentityActiveSessionPermissionContextDelegate*
-BrowserContext::GetFederatedIdentityActiveSessionPermissionContext() {
+FederatedIdentityRequestPermissionContextDelegate*
+BrowserContext::GetFederatedIdentityRequestPermissionContext() {
   return nullptr;
 }
 
 FederatedIdentitySharingPermissionContextDelegate*
 BrowserContext::GetFederatedIdentitySharingPermissionContext() {
-  return nullptr;
-}
-
-std::unique_ptr<KAnonymityServiceDelegate>
-BrowserContext::CreateKAnonymityServiceDelegate() {
   return nullptr;
 }
 

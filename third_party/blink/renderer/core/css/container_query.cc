@@ -3,26 +3,41 @@
 // found in the LICENSE file.
 
 #include "third_party/blink/renderer/core/css/container_query.h"
-#include "third_party/blink/renderer/core/style/computed_style_constants.h"
+#include "third_party/blink/renderer/core/css/media_query_exp.h"
 
 namespace blink {
 
-ContainerQuery::ContainerQuery(ContainerSelector selector,
-                               const MediaQueryExpNode* query)
-    : selector_(std::move(selector)), query_(query) {}
+namespace {
 
-ContainerQuery::ContainerQuery(const ContainerQuery& other)
-    : selector_(other.selector_), query_(other.query_) {}
+PhysicalAxes ComputeQueriedAxes(const MediaQuerySet& media_queries) {
+  PhysicalAxes axes(kPhysicalAxisNone);
 
-String ContainerQuery::ToString() const {
-  return query_->Serialize();
+  for (const auto& media_query : media_queries.QueryVector()) {
+    for (const auto& expression : media_query->Expressions()) {
+      if (expression.IsWidthDependent())
+        axes |= PhysicalAxes(kPhysicalAxisHorizontal);
+      if (expression.IsHeightDependent())
+        axes |= PhysicalAxes(kPhysicalAxisVertical);
+    }
+  }
+
+  return axes;
 }
 
-ContainerQuery* ContainerQuery::CopyWithParent(
-    const ContainerQuery* parent) const {
-  ContainerQuery* copy = MakeGarbageCollected<ContainerQuery>(*this);
-  copy->parent_ = parent;
-  return copy;
+}  // namespace
+
+ContainerQuery::ContainerQuery(const AtomicString& name,
+                               scoped_refptr<MediaQuerySet> media_queries)
+    : name_(name),
+      media_queries_(media_queries),
+      queried_axes_(ComputeQueriedAxes(*media_queries)) {}
+
+ContainerQuery::ContainerQuery(const ContainerQuery& other)
+    : media_queries_(other.media_queries_->Copy()),
+      queried_axes_(other.queried_axes_) {}
+
+String ContainerQuery::ToString() const {
+  return media_queries_->MediaText();
 }
 
 }  // namespace blink

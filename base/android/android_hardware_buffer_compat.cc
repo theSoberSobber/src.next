@@ -1,4 +1,4 @@
-// Copyright 2017 The Chromium Authors
+// Copyright 2017 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -76,11 +76,6 @@ void AndroidHardwareBufferCompat::Allocate(const AHardwareBuffer_Desc* desc,
 
 void AndroidHardwareBufferCompat::Acquire(AHardwareBuffer* buffer) {
   DCHECK(IsSupportAvailable());
-
-  // Null |buffer| is not allowed by |acquire_| and it fails somewhere in
-  // android framework code. Hence adding a DCHECK here for documenting this
-  // info and fail before.
-  DCHECK(buffer);
   acquire_(buffer);
 }
 

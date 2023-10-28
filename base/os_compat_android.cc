@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -8,7 +8,6 @@
 #include <errno.h>
 #include <limits.h>
 #include <math.h>
-#include <sys/stat.h>
 #include <sys/syscall.h>
 #include <unistd.h>
 #include "base/strings/string_util.h"
@@ -18,7 +17,6 @@
 #endif
 
 #include "base/files/file.h"
-#include "base/numerics/safe_conversions.h"
 #include "base/rand_util.h"
 #include "base/strings/string_piece.h"
 
@@ -26,8 +24,8 @@ extern "C" {
 // There is no futimes() avaiable in Bionic, so we provide our own
 // implementation until it is there.
 int futimes(int fd, const struct timeval tv[2]) {
-  if (tv == nullptr)
-    return base::checked_cast<int>(syscall(__NR_utimensat, fd, NULL, NULL, 0));
+  if (tv == NULL)
+    return syscall(__NR_utimensat, fd, NULL, NULL, 0);
 
   if (tv[0].tv_usec < 0 || tv[0].tv_usec >= 1000000 ||
       tv[1].tv_usec < 0 || tv[1].tv_usec >= 1000000) {
@@ -41,7 +39,7 @@ int futimes(int fd, const struct timeval tv[2]) {
   ts[0].tv_nsec = tv[0].tv_usec * 1000;
   ts[1].tv_sec = tv[1].tv_sec;
   ts[1].tv_nsec = tv[1].tv_usec * 1000;
-  return base::checked_cast<int>(syscall(__NR_utimensat, fd, NULL, ts, 0));
+  return syscall(__NR_utimensat, fd, NULL, ts, 0);
 }
 
 #if !defined(__LP64__)
@@ -54,7 +52,7 @@ time_t timegm(struct tm* const t) {
   time64_t result = timegm64(t);
   if (result < kTimeMin || result > kTimeMax)
     return -1;
-  return static_cast<time_t>(result);
+  return result;
 }
 #endif
 
@@ -121,11 +119,11 @@ char* mkdtemp(char* path) {
     return nullptr;
   }
 
-  const size_t path_len = strlen(path);
+  const int path_len = strlen(path);
 
   // The last six characters of 'path' must be XXXXXX.
   const base::StringPiece kSuffix("XXXXXX");
-  const size_t kSuffixLen = kSuffix.length();
+  const int kSuffixLen = kSuffix.length();
   if (!base::EndsWith(base::StringPiece(path, path_len), kSuffix)) {
     errno = EINVAL;
     return nullptr;
@@ -157,7 +155,7 @@ char* mkdtemp(char* path) {
   // number of tries.
   for (int i = 0; i < kMaxTries; ++i) {
     // Fill the suffix XXXXXX with a random string composed of a-z chars.
-    for (size_t pos = 0; pos < kSuffixLen; ++pos) {
+    for (int pos = 0; pos < kSuffixLen; ++pos) {
       char rand_char = static_cast<char>(base::RandInt('a', 'z'));
       path[path_len - kSuffixLen + pos] = rand_char;
     }

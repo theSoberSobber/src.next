@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,8 +7,9 @@
 #include <algorithm>
 #include <utility>
 
-#include "base/strings/escape.h"
 #include "base/strings/stringprintf.h"
+#include "net/base/escape.h"
+
 
 namespace net {
 
@@ -39,7 +40,7 @@ void ViewCacheHelper::HexDump(const char *buf, size_t buf_len,
     p = (const unsigned char *) buf;
     for (i = 0; i < row_max; ++i, ++p) {
       if (*p < 0x7F && *p > 0x1F) {
-        base::AppendEscapedCharForHTML(*p, result);
+        AppendEscapedCharForHTML(*p, result);
       } else {
         result->push_back('.');
       }

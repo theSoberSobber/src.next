@@ -1,14 +1,12 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include "net/http/http_basic_stream.h"
 
-#include <set>
 #include <utility>
 
 #include "base/bind.h"
-#include "net/http/http_network_session.h"
 #include "net/http/http_raw_request_headers.h"
 #include "net/http/http_request_info.h"
 #include "net/http/http_response_body_drainer.h"
@@ -25,18 +23,13 @@ HttpBasicStream::HttpBasicStream(std::unique_ptr<ClientSocketHandle> connection,
 
 HttpBasicStream::~HttpBasicStream() = default;
 
-void HttpBasicStream::RegisterRequest(const HttpRequestInfo* request_info) {
-  DCHECK(request_info);
-  DCHECK(request_info->traffic_annotation.is_valid());
-  request_info_ = request_info;
-}
-
-int HttpBasicStream::InitializeStream(bool can_send_early,
+int HttpBasicStream::InitializeStream(const HttpRequestInfo* request_info,
+                                      bool can_send_early,
                                       RequestPriority priority,
                                       const NetLogWithSource& net_log,
                                       CompletionOnceCallback callback) {
-  DCHECK(request_info_);
-  state_.Initialize(request_info_, priority, net_log);
+  DCHECK(request_info->traffic_annotation.is_valid());
+  state_.Initialize(request_info, priority, net_log);
   int ret = OK;
   if (!can_send_early) {
     // parser() cannot outlive |this|, so we can use base::Unretained().
@@ -44,8 +37,6 @@ int HttpBasicStream::InitializeStream(bool can_send_early,
         base::BindOnce(&HttpBasicStream::OnHandshakeConfirmed,
                        base::Unretained(this), std::move(callback)));
   }
-  // RequestInfo is no longer needed after this point.
-  request_info_ = nullptr;
   return ret;
 }
 
@@ -89,19 +80,17 @@ void HttpBasicStream::Close(bool not_reusable) {
   StreamSocket* socket = state_.connection()->socket();
   if (not_reusable && socket)
     socket->Disconnect();
-  parser()->OnConnectionClose();
   state_.connection()->Reset();
 }
 
-std::unique_ptr<HttpStream> HttpBasicStream::RenewStreamForAuth() {
+HttpStream* HttpBasicStream::RenewStreamForAuth() {
   DCHECK(IsResponseBodyComplete());
   DCHECK(!parser()->IsMoreDataBuffered());
   // The HttpStreamParser object still has a pointer to the connection. Just to
   // be extra-sure it doesn't touch the connection again, delete it here rather
   // than leaving it until the destructor is called.
   state_.DeleteParser();
-  return std::make_unique<HttpBasicStream>(state_.ReleaseConnection(),
-                                           state_.using_proxy());
+  return new HttpBasicStream(state_.ReleaseConnection(), state_.using_proxy());
 }
 
 bool HttpBasicStream::IsResponseBodyComplete() const {
@@ -117,8 +106,7 @@ void HttpBasicStream::SetConnectionReused() {
 }
 
 bool HttpBasicStream::CanReuseConnection() const {
-  return parser() && state_.connection()->socket() &&
-         parser()->CanReuseConnection();
+  return state_.connection()->socket() && parser()->CanReuseConnection();
 }
 
 int64_t HttpBasicStream::GetTotalReceivedBytes() const {
@@ -179,16 +167,16 @@ void HttpBasicStream::GetSSLCertRequestInfo(
   parser()->GetSSLCertRequestInfo(cert_request_info);
 }
 
-int HttpBasicStream::GetRemoteEndpoint(IPEndPoint* endpoint) {
+bool HttpBasicStream::GetRemoteEndpoint(IPEndPoint* endpoint) {
   if (!state_.connection() || !state_.connection()->socket())
-    return ERR_SOCKET_NOT_CONNECTED;
+    return false;
 
-  return state_.connection()->socket()->GetPeerAddress(endpoint);
+  return state_.connection()->socket()->GetPeerAddress(endpoint) == OK;
 }
 
 void HttpBasicStream::Drain(HttpNetworkSession* session) {
-  session->StartResponseDrainer(
-      std::make_unique<HttpResponseBodyDrainer>(this));
+  HttpResponseBodyDrainer* drainer = new HttpResponseBodyDrainer(this);
+  drainer->Start(session);
   // |drainer| will delete itself.
 }
 
@@ -208,7 +196,7 @@ void HttpBasicStream::SetRequestHeadersCallback(
   request_headers_callback_ = std::move(callback);
 }
 
-const std::set<std::string>& HttpBasicStream::GetDnsAliases() const {
+const std::vector<std::string>& HttpBasicStream::GetDnsAliases() const {
   return state_.GetDnsAliases();
 }
 

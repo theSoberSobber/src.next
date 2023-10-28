@@ -1,10 +1,11 @@
-// Copyright 2015 The Chromium Authors
+// Copyright 2015 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef NET_URL_REQUEST_URL_REQUEST_CONTEXT_GETTER_OBSERVER_H_
 #define NET_URL_REQUEST_URL_REQUEST_CONTEXT_GETTER_OBSERVER_H_
 
+#include "base/macros.h"
 #include "net/base/net_export.h"
 
 namespace net {
@@ -14,12 +15,7 @@ class URLRequestContextGetter;
 // URLRequestContextGetter is shutting down.
 class NET_EXPORT URLRequestContextGetterObserver {
  public:
-  URLRequestContextGetterObserver() = default;
-
-  URLRequestContextGetterObserver(const URLRequestContextGetterObserver&) =
-      delete;
-  URLRequestContextGetterObserver& operator=(
-      const URLRequestContextGetterObserver&) = delete;
+  URLRequestContextGetterObserver() {}
 
   // Called before the URLRequestContext shuts down. When called, the Getter's
   // GetURLRequestContext method must return NULL to protected against
@@ -28,7 +24,10 @@ class NET_EXPORT URLRequestContextGetterObserver {
   virtual void OnContextShuttingDown() = 0;
 
  protected:
-  virtual ~URLRequestContextGetterObserver() = default;
+  virtual ~URLRequestContextGetterObserver() {}
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(URLRequestContextGetterObserver);
 };
 
 }  // namespace net

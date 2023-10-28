@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -8,6 +8,7 @@
 #include <string>
 
 #include "base/callback_forward.h"
+#include "base/compiler_specific.h"
 #include "ui/gfx/native_widget_types.h"
 
 namespace chrome {
@@ -40,9 +41,9 @@ enum MessageBoxType {
 // NOTE: In general, you should avoid this since it's usually poor UI.
 // We have a variety of other surfaces such as app menu notifications and
 // infobars; consult the UI leads for a recommendation.
-MessageBoxResult ShowWarningMessageBox(gfx::NativeWindow parent,
-                                       const std::u16string& title,
-                                       const std::u16string& message);
+void ShowWarningMessageBox(gfx::NativeWindow parent,
+                           const std::u16string& title,
+                           const std::u16string& message);
 
 // As above, but shows the dialog box asynchronously with a checkbox.
 // |callback| will be invoked after the dialog is dismissed. It is invoked with

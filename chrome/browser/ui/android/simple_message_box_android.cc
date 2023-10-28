@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -11,11 +11,10 @@
 
 namespace chrome {
 
-MessageBoxResult ShowWarningMessageBox(gfx::NativeWindow parent,
-                                       const std::u16string& title,
-                                       const std::u16string& message) {
+void ShowWarningMessageBox(gfx::NativeWindow parent,
+                           const std::u16string& title,
+                           const std::u16string& message) {
   NOTIMPLEMENTED();
-  return MESSAGE_BOX_RESULT_NO;
 }
 
 MessageBoxResult ShowQuestionMessageBox(gfx::NativeWindow parent,

@@ -1,31 +1,31 @@
-// Copyright 2016 The Chromium Authors
+// Copyright 2016 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import {assertNotReached} from 'chrome://resources/js/assert_ts.js';
+import {assertNotReached} from 'chrome://resources/js/assert.m.js';
 import {isChromeOS, isMac} from 'chrome://resources/js/cr.m.js';
 
 
 export enum Key {
-  COMMA = 188,
-  DEL = 46,
-  DOWN = 40,
-  END = 35,
-  ESCAPE = 27,
-  HOME = 36,
-  INS = 45,
-  LEFT = 37,
-  MEDIA_NEXT_TRACK = 176,
-  MEDIA_PLAY_PAUSE = 179,
-  MEDIA_PREV_TRACK = 177,
-  MEDIA_STOP = 178,
-  PAGE_DOWN = 34,
-  PAGE_UP = 33,
-  PERIOD = 190,
-  RIGHT = 39,
-  SPACE = 32,
-  TAB = 9,
-  UP = 38,
+  Comma = 188,
+  Del = 46,
+  Down = 40,
+  End = 35,
+  Escape = 27,
+  Home = 36,
+  Ins = 45,
+  Left = 37,
+  MediaNextTrack = 176,
+  MediaPlayPause = 179,
+  MediaPrevTrack = 177,
+  MediaStop = 178,
+  PageDown = 34,
+  PageUp = 33,
+  Period = 190,
+  Right = 39,
+  Space = 32,
+  Tab = 9,
+  Up = 38,
 }
 
 /**
@@ -42,10 +42,10 @@ enum ModifierPolicy {
  */
 function getModifierPolicy(keyCode: number): ModifierPolicy {
   switch (keyCode) {
-    case Key.MEDIA_NEXT_TRACK:
-    case Key.MEDIA_PLAY_PAUSE:
-    case Key.MEDIA_PREV_TRACK:
-    case Key.MEDIA_STOP:
+    case Key.MediaNextTrack:
+    case Key.MediaPlayPause:
+    case Key.MediaPrevTrack:
+    case Key.MediaStop:
       return ModifierPolicy.NOT_ALLOWED;
     default:
       return ModifierPolicy.REQUIRED;
@@ -72,7 +72,7 @@ function hasModifier(e: KeyboardEvent, countShiftAsModifier: boolean): boolean {
  * @return Whether the key is valid.
  */
 export function isValidKeyCode(keyCode: number): boolean {
-  if (keyCode === Key.ESCAPE) {
+  if (keyCode === Key.Escape) {
     return false;
   }
   for (const k in Key) {
@@ -114,58 +114,58 @@ export function keystrokeToString(e: KeyboardEvent): string {
       output.push(String.fromCharCode(keyCode));
     } else {
       switch (keyCode) {
-        case Key.COMMA:
+        case Key.Comma:
           output.push('Comma');
           break;
-        case Key.DEL:
+        case Key.Del:
           output.push('Delete');
           break;
-        case Key.DOWN:
+        case Key.Down:
           output.push('Down');
           break;
-        case Key.END:
+        case Key.End:
           output.push('End');
           break;
-        case Key.HOME:
+        case Key.Home:
           output.push('Home');
           break;
-        case Key.INS:
+        case Key.Ins:
           output.push('Insert');
           break;
-        case Key.LEFT:
+        case Key.Left:
           output.push('Left');
           break;
-        case Key.MEDIA_NEXT_TRACK:
+        case Key.MediaNextTrack:
           output.push('MediaNextTrack');
           break;
-        case Key.MEDIA_PLAY_PAUSE:
+        case Key.MediaPlayPause:
           output.push('MediaPlayPause');
           break;
-        case Key.MEDIA_PREV_TRACK:
+        case Key.MediaPrevTrack:
           output.push('MediaPrevTrack');
           break;
-        case Key.MEDIA_STOP:
+        case Key.MediaStop:
           output.push('MediaStop');
           break;
-        case Key.PAGE_DOWN:
+        case Key.PageDown:
           output.push('PageDown');
           break;
-        case Key.PAGE_UP:
+        case Key.PageUp:
           output.push('PageUp');
           break;
-        case Key.PERIOD:
+        case Key.Period:
           output.push('Period');
           break;
-        case Key.RIGHT:
+        case Key.Right:
           output.push('Right');
           break;
-        case Key.SPACE:
+        case Key.Space:
           output.push('Space');
           break;
-        case Key.TAB:
+        case Key.Tab:
           output.push('Tab');
           break;
-        case Key.UP:
+        case Key.Up:
           output.push('Up');
           break;
       }
@@ -186,7 +186,6 @@ export function hasValidModifiers(e: KeyboardEvent): boolean {
       return hasModifier(e, false);
     case ModifierPolicy.NOT_ALLOWED:
       return !hasModifier(e, true);
-    default:
-      assertNotReached();
   }
+  assertNotReached();
 }

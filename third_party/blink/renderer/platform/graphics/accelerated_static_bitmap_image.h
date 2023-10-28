@@ -6,7 +6,7 @@
 #define THIRD_PARTY_BLINK_RENDERER_PLATFORM_GRAPHICS_ACCELERATED_STATIC_BITMAP_IMAGE_H_
 
 #include "base/memory/weak_ptr.h"
-#include "base/task/single_thread_task_runner.h"
+#include "base/single_thread_task_runner.h"
 #include "base/threading/thread_checker.h"
 #include "components/viz/common/resources/release_callback.h"
 #include "third_party/blink/renderer/platform/graphics/mailbox_ref.h"
@@ -64,9 +64,7 @@ class PLATFORM_EXPORT AcceleratedStaticBitmapImage final
       base::WeakPtr<WebGraphicsContext3DProviderWrapper>,
       base::PlatformThreadRef context_thread_ref,
       scoped_refptr<base::SingleThreadTaskRunner> context_task_runner,
-      viz::ReleaseCallback release_callback,
-      bool supports_display_compositing,
-      bool is_overlay_candidate);
+      viz::ReleaseCallback release_callback);
 
   bool CurrentFrameKnownToBeOpaque() override;
   bool IsTextureBacked() const override { return true; }
@@ -75,9 +73,12 @@ class PLATFORM_EXPORT AcceleratedStaticBitmapImage final
 
   void Draw(cc::PaintCanvas*,
             const cc::PaintFlags&,
-            const gfx::RectF& dst_rect,
-            const gfx::RectF& src_rect,
-            const ImageDrawOptions&) override;
+            const FloatRect& dst_rect,
+            const FloatRect& src_rect,
+            const SkSamplingOptions&,
+            RespectImageOrientationEnum,
+            ImageClampingMode,
+            ImageDecodingMode) override;
 
   bool IsValid() const final;
   WebGraphicsContext3DProvider* ContextProvider() const final;
@@ -91,8 +92,8 @@ class PLATFORM_EXPORT AcceleratedStaticBitmapImage final
                      GLint dest_level,
                      bool unpack_premultiply_alpha,
                      bool unpack_flip_y,
-                     const gfx::Point& dest_point,
-                     const gfx::Rect& source_sub_rectangle) override;
+                     const IntPoint& dest_point,
+                     const IntRect& source_sub_rectangle) override;
 
   bool CopyToResourceProvider(
       CanvasResourceProvider* resource_provider) override;
@@ -115,10 +116,6 @@ class PLATFORM_EXPORT AcceleratedStaticBitmapImage final
   // sync token before accessing this mailbox.
   gpu::MailboxHolder GetMailboxHolder() const final;
   bool IsOriginTopLeft() const final { return is_origin_top_left_; }
-  bool SupportsDisplayCompositing() const final {
-    return supports_display_compositing_;
-  }
-  bool IsOverlayCandidate() const final { return is_overlay_candidate_; }
 
   PaintImage PaintImageForCurrentFrame() override;
 
@@ -138,8 +135,6 @@ class PLATFORM_EXPORT AcceleratedStaticBitmapImage final
       const SkImageInfo& sk_image_info,
       GLenum texture_target,
       bool is_origin_top_left,
-      bool supports_display_compositing,
-      bool is_overlay_candidate,
       const ImageOrientation& orientation,
       base::WeakPtr<WebGraphicsContext3DProviderWrapper>,
       base::PlatformThreadRef context_thread_ref,
@@ -149,14 +144,12 @@ class PLATFORM_EXPORT AcceleratedStaticBitmapImage final
   void CreateImageFromMailboxIfNeeded();
   void InitializeTextureBacking(GLuint shared_image_texture_id);
 
-  SkImageInfo GetSkImageInfoInternal() const override;
+  IntSize SizeInternal() const override;
 
   const gpu::Mailbox mailbox_;
   const SkImageInfo sk_image_info_;
   const GLenum texture_target_;
-  const bool is_origin_top_left_ : 1;
-  const bool supports_display_compositing_ : 1;
-  const bool is_overlay_candidate_ : 1;
+  const bool is_origin_top_left_;
 
   base::WeakPtr<WebGraphicsContext3DProviderWrapper> context_provider_wrapper_;
   scoped_refptr<MailboxRef> mailbox_ref_;

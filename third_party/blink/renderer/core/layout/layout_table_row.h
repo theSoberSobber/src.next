@@ -26,7 +26,6 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_CORE_LAYOUT_LAYOUT_TABLE_ROW_H_
 #define THIRD_PARTY_BLINK_RENDERER_CORE_LAYOUT_LAYOUT_TABLE_ROW_H_
 
-#include "base/notreached.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/layout/layout_table_section.h"
 #include "third_party/blink/renderer/core/layout/ng/table/layout_ng_table_row_interface.h"
@@ -113,7 +112,7 @@ class CORE_EXPORT LayoutTableRow final : public LayoutTableBoxComponent,
   bool NodeAtPoint(HitTestResult&,
                    const HitTestLocation&,
                    const PhysicalOffset& accumulated_offset,
-                   HitTestPhase) override;
+                   HitTestAction) override;
 
   PaginationBreakability GetPaginationBreakability(
       FragmentationEngine) const final;
@@ -149,6 +148,10 @@ class CORE_EXPORT LayoutTableRow final : public LayoutTableBoxComponent,
     return this;
   }
   const LayoutObject* ToLayoutObject() const final {
+    NOT_DESTROYED();
+    return this;
+  }
+  const LayoutTableRow* ToLayoutTableRow() const final {
     NOT_DESTROYED();
     return this;
   }

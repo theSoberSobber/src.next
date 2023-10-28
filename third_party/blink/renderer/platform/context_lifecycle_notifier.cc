@@ -4,7 +4,6 @@
 
 #include "third_party/blink/renderer/platform/context_lifecycle_notifier.h"
 
-#include "third_party/blink/renderer/platform/bindings/script_forbidden_scope.h"
 #include "third_party/blink/renderer/platform/context_lifecycle_observer.h"
 
 namespace blink {
@@ -28,7 +27,6 @@ void ContextLifecycleNotifier::RemoveContextLifecycleObserver(
 }
 
 void ContextLifecycleNotifier::NotifyContextDestroyed() {
-  ScriptForbiddenScope forbid_script;
   observers_.ForEachObserver([](ContextLifecycleObserver* observer) {
     observer->NotifyContextDestroyed();
   });

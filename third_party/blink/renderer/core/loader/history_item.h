@@ -33,8 +33,7 @@
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/loader/frame_loader_types.h"
 #include "third_party/blink/renderer/core/scroll/scroll_types.h"
-#include "third_party/blink/renderer/platform/heap/garbage_collected.h"
-#include "third_party/blink/renderer/platform/heap/member.h"
+#include "third_party/blink/renderer/platform/heap/handle.h"
 #include "third_party/blink/renderer/platform/weborigin/referrer.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
 
@@ -58,8 +57,7 @@ class CORE_EXPORT HistoryItem final : public GarbageCollected<HistoryItem> {
   const String& UrlString() const;
   KURL Url() const;
 
-  const String& GetReferrer() const;
-  network::mojom::ReferrerPolicy GetReferrerPolicy() const;
+  const Referrer& GetReferrer() const;
 
   EncodedFormData* FormData();
   const AtomicString& FormContentType() const;
@@ -96,8 +94,7 @@ class CORE_EXPORT HistoryItem final : public GarbageCollected<HistoryItem> {
 
   void SetURL(const KURL&);
   void SetURLString(const String&);
-  void SetReferrer(const String&);
-  void SetReferrerPolicy(network::mojom::ReferrerPolicy);
+  void SetReferrer(const Referrer&);
 
   void SetStateObject(scoped_refptr<SerializedScriptValue>);
   SerializedScriptValue* StateObject() const { return state_object_.get(); }
@@ -124,28 +121,22 @@ class CORE_EXPORT HistoryItem final : public GarbageCollected<HistoryItem> {
 
   ResourceRequest GenerateResourceRequest(mojom::FetchCacheMode);
 
-  const String& GetNavigationApiKey() const { return navigation_api_key_; }
-  void SetNavigationApiKey(const String& key) { navigation_api_key_ = key; }
+  const String& GetAppHistoryKey() const { return app_history_key_; }
+  void SetAppHistoryKey(const String& key) { app_history_key_ = key; }
 
-  const String& GetNavigationApiId() const { return navigation_api_id_; }
-  void SetNavigationApiId(const String& id) { navigation_api_id_ = id; }
+  const String& GetAppHistoryId() const { return app_history_id_; }
+  void SetAppHistoryId(const String& id) { app_history_id_ = id; }
 
-  void SetNavigationApiState(scoped_refptr<SerializedScriptValue>);
-  SerializedScriptValue* GetNavigationApiState() {
-    return navigation_api_state_.get();
+  void SetAppHistoryState(scoped_refptr<SerializedScriptValue>);
+  SerializedScriptValue* GetAppHistoryState() {
+    return app_history_state_.get();
   }
 
   void Trace(Visitor*) const;
 
  private:
   String url_string_;
-
-  // The referrer provided when this item was originally requested.
-  String referrer_;
-
-  // The referrer policy of the document this item represents.
-  network::mojom::ReferrerPolicy referrer_policy_ =
-      network::mojom::ReferrerPolicy::kDefault;
+  Referrer referrer_;
 
   Vector<String> document_state_vector_;
   Member<DocumentState> document_state_;
@@ -175,9 +166,9 @@ class CORE_EXPORT HistoryItem final : public GarbageCollected<HistoryItem> {
   scoped_refptr<EncodedFormData> form_data_;
   AtomicString form_content_type_;
 
-  String navigation_api_key_;
-  String navigation_api_id_;
-  scoped_refptr<SerializedScriptValue> navigation_api_state_;
+  String app_history_key_;
+  String app_history_id_;
+  scoped_refptr<SerializedScriptValue> app_history_state_;
 };  // class HistoryItem
 
 }  // namespace blink

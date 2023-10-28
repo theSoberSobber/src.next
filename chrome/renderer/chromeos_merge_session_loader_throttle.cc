@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium Authors
+// Copyright 2019 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -18,9 +18,9 @@
 base::TimeDelta MergeSessionLoaderThrottle::GetMergeSessionTimeout() {
   if (base::CommandLine::ForCurrentProcess()->HasSwitch(
           switches::kShortMergeSessionTimeoutForTest)) {
-    return base::Seconds(1);
+    return base::TimeDelta::FromSeconds(1);
   } else {
-    return base::Seconds(20);
+    return base::TimeDelta::FromSeconds(20);
   }
 }
 

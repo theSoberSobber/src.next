@@ -8,7 +8,6 @@
 #include <utility>
 
 #include "base/logging.h"
-#include "base/synchronization/lock.h"
 #include "base/threading/thread_restrictions.h"
 #include "third_party/blink/renderer/platform/disk_data_metadata.h"
 #include "third_party/blink/renderer/platform/wtf/std_lib_extras.h"
@@ -22,12 +21,12 @@ DiskDataAllocator::DiskDataAllocator()
 DiskDataAllocator::~DiskDataAllocator() = default;
 
 bool DiskDataAllocator::may_write() {
-  base::AutoLock locker(lock_);
+  MutexLocker locker(mutex_);
   return may_write_;
 }
 
 void DiskDataAllocator::set_may_write_for_testing(bool may_write) {
-  base::AutoLock locker(lock_);
+  MutexLocker locker(mutex_);
   may_write_ = may_write;
 }
 
@@ -109,7 +108,7 @@ std::unique_ptr<DiskDataMetadata> DiskDataAllocator::Write(const void* data,
   DiskDataMetadata chosen_chunk = {0, 0};
 
   {
-    base::AutoLock locker(lock_);
+    MutexLocker locker(mutex_);
     if (!may_write_)
       return nullptr;
 
@@ -120,7 +119,7 @@ std::unique_ptr<DiskDataMetadata> DiskDataAllocator::Write(const void* data,
   const char* data_char = reinterpret_cast<const char*>(data);
   int written = DoWrite(chosen_chunk.start_offset(), data_char, size_int);
 
-  base::AutoLock locker(lock_);
+  MutexLocker locker(mutex_);
   if (size_int != written) {
     // Assume that the error is not transient. This can happen if the disk is
     // full for instance, in which case it is likely better not to try writing
@@ -141,12 +140,11 @@ void DiskDataAllocator::Read(const DiskDataMetadata& metadata, void* data) {
   // Doesn't need locking as files support concurrent access, and we don't
   // update metadata.
   char* data_char = reinterpret_cast<char*>(data);
-  DoRead(metadata.start_offset(), data_char,
-         base::checked_cast<int>(metadata.size()));
+  DoRead(metadata.start_offset(), data_char, metadata.size());
 
 #if DCHECK_IS_ON()
   {
-    base::AutoLock locker(lock_);
+    MutexLocker locker(mutex_);
     auto it = allocated_chunks_.find(metadata.start_offset());
     DCHECK(it != allocated_chunks_.end());
     DCHECK_EQ(metadata.size(), it->second);
@@ -155,7 +153,7 @@ void DiskDataAllocator::Read(const DiskDataMetadata& metadata, void* data) {
 }
 
 void DiskDataAllocator::Discard(std::unique_ptr<DiskDataMetadata> metadata) {
-  base::AutoLock locker(lock_);
+  MutexLocker locker(mutex_);
   DCHECK(may_write_ || file_.IsValid());
 
 #if DCHECK_IS_ON()
@@ -191,7 +189,7 @@ void DiskDataAllocator::DoRead(int64_t offset, char* data, int size) {
 }
 
 void DiskDataAllocator::ProvideTemporaryFile(base::File file) {
-  base::AutoLock locker(lock_);
+  MutexLocker locker(mutex_);
   DCHECK(IsMainThread());
   DCHECK(!file_.IsValid());
   DCHECK(!may_write_);

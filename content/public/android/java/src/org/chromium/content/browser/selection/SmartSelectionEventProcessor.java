@@ -1,9 +1,10 @@
-// Copyright 2017 The Chromium Authors
+// Copyright 2017 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 package org.chromium.content.browser.selection;
 
+import android.annotation.TargetApi;
 import android.content.Context;
 import android.os.Build;
 import android.view.textclassifier.SelectionEvent;
@@ -12,9 +13,9 @@ import android.view.textclassifier.TextClassificationManager;
 import android.view.textclassifier.TextClassifier;
 
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 
 import org.chromium.base.Log;
+import org.chromium.base.annotations.VerifiesOnP;
 import org.chromium.content.browser.WindowEventObserver;
 import org.chromium.content.browser.WindowEventObserverManager;
 import org.chromium.content_public.browser.SelectionClient;
@@ -32,7 +33,8 @@ import org.chromium.ui.base.WindowAndroid;
  * that, we single tap on "City", Smart Selection reset get triggered, we need to log [1, 2). Spaces
  * are ignored but we count each punctuation mark as a word.
  */
-@RequiresApi(Build.VERSION_CODES.P)
+@VerifiesOnP
+@TargetApi(Build.VERSION_CODES.P)
 public class SmartSelectionEventProcessor implements SelectionEventProcessor {
     private static final String TAG = "SmartSelectionLogger";
     private static final boolean DEBUG = false;

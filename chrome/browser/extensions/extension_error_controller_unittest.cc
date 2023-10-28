@@ -1,17 +1,14 @@
-// Copyright 2014 The Chromium Authors
+// Copyright 2014 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/extensions/extension_error_controller.h"
-
-#include "base/memory/raw_ptr.h"
 #include "base/memory/ref_counted.h"
+#include "chrome/browser/extensions/extension_error_controller.h"
 #include "chrome/browser/extensions/extension_error_ui.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/extension_service_test_base.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/test/base/testing_profile.h"
-#include "extensions/browser/blocklist_extension_prefs.h"
 #include "extensions/browser/extension_prefs.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/common/extension.h"
@@ -45,14 +42,14 @@ class MockExtensionErrorUI : public ExtensionErrorUI {
   void Close() override;
 
   // Keep a copy of the delegate around for ourselves.
-  raw_ptr<ExtensionErrorUI::Delegate> delegate_;
+  ExtensionErrorUI::Delegate* delegate_;
 };
 
 // We use this as a slight hack to get the created Error UI, if any. We should
 // only ever have one (since this is a single-profile test), and this avoids
 // the need for any kind of accessor to the ErrorController from
 // ExtensionService.
-MockExtensionErrorUI* g_error_ui = nullptr;
+MockExtensionErrorUI* g_error_ui = NULL;
 
 MockExtensionErrorUI::MockExtensionErrorUI(ExtensionErrorUI::Delegate* delegate)
     : delegate_(delegate) {
@@ -62,7 +59,7 @@ MockExtensionErrorUI::MockExtensionErrorUI(ExtensionErrorUI::Delegate* delegate)
 }
 
 MockExtensionErrorUI::~MockExtensionErrorUI() {
-  g_error_ui = nullptr;
+  g_error_ui = NULL;
 }
 
 void MockExtensionErrorUI::CloseUI() {
@@ -129,8 +126,7 @@ void ExtensionErrorControllerUnitTest::SetUp() {
 testing::AssertionResult
 ExtensionErrorControllerUnitTest::AddBlocklistedExtension(
     const Extension* extension) {
-  blocklist_prefs::SetSafeBrowsingExtensionBlocklistState(
-      extension->id(), BitMapBlocklistState::BLOCKLISTED_MALWARE, GetPrefs());
+  GetPrefs()->SetExtensionBlocklistState(extension->id(), BLOCKLISTED_MALWARE);
   service_->AddExtension(extension);
 
   // Make sure the extension is added to the blocklisted set.

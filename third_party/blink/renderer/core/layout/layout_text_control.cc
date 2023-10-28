@@ -22,6 +22,7 @@
 
 #include "third_party/blink/renderer/core/layout/layout_text_control.h"
 
+#include "base/cxx17_backports.h"
 #include "third_party/blink/renderer/core/css/style_change_reason.h"
 #include "third_party/blink/renderer/core/html/forms/html_text_area_element.h"
 #include "third_party/blink/renderer/core/html/forms/text_control_element.h"
@@ -156,6 +157,7 @@ static const char* const kFontFamiliesWithInvalidCharWidth[] = {
 // number of Mac fonts, but, in order to get similar rendering across platforms,
 // we do this check for all platforms.
 bool LayoutTextControl::HasValidAvgCharWidth(const Font& font) {
+  const AtomicString family = font.GetFontDescription().Family().Family();
   const SimpleFontData* font_data = font.PrimaryFont();
   DCHECK(font_data);
   if (!font_data)
@@ -170,14 +172,13 @@ bool LayoutTextControl::HasValidAvgCharWidth(const Font& font) {
   static HashSet<AtomicString>* font_families_with_invalid_char_width_map =
       nullptr;
 
-  const AtomicString& family = font.GetFontDescription().Family().FamilyName();
   if (family.IsEmpty())
     return false;
 
   if (!font_families_with_invalid_char_width_map) {
     font_families_with_invalid_char_width_map = new HashSet<AtomicString>;
 
-    for (size_t i = 0; i < std::size(kFontFamiliesWithInvalidCharWidth); ++i)
+    for (size_t i = 0; i < base::size(kFontFamiliesWithInvalidCharWidth); ++i)
       font_families_with_invalid_char_width_map->insert(
           AtomicString(kFontFamiliesWithInvalidCharWidth[i]));
   }
@@ -189,31 +190,21 @@ bool LayoutTextControl::HasValidAvgCharWidth(const Font& font) {
 float LayoutTextControl::GetAvgCharWidth(const ComputedStyle& style) {
   const Font& font = style.GetFont();
   const SimpleFontData* primary_font = font.PrimaryFont();
-  if (primary_font && HasValidAvgCharWidth(font)) {
-    const float width = primary_font->AvgCharWidth();
-    // We apply roundf() only if the fractional part of |width| is >= 0.5
-    // because:
-    // * We have done it for a long time.
-    // * Removing roundf() would make the intrinsic width smaller, and it
-    //   would have a compatibility risk.
-    return std::max(width, roundf(width));
-  }
+  if (primary_font && HasValidAvgCharWidth(font))
+    return roundf(primary_font->AvgCharWidth());
 
   const UChar kCh = '0';
-  const String str = String(&kCh, 1u);
+  const String str = String(&kCh, 1);
   TextRun text_run =
       ConstructTextRun(font, str, style, TextRun::kAllowTrailingExpansion);
   return font.Width(text_run);
 }
 
 void LayoutTextControl::AddOutlineRects(Vector<PhysicalRect>& rects,
-                                        OutlineInfo* info,
                                         const PhysicalOffset& additional_offset,
                                         NGOutlineType) const {
   NOT_DESTROYED();
   rects.emplace_back(additional_offset, Size());
-  if (info)
-    *info = OutlineInfo::GetFromStyle(StyleRef());
 }
 
 LayoutObject* LayoutTextControl::LayoutSpecialExcludedChild(

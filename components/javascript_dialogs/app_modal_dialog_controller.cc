@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -18,7 +18,7 @@ namespace {
 AppModalDialogObserver* app_modal_dialog_observer = nullptr;
 
 // Control maximum sizes of various texts passed to us from javascript.
-#if BUILDFLAG(IS_POSIX) && !BUILDFLAG(IS_APPLE)
+#if defined(OS_POSIX) && !defined(OS_APPLE)
 // Two-dimensional eliding.  Reformat the text of the message dialog
 // inserting line breaks because otherwise a single long line can overflow
 // the message dialog (and crash/hang the GTK, depending on the version).

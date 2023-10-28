@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -15,6 +15,7 @@
 
 #include "base/callback.h"
 #include "base/check_op.h"
+#include "base/macros.h"
 #include "base/strings/string_piece.h"
 #include "base/strings/string_util.h"
 #include "components/history/core/browser/page_usage_data.h"
@@ -104,14 +105,15 @@ std::string VisitSegmentDatabase::ComputeSegmentName(const GURL& url) {
   // TODO(brettw) this should probably use the registry controlled
   // domains service.
   GURL::Replacements r;
-  base::StringPiece host = url.host_piece();
+  std::string host = url.host();
 
   // Strip various common prefixes in order to group the resulting hostnames
   // together and avoid duplicates.
   for (base::StringPiece prefix : {"www.", "m.", "mobile.", "touch."}) {
     if (host.size() > prefix.size() &&
         base::StartsWith(host, prefix, base::CompareCase::INSENSITIVE_ASCII)) {
-      r.SetHostStr(host.substr(prefix.size()));
+      r.SetHost(host.c_str(),
+                url::Component(prefix.size(), host.size() - prefix.size()));
       break;
     }
   }
@@ -198,6 +200,7 @@ bool VisitSegmentDatabase::IncreaseSegmentVisitCount(SegmentID segment_id,
 
 std::vector<std::unique_ptr<PageUsageData>>
 VisitSegmentDatabase::QuerySegmentUsage(
+    base::Time from_time,
     int max_result_count,
     const base::RepeatingCallback<bool(const GURL&)>& url_filter) {
   // This function gathers the highest-ranked segments in two queries.
@@ -206,12 +209,15 @@ VisitSegmentDatabase::QuerySegmentUsage(
   // segments.
 
   // Gather all the segment scores.
-  sql::Statement statement(
-      GetDB().GetCachedStatement(SQL_FROM_HERE,
-                                 "SELECT segment_id, time_slot, visit_count "
-                                 "FROM segment_usage ORDER BY segment_id"));
+  sql::Statement statement(GetDB().GetCachedStatement(SQL_FROM_HERE,
+      "SELECT segment_id, time_slot, visit_count "
+      "FROM segment_usage WHERE time_slot >= ? "
+      "ORDER BY segment_id"));
   if (!statement.is_valid())
     return std::vector<std::unique_ptr<PageUsageData>>();
+
+  base::Time ts = from_time.LocalMidnight();
+  statement.BindInt64(0, ts.ToInternalValue());
 
   std::vector<std::unique_ptr<PageUsageData>> segments;
   base::Time now = base::Time::Now();

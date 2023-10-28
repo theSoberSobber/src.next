@@ -33,7 +33,6 @@
 
 #include "third_party/blink/renderer/platform/graphics/intercepting_canvas.h"
 
-#include "base/time/time.h"
 #include "third_party/blink/renderer/platform/wtf/vector.h"
 
 namespace blink {

@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -12,12 +12,14 @@
 #include "base/bind.h"
 #include "base/location.h"
 #include "base/logging.h"
+#include "base/macros.h"
 #include "base/metrics/histogram_macros.h"
-#include "base/task/sequenced_task_runner.h"
-#include "base/task/single_thread_task_runner.h"
-#include "base/task/task_runner_util.h"
+#include "base/sequenced_task_runner.h"
+#include "base/single_thread_task_runner.h"
+#include "base/task/post_task.h"
 #include "base/task/task_traits.h"
 #include "base/task/thread_pool.h"
+#include "base/task_runner_util.h"
 #include "base/threading/thread.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "base/time/time.h"
@@ -70,7 +72,7 @@ class NetworkCostManagerEventSink
   NetworkCostManagerEventSink(INetworkCostManager* cost_manager,
                               const CostChangedCallback& callback)
       : network_cost_manager_(cost_manager), cost_changed_callback_(callback) {}
-  ~NetworkCostManagerEventSink() override = default;
+  ~NetworkCostManagerEventSink() override {}
 
   // INetworkCostManagerEvents members
   IFACEMETHODIMP CostChanged(_In_ DWORD cost,
@@ -119,6 +121,7 @@ NetworkChangeNotifierWin::NetworkChangeNotifierWin()
       blocking_task_runner_(
           base::ThreadPool::CreateSequencedTaskRunner({base::MayBlock()})),
       last_computed_connection_type_(RecomputeCurrentConnectionType()),
+      last_computed_connection_cost_(ConnectionCost::CONNECTION_COST_UNKNOWN),
       last_announced_offline_(last_computed_connection_type_ ==
                               CONNECTION_NONE),
       sequence_runner_for_registration_(
@@ -148,10 +151,11 @@ NetworkChangeNotifierWin::NetworkChangeCalculatorParamsWin() {
   NetworkChangeCalculatorParams params;
   // Delay values arrived at by simple experimentation and adjusted so as to
   // produce a single signal when switching between network connections.
-  params.ip_address_offline_delay_ = base::Milliseconds(1500);
-  params.ip_address_online_delay_ = base::Milliseconds(1500);
-  params.connection_type_offline_delay_ = base::Milliseconds(1500);
-  params.connection_type_online_delay_ = base::Milliseconds(500);
+  params.ip_address_offline_delay_ = base::TimeDelta::FromMilliseconds(1500);
+  params.ip_address_online_delay_ = base::TimeDelta::FromMilliseconds(1500);
+  params.connection_type_offline_delay_ =
+      base::TimeDelta::FromMilliseconds(1500);
+  params.connection_type_online_delay_ = base::TimeDelta::FromMilliseconds(500);
   return params;
 }
 
@@ -430,7 +434,7 @@ void NetworkChangeNotifierWin::NotifyObservers(ConnectionType connection_type) {
   // If after one second we determine we are still offline, we will
   // delay again.
   offline_polls_ = 0;
-  timer_.Start(FROM_HERE, base::Seconds(1), this,
+  timer_.Start(FROM_HERE, base::TimeDelta::FromSeconds(1), this,
                &NetworkChangeNotifierWin::NotifyParentOfConnectionTypeChange);
 }
 
@@ -448,7 +452,8 @@ void NetworkChangeNotifierWin::WatchForAddressChange() {
         FROM_HERE,
         base::BindOnce(&NetworkChangeNotifierWin::WatchForAddressChange,
                        weak_factory_.GetWeakPtr()),
-        base::Milliseconds(kWatchForAddressChangeRetryIntervalMs));
+        base::TimeDelta::FromMilliseconds(
+            kWatchForAddressChangeRetryIntervalMs));
     return;
   }
 
@@ -494,7 +499,7 @@ void NetworkChangeNotifierWin::NotifyParentOfConnectionTypeChangeImpl(
   // we may not detect the transition to online state after 1 second but within
   // 20 seconds we generally do.
   if (last_announced_offline_ && current_offline && offline_polls_ <= 20) {
-    timer_.Start(FROM_HERE, base::Seconds(1), this,
+    timer_.Start(FROM_HERE, base::TimeDelta::FromSeconds(1), this,
                  &NetworkChangeNotifierWin::NotifyParentOfConnectionTypeChange);
     return;
   }

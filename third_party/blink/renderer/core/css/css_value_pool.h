@@ -40,14 +40,11 @@
 #include "third_party/blink/renderer/core/css/css_invalid_variable_value.h"
 #include "third_party/blink/renderer/core/css/css_numeric_literal_value.h"
 #include "third_party/blink/renderer/core/css/css_property_names.h"
-#include "third_party/blink/renderer/core/css/css_revert_layer_value.h"
 #include "third_party/blink/renderer/core/css/css_revert_value.h"
 #include "third_party/blink/renderer/core/css/css_unset_value.h"
 #include "third_party/blink/renderer/core/css/css_value_list.h"
 #include "third_party/blink/renderer/core/css_value_keywords.h"
-#include "third_party/blink/renderer/platform/heap/collection_support/heap_hash_map.h"
-#include "third_party/blink/renderer/platform/wtf/hash_functions.h"
-#include "third_party/blink/renderer/platform/wtf/hash_traits.h"
+#include "third_party/blink/renderer/platform/wtf/hash_map.h"
 #include "third_party/blink/renderer/platform/wtf/text/atomic_string_hash.h"
 
 namespace blink {
@@ -61,24 +58,7 @@ class CORE_EXPORT CSSValuePool final : public GarbageCollected<CSSValuePool> {
   using CSSColor = cssvalue::CSSColor;
   using CSSUnsetValue = cssvalue::CSSUnsetValue;
   using CSSRevertValue = cssvalue::CSSRevertValue;
-  using CSSRevertLayerValue = cssvalue::CSSRevertLayerValue;
-
-  // Special keys for deleted and empty values. Use white and transparent as
-  // they're common colors and worth having an early-out for.
-  struct ColorHashTraitsForCSSValuePool : WTF::GenericHashTraits<Color> {
-    STATIC_ONLY(ColorHashTraitsForCSSValuePool);
-    static Color EmptyValue() { return Color::kTransparent; }
-    static void ConstructDeletedValue(Color& slot, bool) {
-      slot = Color::kWhite;
-    }
-    static bool IsDeletedValue(const Color& value) {
-      return value == Color::kWhite;
-    }
-  };
-  using ColorValueCache = HeapHashMap<Color,
-                                      Member<CSSColor>,
-                                      typename DefaultHash<Color>::Hash,
-                                      ColorHashTraitsForCSSValuePool>;
+  using ColorValueCache = HeapHashMap<unsigned, Member<CSSColor>>;
   static const unsigned kMaximumColorCacheSize = 512;
   using FontFaceValueCache =
       HeapHashMap<AtomicString, Member<const CSSValueList>>;
@@ -97,7 +77,6 @@ class CORE_EXPORT CSSValuePool final : public GarbageCollected<CSSValuePool> {
   CSSInitialValue* InitialValue() { return initial_value_; }
   CSSUnsetValue* UnsetValue() { return unset_value_; }
   CSSRevertValue* RevertValue() { return revert_value_; }
-  CSSRevertLayerValue* RevertLayerValue() { return revert_layer_value_; }
   CSSInvalidVariableValue* InvalidVariableValue() {
     return invalid_variable_value_;
   }
@@ -140,27 +119,11 @@ class CORE_EXPORT CSSValuePool final : public GarbageCollected<CSSValuePool> {
   }
 
   // Hash map caches.
-  CSSColor* GetOrCreateColor(const Color& color) {
-    // These are the empty and deleted values of the hash table.
-    // See ColorHashTraitsForCSSValuePool.
-    if (color == Color::kTransparent)
-      return TransparentColor();
-    if (color == Color::kWhite)
-      return WhiteColor();
-
-    // Just because it is common.
-    if (color == Color::kBlack)
-      return BlackColor();
-
+  ColorValueCache::AddResult GetColorCacheEntry(RGBA32 rgb_value) {
     // Just wipe out the cache and start rebuilding if it gets too big.
     if (color_value_cache_.size() > kMaximumColorCacheSize)
       color_value_cache_.clear();
-
-    ColorValueCache::AddResult entry =
-        color_value_cache_.insert(color, nullptr);
-    if (entry.is_new_entry)
-      entry.stored_value->value = MakeGarbageCollected<CSSColor>(color);
-    return entry.stored_value->value;
+    return color_value_cache_.insert(rgb_value, nullptr);
   }
   FontFamilyValueCache::AddResult GetFontFamilyCacheEntry(
       const String& family_name) {
@@ -182,7 +145,6 @@ class CORE_EXPORT CSSValuePool final : public GarbageCollected<CSSValuePool> {
   Member<CSSInitialValue> initial_value_;
   Member<CSSUnsetValue> unset_value_;
   Member<CSSRevertValue> revert_value_;
-  Member<CSSRevertLayerValue> revert_layer_value_;
   Member<CSSInvalidVariableValue> invalid_variable_value_;
   Member<CSSCyclicVariableValue> cyclic_variable_value_;
   Member<CSSInitialColorValue> initial_color_value_;

@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -11,7 +11,7 @@
 #include <vector>
 
 #include "base/callback.h"
-#include "base/memory/raw_ptr.h"
+#include "base/macros.h"
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
 #include "components/download/content/public/all_download_item_notifier.h"
@@ -33,10 +33,6 @@ class DownloadHistory : public download::AllDownloadItemNotifier::Observer {
   class HistoryAdapter {
    public:
     explicit HistoryAdapter(history::HistoryService* history);
-
-    HistoryAdapter(const HistoryAdapter&) = delete;
-    HistoryAdapter& operator=(const HistoryAdapter&) = delete;
-
     virtual ~HistoryAdapter();
 
     virtual void QueryDownloads(
@@ -52,7 +48,8 @@ class DownloadHistory : public download::AllDownloadItemNotifier::Observer {
     virtual void RemoveDownloads(const std::set<uint32_t>& ids);
 
    private:
-    raw_ptr<history::HistoryService> history_;
+    history::HistoryService* history_;
+    DISALLOW_COPY_AND_ASSIGN(HistoryAdapter);
   };
 
   class Observer {
@@ -90,9 +87,6 @@ class DownloadHistory : public download::AllDownloadItemNotifier::Observer {
   // created and destroys DownloadHistory as DownloadManager is shutting down.
   DownloadHistory(content::DownloadManager* manager,
                   std::unique_ptr<HistoryAdapter> history);
-
-  DownloadHistory(const DownloadHistory&) = delete;
-  DownloadHistory& operator=(const DownloadHistory&) = delete;
 
   ~DownloadHistory() override;
 
@@ -162,6 +156,8 @@ class DownloadHistory : public download::AllDownloadItemNotifier::Observer {
   base::ObserverList<Observer>::Unchecked observers_;
 
   base::WeakPtrFactory<DownloadHistory> weak_ptr_factory_{this};
+
+  DISALLOW_COPY_AND_ASSIGN(DownloadHistory);
 };
 
 #endif  // CHROME_BROWSER_DOWNLOAD_DOWNLOAD_HISTORY_H_

@@ -25,49 +25,49 @@
 
 #include "third_party/blink/renderer/platform/graphics/gradient_generated_image.h"
 
+#include "third_party/blink/renderer/platform/geometry/float_rect.h"
+#include "third_party/blink/renderer/platform/geometry/int_size.h"
 #include "third_party/blink/renderer/platform/graphics/graphics_context.h"
-#include "ui/gfx/geometry/skia_conversions.h"
 
 namespace blink {
 
 void GradientGeneratedImage::Draw(cc::PaintCanvas* canvas,
-                                  const cc::PaintFlags& flags,
-                                  const gfx::RectF& dest_rect,
-                                  const gfx::RectF& src_rect,
-                                  const ImageDrawOptions& draw_options) {
-  SkRect visible_src_rect = gfx::RectFToSkRect(src_rect);
+                                  const PaintFlags& flags,
+                                  const FloatRect& dest_rect,
+                                  const FloatRect& src_rect,
+                                  const SkSamplingOptions&,
+                                  RespectImageOrientationEnum,
+                                  ImageClampingMode,
+                                  ImageDecodingMode) {
+  SkRect visible_src_rect = src_rect;
   if (!visible_src_rect.intersect(
-          SkRect::MakeWH(size_.width(), size_.height())))
+          SkRect::MakeWH(size_.Width(), size_.Height())))
     return;
 
-  const SkMatrix transform = SkMatrix::RectToRect(
-      gfx::RectFToSkRect(src_rect), gfx::RectFToSkRect(dest_rect));
+  const SkMatrix transform = SkMatrix::RectToRect(src_rect, dest_rect);
   SkRect visible_dest_rect;
   transform.mapRect(&visible_dest_rect, visible_src_rect);
 
-  cc::PaintFlags gradient_flags(flags);
-  gradient_->ApplyToFlags(gradient_flags, transform, draw_options);
+  PaintFlags gradient_flags(flags);
+  gradient_->ApplyToFlags(gradient_flags, transform);
   canvas->drawRect(visible_dest_rect, gradient_flags);
 }
 
 void GradientGeneratedImage::DrawTile(GraphicsContext& context,
-                                      const gfx::RectF& src_rect,
-                                      const ImageDrawOptions& draw_options) {
+                                      const FloatRect& src_rect,
+                                      RespectImageOrientationEnum) {
   // TODO(ccameron): This function should not ignore |context|'s color behavior.
   // https://crbug.com/672306
-  cc::PaintFlags gradient_flags(context.FillFlags());
-  gradient_->ApplyToFlags(gradient_flags, SkMatrix::I(), draw_options);
+  PaintFlags gradient_flags(context.FillFlags());
+  gradient_->ApplyToFlags(gradient_flags, SkMatrix::I());
 
-  context.DrawRect(gfx::RectFToSkRect(src_rect), gradient_flags,
-                   AutoDarkMode::Disabled());
+  context.DrawRect(src_rect, gradient_flags);
 }
 
-bool GradientGeneratedImage::ApplyShader(cc::PaintFlags& flags,
-                                         const SkMatrix& local_matrix,
-                                         const gfx::RectF& src_rect,
-                                         const ImageDrawOptions& draw_options) {
+bool GradientGeneratedImage::ApplyShader(PaintFlags& flags,
+                                         const SkMatrix& local_matrix) {
   DCHECK(gradient_);
-  gradient_->ApplyToFlags(flags, local_matrix, draw_options);
+  gradient_->ApplyToFlags(flags, local_matrix);
 
   return true;
 }

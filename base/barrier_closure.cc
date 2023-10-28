@@ -1,4 +1,4 @@
-// Copyright 2013 The Chromium Authors
+// Copyright 2013 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -9,7 +9,6 @@
 #include "base/atomic_ref_count.h"
 #include "base/bind.h"
 #include "base/memory/ptr_util.h"
-#include "base/numerics/safe_conversions.h"
 
 namespace base {
 namespace {
@@ -17,7 +16,7 @@ namespace {
 // Maintains state for a BarrierClosure.
 class BarrierInfo {
  public:
-  BarrierInfo(size_t num_callbacks_left, OnceClosure done_closure);
+  BarrierInfo(int num_callbacks_left, OnceClosure done_closure);
   void Run();
 
  private:
@@ -25,8 +24,8 @@ class BarrierInfo {
   OnceClosure done_closure_;
 };
 
-BarrierInfo::BarrierInfo(size_t num_callbacks, OnceClosure done_closure)
-    : num_callbacks_left_(checked_cast<int>(num_callbacks)),
+BarrierInfo::BarrierInfo(int num_callbacks, OnceClosure done_closure)
+    : num_callbacks_left_(num_callbacks),
       done_closure_(std::move(done_closure)) {}
 
 void BarrierInfo::Run() {
@@ -35,22 +34,18 @@ void BarrierInfo::Run() {
     std::move(done_closure_).Run();
 }
 
-void ShouldNeverRun() {
-  CHECK(false);
-}
-
 }  // namespace
 
-RepeatingClosure BarrierClosure(size_t num_callbacks_left,
+RepeatingClosure BarrierClosure(int num_callbacks_left,
                                 OnceClosure done_closure) {
-  if (num_callbacks_left == 0) {
-    std::move(done_closure).Run();
-    return BindRepeating(&ShouldNeverRun);
-  }
+  DCHECK_GE(num_callbacks_left, 0);
 
-  return BindRepeating(&BarrierInfo::Run,
-                       std::make_unique<BarrierInfo>(num_callbacks_left,
-                                                     std::move(done_closure)));
+  if (num_callbacks_left == 0)
+    std::move(done_closure).Run();
+
+  return BindRepeating(
+      &BarrierInfo::Run,
+      Owned(new BarrierInfo(num_callbacks_left, std::move(done_closure))));
 }
 
 }  // namespace base

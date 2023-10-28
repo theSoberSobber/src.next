@@ -26,9 +26,7 @@
 #include "third_party/blink/renderer/platform/graphics/image_decoding_store.h"
 
 #include <memory>
-
 #include "base/bind.h"
-#include "base/synchronization/lock.h"
 #include "third_party/blink/renderer/platform/graphics/image_frame_generator.h"
 #include "third_party/blink/renderer/platform/instrumentation/tracing/trace_event.h"
 #include "third_party/blink/renderer/platform/wtf/threading.h"
@@ -71,7 +69,7 @@ bool ImageDecodingStore::LockDecoder(
     ImageDecoder** decoder) {
   DCHECK(decoder);
 
-  base::AutoLock lock(lock_);
+  MutexLocker lock(mutex_);
   DecoderCacheMap::iterator iter =
       decoder_cache_map_.find(DecoderCacheEntry::MakeCacheKey(
           generator, scaled_size, alpha_option, client_id));
@@ -91,7 +89,7 @@ void ImageDecodingStore::UnlockDecoder(
     const ImageFrameGenerator* generator,
     cc::PaintImage::GeneratorClientId client_id,
     const ImageDecoder* decoder) {
-  base::AutoLock lock(lock_);
+  MutexLocker lock(mutex_);
   DecoderCacheMap::iterator iter = decoder_cache_map_.find(
       DecoderCacheEntry::MakeCacheKey(generator, decoder, client_id));
   SECURITY_DCHECK(iter != decoder_cache_map_.end());
@@ -114,7 +112,7 @@ void ImageDecodingStore::InsertDecoder(
   auto new_cache_entry = std::make_unique<DecoderCacheEntry>(
       generator, 0, std::move(decoder), client_id);
 
-  base::AutoLock lock(lock_);
+  MutexLocker lock(mutex_);
   DCHECK(!decoder_cache_map_.Contains(new_cache_entry->CacheKey()));
   InsertCacheInternal(std::move(new_cache_entry), &decoder_cache_map_,
                       &decoder_cache_key_map_);
@@ -126,7 +124,7 @@ void ImageDecodingStore::RemoveDecoder(
     const ImageDecoder* decoder) {
   Vector<std::unique_ptr<CacheEntry>> cache_entries_to_delete;
   {
-    base::AutoLock lock(lock_);
+    MutexLocker lock(mutex_);
     DecoderCacheMap::iterator iter = decoder_cache_map_.find(
         DecoderCacheEntry::MakeCacheKey(generator, decoder, client_id));
     SECURITY_DCHECK(iter != decoder_cache_map_.end());
@@ -149,7 +147,7 @@ void ImageDecodingStore::RemoveCacheIndexedByGenerator(
     const ImageFrameGenerator* generator) {
   Vector<std::unique_ptr<CacheEntry>> cache_entries_to_delete;
   {
-    base::AutoLock lock(lock_);
+    MutexLocker lock(mutex_);
 
     // Remove image cache objects and decoder cache objects associated
     // with a ImageFrameGenerator.
@@ -165,7 +163,7 @@ void ImageDecodingStore::RemoveCacheIndexedByGenerator(
 void ImageDecodingStore::Clear() {
   size_t cache_limit_in_bytes;
   {
-    base::AutoLock lock(lock_);
+    MutexLocker lock(mutex_);
     cache_limit_in_bytes = heap_limit_in_bytes_;
     heap_limit_in_bytes_ = 0;
   }
@@ -173,26 +171,26 @@ void ImageDecodingStore::Clear() {
   Prune();
 
   {
-    base::AutoLock lock(lock_);
+    MutexLocker lock(mutex_);
     heap_limit_in_bytes_ = cache_limit_in_bytes;
   }
 }
 
 void ImageDecodingStore::SetCacheLimitInBytes(size_t cache_limit) {
   {
-    base::AutoLock lock(lock_);
+    MutexLocker lock(mutex_);
     heap_limit_in_bytes_ = cache_limit;
   }
   Prune();
 }
 
 size_t ImageDecodingStore::MemoryUsageInBytes() {
-  base::AutoLock lock(lock_);
+  MutexLocker lock(mutex_);
   return heap_memory_usage_in_bytes_;
 }
 
 int ImageDecodingStore::CacheEntries() {
-  base::AutoLock lock(lock_);
+  MutexLocker lock(mutex_);
   return decoder_cache_map_.size();
 }
 
@@ -202,7 +200,7 @@ void ImageDecodingStore::Prune() {
 
   Vector<std::unique_ptr<CacheEntry>> cache_entries_to_delete;
   {
-    base::AutoLock lock(lock_);
+    MutexLocker lock(mutex_);
 
     // Head of the list is the least recently used entry.
     const CacheEntry* cache_entry = ordered_cache_list_.Head();
@@ -243,7 +241,7 @@ template <class T, class U, class V>
 void ImageDecodingStore::InsertCacheInternal(std::unique_ptr<T> cache_entry,
                                              U* cache_map,
                                              V* identifier_map) {
-  lock_.AssertAcquired();
+  mutex_.AssertAcquired();
   const size_t cache_entry_bytes = cache_entry->MemoryUsageInBytes();
   heap_memory_usage_in_bytes_ += cache_entry_bytes;
 
@@ -270,7 +268,7 @@ void ImageDecodingStore::RemoveFromCacheInternal(
     U* cache_map,
     V* identifier_map,
     Vector<std::unique_ptr<CacheEntry>>* deletion_list) {
-  lock_.AssertAcquired();
+  mutex_.AssertAcquired();
   DCHECK_EQ(cache_entry->UseCount(), 0);
 
   const size_t cache_entry_bytes = cache_entry->MemoryUsageInBytes();
@@ -312,7 +310,7 @@ void ImageDecodingStore::RemoveCacheIndexedByGeneratorInternal(
     V* identifier_map,
     const ImageFrameGenerator* generator,
     Vector<std::unique_ptr<CacheEntry>>* deletion_list) {
-  lock_.AssertAcquired();
+  mutex_.AssertAcquired();
   typename V::iterator iter = identifier_map->find(generator);
   if (iter == identifier_map->end())
     return;
@@ -322,7 +320,7 @@ void ImageDecodingStore::RemoveCacheIndexedByGeneratorInternal(
   CopyToVector(iter->value, cache_identifier_list);
 
   // For each cache identifier find the corresponding CacheEntry and remove it.
-  for (wtf_size_t i = 0; i < cache_identifier_list.size(); ++i) {
+  for (size_t i = 0; i < cache_identifier_list.size(); ++i) {
     DCHECK(cache_map->Contains(cache_identifier_list[i]));
     const auto& cache_entry = cache_map->at(cache_identifier_list[i]);
     DCHECK(!cache_entry->UseCount());
@@ -333,9 +331,9 @@ void ImageDecodingStore::RemoveCacheIndexedByGeneratorInternal(
 
 void ImageDecodingStore::RemoveFromCacheListInternal(
     const Vector<std::unique_ptr<CacheEntry>>& deletion_list) {
-  lock_.AssertAcquired();
-  for (const auto& entry : deletion_list)
-    ordered_cache_list_.Remove(entry.get());
+  mutex_.AssertAcquired();
+  for (size_t i = 0; i < deletion_list.size(); ++i)
+    ordered_cache_list_.Remove(deletion_list[i].get());
 }
 
 }  // namespace blink

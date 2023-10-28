@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,6 +7,7 @@
 
 #include <string>
 
+#include "base/macros.h"
 #include "ui/base/ui_base_types.h"
 #include "url/gurl.h"
 
@@ -17,10 +18,6 @@
 class ConfirmBubbleModel {
  public:
   ConfirmBubbleModel();
-
-  ConfirmBubbleModel(const ConfirmBubbleModel&) = delete;
-  ConfirmBubbleModel& operator=(const ConfirmBubbleModel&) = delete;
-
   virtual ~ConfirmBubbleModel();
 
   // Returns the title string and the message string to be displayed for this
@@ -47,6 +44,9 @@ class ConfirmBubbleModel {
 
   // Called when the link is clicked.
   virtual void OpenHelpPage();
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(ConfirmBubbleModel);
 };
 
 #endif  // CHROME_BROWSER_UI_CONFIRM_BUBBLE_MODEL_H_

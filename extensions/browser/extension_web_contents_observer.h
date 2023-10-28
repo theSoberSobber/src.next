@@ -1,4 +1,4 @@
-// Copyright 2014 The Chromium Authors
+// Copyright 2014 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -9,9 +9,8 @@
 #include <string>
 
 #include "base/compiler_specific.h"
-#include "base/memory/raw_ptr.h"
+#include "base/macros.h"
 #include "base/types/pass_key.h"
-#include "components/sessions/core/session_id.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "extensions/browser/extension_function_dispatcher.h"
 #include "extensions/common/mojom/frame.mojom.h"
@@ -21,10 +20,6 @@ namespace content {
 class BrowserContext;
 class RenderFrameHost;
 class WebContents;
-}
-
-namespace sessions {
-class SessionTabHelper;
 }
 
 namespace extensions {
@@ -60,19 +55,9 @@ class ExtensionWebContentsObserver
     : public content::WebContentsObserver,
       public ExtensionFunctionDispatcher::Delegate {
  public:
-  ExtensionWebContentsObserver(const ExtensionWebContentsObserver&) = delete;
-  ExtensionWebContentsObserver& operator=(const ExtensionWebContentsObserver&) =
-      delete;
-
   // Returns the ExtensionWebContentsObserver for the given |web_contents|.
   static ExtensionWebContentsObserver* GetForWebContents(
       content::WebContents* web_contents);
-
-  // Binds the LocalFrameHost interface to the ExtensionFrameHost associated
-  // with the RenderFrameHost.
-  static void BindLocalFrameHost(
-      mojo::PendingAssociatedReceiver<mojom::LocalFrameHost> receiver,
-      content::RenderFrameHost* rfh);
 
   // This must be called by clients directly after the EWCO has been created.
   void Initialize();
@@ -93,17 +78,6 @@ class ExtensionWebContentsObserver
   // doesn't have it. Note that it could return nullptr if |render_frame_host|
   // is not live.
   mojom::LocalFrame* GetLocalFrame(content::RenderFrameHost* render_frame_host);
-
-  // Tells the receiver to start listening to window ID changes from the
-  // supplied SessionTabHelper. This method is public to allow the code that
-  // installs new SessionTabHelpers to call it; that in turn is required because
-  // SessionTabHelpers may be created after the corresponding
-  // ExtensionWebContentsObserver has already been initialized.
-  void ListenToWindowIdChangesFrom(sessions::SessionTabHelper* helper);
-
-  ExtensionFrameHost* extension_frame_host_for_testing() {
-    return extension_frame_host_.get();
-  }
 
  protected:
   explicit ExtensionWebContentsObserver(content::WebContents* web_contents);
@@ -148,10 +122,9 @@ class ExtensionWebContentsObserver
  private:
   using PassKey = base::PassKey<ExtensionWebContentsObserver>;
 
-  void OnWindowIdChanged(const SessionID& id);
-
+  friend class ExtensionFrameHostBrowserTest;
   // The BrowserContext associated with the WebContents being observed.
-  raw_ptr<content::BrowserContext> browser_context_;
+  content::BrowserContext* browser_context_;
 
   ExtensionFunctionDispatcher dispatcher_;
 
@@ -160,11 +133,11 @@ class ExtensionWebContentsObserver
 
   std::unique_ptr<ExtensionFrameHost> extension_frame_host_;
 
-  base::CallbackListSubscription window_id_subscription_;
-
   // A map of render frame host to mojo remotes.
   std::map<content::RenderFrameHost*, mojo::AssociatedRemote<mojom::LocalFrame>>
       local_frame_map_;
+
+  DISALLOW_COPY_AND_ASSIGN(ExtensionWebContentsObserver);
 };
 
 }  // namespace extensions

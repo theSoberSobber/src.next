@@ -1,4 +1,4 @@
-// Copyright 2017 The Chromium Authors
+// Copyright 2017 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -14,8 +14,9 @@
 #include "base/callback.h"
 #include "base/debug/leak_annotations.h"
 #include "base/logging.h"
+#include "base/macros.h"
 #include "base/posix/eintr_wrapper.h"
-#include "base/task/single_thread_task_runner.h"
+#include "base/single_thread_task_runner.h"
 #include "base/threading/platform_thread.h"
 #include "base/threading/thread_task_runner_handle.h"
 
@@ -37,7 +38,7 @@ void GracefulShutdownHandler(int signal) {
   struct sigaction action;
   memset(&action, 0, sizeof(action));
   action.sa_handler = SIG_DFL;
-  RAW_CHECK(sigaction(signal, &action, nullptr) == 0);
+  RAW_CHECK(sigaction(signal, &action, NULL) == 0);
 
   RAW_CHECK(g_pipe_pid != -1);
   RAW_CHECK(g_shutdown_pipe_write_fd != -1);
@@ -77,10 +78,6 @@ class ShutdownDetector : public base::PlatformThread::Delegate {
       int shutdown_fd,
       base::OnceCallback<void(int)> shutdown_callback,
       const scoped_refptr<base::SingleThreadTaskRunner>& task_runner);
-
-  ShutdownDetector(const ShutdownDetector&) = delete;
-  ShutdownDetector& operator=(const ShutdownDetector&) = delete;
-
   ~ShutdownDetector() override;
 
   // base::PlatformThread::Delegate:
@@ -90,6 +87,8 @@ class ShutdownDetector : public base::PlatformThread::Delegate {
   const int shutdown_fd_;
   base::OnceCallback<void(int)> shutdown_callback_;
   const scoped_refptr<base::SingleThreadTaskRunner> task_runner_;
+
+  DISALLOW_COPY_AND_ASSIGN(ShutdownDetector);
 };
 
 ShutdownDetector::ShutdownDetector(

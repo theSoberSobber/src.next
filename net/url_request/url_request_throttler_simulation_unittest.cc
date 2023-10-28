@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -17,8 +17,8 @@
 #include <memory>
 #include <vector>
 
+#include "base/cxx17_backports.h"
 #include "base/environment.h"
-#include "base/memory/raw_ptr.h"
 #include "base/rand_util.h"
 #include "base/test/task_environment.h"
 #include "base/time/time.h"
@@ -26,12 +26,12 @@
 #include "net/traffic_annotation/network_traffic_annotation_test_helper.h"
 #include "net/url_request/url_request.h"
 #include "net/url_request/url_request_context.h"
-#include "net/url_request/url_request_context_builder.h"
 #include "net/url_request/url_request_test_util.h"
 #include "net/url_request/url_request_throttler_manager.h"
 #include "net/url_request/url_request_throttler_test_support.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
+using base::TimeDelta;
 using base::TimeTicks;
 
 namespace net {
@@ -78,9 +78,6 @@ class DiscreteTimeSimulation {
 
   DiscreteTimeSimulation() = default;
 
-  DiscreteTimeSimulation(const DiscreteTimeSimulation&) = delete;
-  DiscreteTimeSimulation& operator=(const DiscreteTimeSimulation&) = delete;
-
   // Adds an |actor| to the simulation. The client of the simulation maintains
   // ownership of |actor| and must ensure its lifetime exceeds that of the
   // simulation. Actors should be added in the order you wish for them to
@@ -93,17 +90,17 @@ class DiscreteTimeSimulation {
   // tick to the next. The start time will be the current real time. The
   // simulation will stop when the simulated duration is equal to or greater
   // than |maximum_simulated_duration|.
-  void RunSimulation(const base::TimeDelta& maximum_simulated_duration,
-                     const base::TimeDelta& time_between_ticks) {
+  void RunSimulation(const TimeDelta& maximum_simulated_duration,
+                     const TimeDelta& time_between_ticks) {
     TimeTicks start_time = TimeTicks();
     TimeTicks now = start_time;
     while ((now - start_time) <= maximum_simulated_duration) {
-      for (auto* actor : actors_) {
-        actor->AdvanceTime(now);
+      for (auto it = actors_.begin(); it != actors_.end(); ++it) {
+        (*it)->AdvanceTime(now);
       }
 
-      for (auto* actor : actors_) {
-        actor->PerformAction();
+      for (auto it = actors_.begin(); it != actors_.end(); ++it) {
+        (*it)->PerformAction();
       }
 
       now += time_between_ticks;
@@ -112,6 +109,8 @@ class DiscreteTimeSimulation {
 
  private:
   std::vector<Actor*> actors_;
+
+  DISALLOW_COPY_AND_ASSIGN(DiscreteTimeSimulation);
 };
 
 // Represents a web server in a simulation of a server under attack by
@@ -122,17 +121,16 @@ class Server : public DiscreteTimeSimulation::Actor {
   Server(int max_queries_per_tick, double request_drop_ratio)
       : max_queries_per_tick_(max_queries_per_tick),
         request_drop_ratio_(request_drop_ratio),
-        context_(CreateTestURLRequestContextBuilder()->Build()),
-        mock_request_(context_->CreateRequest(GURL(),
-                                              DEFAULT_PRIORITY,
-                                              nullptr,
-                                              TRAFFIC_ANNOTATION_FOR_TESTS)) {}
+        num_overloaded_ticks_remaining_(0),
+        num_current_tick_queries_(0),
+        num_overloaded_ticks_(0),
+        max_experienced_queries_per_tick_(0),
+        mock_request_(context_.CreateRequest(GURL(),
+                                             DEFAULT_PRIORITY,
+                                             nullptr,
+                                             TRAFFIC_ANNOTATION_FOR_TESTS)) {}
 
-  Server(const Server&) = delete;
-  Server& operator=(const Server&) = delete;
-
-  void SetDowntime(const TimeTicks& start_time,
-                   const base::TimeDelta& duration) {
+  void SetDowntime(const TimeTicks& start_time, const TimeDelta& duration) {
     start_downtime_ = start_time;
     end_downtime_ = start_time + duration;
   }
@@ -225,7 +223,7 @@ class Server : public DiscreteTimeSimulation::Actor {
     if (num_ticks % ticks_per_column)
       ++num_columns;
     DCHECK_LE(num_columns, terminal_width);
-    auto columns = std::make_unique<int[]>(num_columns);
+    std::unique_ptr<int[]> columns(new int[num_columns]);
     for (int tx = 0; tx < num_ticks; ++tx) {
       int cx = tx / ticks_per_column;
       if (tx % ticks_per_column == 0)
@@ -281,7 +279,7 @@ class Server : public DiscreteTimeSimulation::Actor {
     return output;
   }
 
-  const URLRequestContext& context() const { return *context_; }
+  const URLRequestContext& context() const { return context_; }
 
  private:
   TimeTicks now_;
@@ -289,14 +287,16 @@ class Server : public DiscreteTimeSimulation::Actor {
   TimeTicks end_downtime_;
   const int max_queries_per_tick_;
   const double request_drop_ratio_;  // Ratio of requests to 503 when failing.
-  int num_overloaded_ticks_remaining_ = 0;
-  int num_current_tick_queries_ = 0;
-  int num_overloaded_ticks_ = 0;
-  int max_experienced_queries_per_tick_ = 0;
+  int num_overloaded_ticks_remaining_;
+  int num_current_tick_queries_;
+  int num_overloaded_ticks_;
+  int max_experienced_queries_per_tick_;
   std::vector<int> requests_per_tick_;
 
-  std::unique_ptr<URLRequestContext> context_;
+  TestURLRequestContext context_;
   std::unique_ptr<URLRequest> mock_request_;
+
+  DISALLOW_COPY_AND_ASSIGN(Server);
 };
 
 // Mock throttler entry used by Requester class.
@@ -330,7 +330,9 @@ class MockURLRequestThrottlerEntry : public URLRequestThrottlerEntry {
 // regular clients).
 class RequesterResults {
  public:
-  RequesterResults() = default;
+  RequesterResults()
+      : num_attempts_(0), num_successful_(0), num_failed_(0), num_blocked_(0) {
+  }
 
   void AddSuccess() {
     ++num_attempts_;
@@ -381,10 +383,10 @@ class RequesterResults {
   }
 
  private:
-  int num_attempts_ = 0;
-  int num_successful_ = 0;
-  int num_failed_ = 0;
-  int num_blocked_ = 0;
+  int num_attempts_;
+  int num_successful_;
+  int num_failed_;
+  int num_blocked_;
 };
 
 // Represents an Requester in a simulated DDoS situation, that periodically
@@ -392,18 +394,16 @@ class RequesterResults {
 class Requester : public DiscreteTimeSimulation::Actor {
  public:
   Requester(MockURLRequestThrottlerEntry* throttler_entry,
-            const base::TimeDelta& time_between_requests,
+            const TimeDelta& time_between_requests,
             Server* server,
             RequesterResults* results)
       : throttler_entry_(throttler_entry),
         time_between_requests_(time_between_requests),
+        last_attempt_was_failure_(false),
         server_(server),
         results_(results) {
     DCHECK(server_);
   }
-
-  Requester(const Requester&) = delete;
-  Requester& operator=(const Requester&) = delete;
 
   void AdvanceTime(const TimeTicks& absolute_time) override {
     if (time_of_last_success_.is_null())
@@ -413,8 +413,8 @@ class Requester : public DiscreteTimeSimulation::Actor {
   }
 
   void PerformAction() override {
-    const base::TimeDelta current_jitter = request_jitter_ * base::RandDouble();
-    const base::TimeDelta effective_delay =
+    const TimeDelta current_jitter = request_jitter_ * base::RandDouble();
+    const TimeDelta effective_delay =
         time_between_requests_ +
         (base::RandInt(0, 1) ? -current_jitter : current_jitter);
 
@@ -450,30 +450,30 @@ class Requester : public DiscreteTimeSimulation::Actor {
 
   // Adds a delay until the first request, equal to a uniformly distributed
   // value between now and now + max_delay.
-  void SetStartupJitter(const base::TimeDelta& max_delay) {
+  void SetStartupJitter(const TimeDelta& max_delay) {
     int delay_ms = base::RandInt(0, max_delay.InMilliseconds());
-    time_of_last_attempt_ =
-        TimeTicks() + base::Milliseconds(delay_ms) - time_between_requests_;
+    time_of_last_attempt_ = TimeTicks() +
+        TimeDelta::FromMilliseconds(delay_ms) - time_between_requests_;
   }
 
-  void SetRequestJitter(const base::TimeDelta& request_jitter) {
+  void SetRequestJitter(const TimeDelta& request_jitter) {
     request_jitter_ = request_jitter;
   }
 
-  base::TimeDelta last_downtime_duration() const {
-    return last_downtime_duration_;
-  }
+  TimeDelta last_downtime_duration() const { return last_downtime_duration_; }
 
  private:
   scoped_refptr<MockURLRequestThrottlerEntry> throttler_entry_;
-  const base::TimeDelta time_between_requests_;
-  base::TimeDelta request_jitter_;
+  const TimeDelta time_between_requests_;
+  TimeDelta request_jitter_;
   TimeTicks time_of_last_attempt_;
   TimeTicks time_of_last_success_;
-  bool last_attempt_was_failure_ = false;
-  base::TimeDelta last_downtime_duration_;
-  const raw_ptr<Server> server_;
-  const raw_ptr<RequesterResults> results_;  // May be NULL.
+  bool last_attempt_was_failure_;
+  TimeDelta last_downtime_duration_;
+  Server* const server_;
+  RequesterResults* const results_;  // May be NULL.
+
+  DISALLOW_COPY_AND_ASSIGN(Requester);
 };
 
 void SimulateAttack(Server* server,
@@ -488,34 +488,37 @@ void SimulateAttack(Server* server,
   for (size_t i = 0; i < kNumAttackers; ++i) {
     // Use a tiny time_between_requests so the attackers will ping the
     // server at every tick of the simulation.
-    auto throttler_entry =
-        base::MakeRefCounted<MockURLRequestThrottlerEntry>(&manager);
+    scoped_refptr<MockURLRequestThrottlerEntry> throttler_entry(
+        new MockURLRequestThrottlerEntry(&manager));
     if (!enable_throttling)
       throttler_entry->DisableBackoffThrottling();
 
-    auto attacker = std::make_unique<Requester>(
-        throttler_entry.get(), base::Milliseconds(1), server, attacker_results);
-    attacker->SetStartupJitter(base::Seconds(120));
+    std::unique_ptr<Requester> attacker(
+        new Requester(throttler_entry.get(), TimeDelta::FromMilliseconds(1),
+                      server, attacker_results));
+    attacker->SetStartupJitter(TimeDelta::FromSeconds(120));
     simulation.AddActor(attacker.get());
     requesters.push_back(std::move(attacker));
   }
   for (size_t i = 0; i < kNumClients; ++i) {
     // Normal clients only make requests every 2 minutes, plus/minus 1 minute.
-    auto throttler_entry =
-        base::MakeRefCounted<MockURLRequestThrottlerEntry>(&manager);
+    scoped_refptr<MockURLRequestThrottlerEntry> throttler_entry(
+        new MockURLRequestThrottlerEntry(&manager));
     if (!enable_throttling)
       throttler_entry->DisableBackoffThrottling();
 
-    auto client = std::make_unique<Requester>(
-        throttler_entry.get(), base::Minutes(2), server, client_results);
-    client->SetStartupJitter(base::Seconds(120));
-    client->SetRequestJitter(base::Minutes(1));
+    std::unique_ptr<Requester> client(new Requester(throttler_entry.get(),
+                                                    TimeDelta::FromMinutes(2),
+                                                    server, client_results));
+    client->SetStartupJitter(TimeDelta::FromSeconds(120));
+    client->SetRequestJitter(TimeDelta::FromMinutes(1));
     simulation.AddActor(client.get());
     requesters.push_back(std::move(client));
   }
   simulation.AddActor(server);
 
-  simulation.RunSimulation(base::Minutes(6), base::Seconds(1));
+  simulation.RunSimulation(TimeDelta::FromMinutes(6),
+                           TimeDelta::FromSeconds(1));
 }
 
 TEST(URLRequestThrottlerSimulation, HelpsInAttack) {
@@ -573,10 +576,10 @@ TEST(URLRequestThrottlerSimulation, HelpsInAttack) {
 
 // Returns the downtime perceived by the client, as a ratio of the
 // actual downtime.
-double SimulateDowntime(const base::TimeDelta& duration,
-                        const base::TimeDelta& average_client_interval,
+double SimulateDowntime(const TimeDelta& duration,
+                        const TimeDelta& average_client_interval,
                         bool enable_throttling) {
-  base::TimeDelta time_between_ticks = duration / 200;
+  TimeDelta time_between_ticks = duration / 200;
   TimeTicks start_downtime = TimeTicks() + (duration / 2);
 
   // A server that never rejects requests, but will go down for maintenance.
@@ -584,8 +587,8 @@ double SimulateDowntime(const base::TimeDelta& duration,
   server.SetDowntime(start_downtime, duration);
 
   URLRequestThrottlerManager manager;
-  auto throttler_entry =
-      base::MakeRefCounted<MockURLRequestThrottlerEntry>(&manager);
+  scoped_refptr<MockURLRequestThrottlerEntry> throttler_entry(
+      new MockURLRequestThrottlerEntry(&manager));
   if (!enable_throttling)
     throttler_entry->DisableBackoffThrottling();
 
@@ -652,14 +655,15 @@ TEST(URLRequestThrottlerSimulation, PerceivedDowntimeRatio) {
   Stats global_stats = { 1.08, 1.15 };
 
   struct Trial {
-    base::TimeDelta duration;
-    base::TimeDelta average_client_interval;
+    TimeDelta duration;
+    TimeDelta average_client_interval;
     Stats stats;
 
     void PrintTrialDescription() {
-      const double duration_minutes = duration / base::Minutes(1);
+      const double duration_minutes =
+          duration / base::TimeDelta::FromMinutes(1);
       const double interval_minutes =
-          average_client_interval / base::Minutes(1);
+          average_client_interval / base::TimeDelta::FromMinutes(1);
       VerboseOut("Trial with %.2f min downtime, avg. interval %.2f min.\n",
                  duration_minutes, interval_minutes);
     }
@@ -673,42 +677,42 @@ TEST(URLRequestThrottlerSimulation, PerceivedDowntimeRatio) {
   // in behavior between a client making requests every few minutes vs.
   // one that makes a request every 15 seconds).
   Trial trials[] = {
-      {base::Seconds(10), base::Seconds(3)},
-      {base::Seconds(30), base::Seconds(7)},
-      {base::Minutes(5), base::Seconds(30)},
-      {base::Minutes(10), base::Seconds(20)},
-      {base::Minutes(20), base::Seconds(15)},
-      {base::Minutes(20), base::Seconds(50)},
-      {base::Minutes(30), base::Minutes(2)},
-      {base::Minutes(30), base::Minutes(5)},
-      {base::Minutes(40), base::Minutes(7)},
-      {base::Minutes(40), base::Minutes(2)},
-      {base::Minutes(40), base::Seconds(15)},
-      {base::Minutes(60), base::Minutes(7)},
-      {base::Minutes(60), base::Minutes(2)},
-      {base::Minutes(60), base::Seconds(15)},
-      {base::Minutes(80), base::Minutes(20)},
-      {base::Minutes(80), base::Minutes(3)},
-      {base::Minutes(80), base::Seconds(15)},
+    { TimeDelta::FromSeconds(10), TimeDelta::FromSeconds(3) },
+    { TimeDelta::FromSeconds(30), TimeDelta::FromSeconds(7) },
+    { TimeDelta::FromMinutes(5), TimeDelta::FromSeconds(30) },
+    { TimeDelta::FromMinutes(10), TimeDelta::FromSeconds(20) },
+    { TimeDelta::FromMinutes(20), TimeDelta::FromSeconds(15) },
+    { TimeDelta::FromMinutes(20), TimeDelta::FromSeconds(50) },
+    { TimeDelta::FromMinutes(30), TimeDelta::FromMinutes(2) },
+    { TimeDelta::FromMinutes(30), TimeDelta::FromMinutes(5) },
+    { TimeDelta::FromMinutes(40), TimeDelta::FromMinutes(7) },
+    { TimeDelta::FromMinutes(40), TimeDelta::FromMinutes(2) },
+    { TimeDelta::FromMinutes(40), TimeDelta::FromSeconds(15) },
+    { TimeDelta::FromMinutes(60), TimeDelta::FromMinutes(7) },
+    { TimeDelta::FromMinutes(60), TimeDelta::FromMinutes(2) },
+    { TimeDelta::FromMinutes(60), TimeDelta::FromSeconds(15) },
+    { TimeDelta::FromMinutes(80), TimeDelta::FromMinutes(20) },
+    { TimeDelta::FromMinutes(80), TimeDelta::FromMinutes(3) },
+    { TimeDelta::FromMinutes(80), TimeDelta::FromSeconds(15) },
 
-      // Most brutal?
-      {base::Minutes(45), base::Milliseconds(500)},
+    // Most brutal?
+    { TimeDelta::FromMinutes(45), TimeDelta::FromMilliseconds(500) },
   };
 
   // If things don't converge by the time we've done 100K trials, then
   // clearly one or more of the expected intervals are wrong.
   while (global_stats.num_runs < 100000) {
-    for (auto& trial : trials) {
+    for (size_t i = 0; i < base::size(trials); ++i) {
       ++global_stats.num_runs;
-      ++trial.stats.num_runs;
+      ++trials[i].stats.num_runs;
       double ratio_unprotected = SimulateDowntime(
-          trial.duration, trial.average_client_interval, false);
-      double ratio_protected =
-          SimulateDowntime(trial.duration, trial.average_client_interval, true);
+          trials[i].duration, trials[i].average_client_interval, false);
+      double ratio_protected = SimulateDowntime(
+          trials[i].duration, trials[i].average_client_interval, true);
       global_stats.total_ratio_unprotected += ratio_unprotected;
       global_stats.total_ratio_protected += ratio_protected;
-      trial.stats.total_ratio_unprotected += ratio_unprotected;
-      trial.stats.total_ratio_protected += ratio_protected;
+      trials[i].stats.total_ratio_unprotected += ratio_unprotected;
+      trials[i].stats.total_ratio_protected += ratio_protected;
     }
 
     double increase_ratio;
@@ -726,12 +730,12 @@ TEST(URLRequestThrottlerSimulation, PerceivedDowntimeRatio) {
 
   // Print individual trial results for optional manual evaluation.
   double max_increase_ratio = 0.0;
-  for (auto& trial : trials) {
+  for (size_t i = 0; i < base::size(trials); ++i) {
     double increase_ratio;
-    trial.stats.DidConverge(&increase_ratio);
+    trials[i].stats.DidConverge(&increase_ratio);
     max_increase_ratio = std::max(max_increase_ratio, increase_ratio);
-    trial.PrintTrialDescription();
-    trial.stats.ReportTrialResult(increase_ratio);
+    trials[i].PrintTrialDescription();
+    trials[i].stats.ReportTrialResult(increase_ratio);
   }
 
   VerboseOut("Average increase ratio was %.4f\n", average_increase_ratio);

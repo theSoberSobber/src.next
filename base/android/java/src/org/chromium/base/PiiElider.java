@@ -1,4 +1,4 @@
-// Copyright 2018 The Chromium Authors
+// Copyright 2018 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,7 +7,7 @@ package org.chromium.base;
 import android.text.TextUtils;
 import android.util.Patterns;
 
-import org.chromium.build.annotations.UsedByReflection;
+import org.chromium.base.annotations.UsedByReflection;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -70,11 +70,7 @@ public class PiiElider {
                     + "(\\b|$)"); // Always end on a word boundary or end of string.
 
     private static final Pattern LIKELY_EXCEPTION_LOG =
-            Pattern.compile("\\sat\\sorg\\.chromium\\.[^ ]+.|"
-                    + "Caused by: java.lang."
-                    // When a class is not found it can fail to satisfy our isClass
-                    // check but is still worth noting what it was.
-                    + "(ClassNotFoundException|NoClassDefFoundError):");
+            Pattern.compile("\\sat\\sorg\\.chromium\\.[^ ]+.");
 
     private static final String IP_ELISION = "1.2.3.4";
     private static final String MAC_ELISION = "01:23:45:67:89:AB";
@@ -85,12 +81,21 @@ public class PiiElider {
 
     private static final Pattern CONSOLE_MSG = Pattern.compile("\\[\\w*:CONSOLE.*\\].*");
 
-    private static final String[] APP_NAMESPACE =
-            new String[] {"org.chromium.", "com.google.", "com.chrome."};
+    private static final String[] APP_NAMESPACE = new String[] {"org.chromium.", "com.google."};
 
-    private static final String[] SYSTEM_NAMESPACE =
-            new String[] {"android.", "com.android.", "dalvik.", "java.", "javax.", "org.apache.",
-                    "org.json.", "org.w3c.dom.", "org.xml.", "org.xmlpull."};
+    private static final String[] SYSTEM_NAMESPACE = new String[] {"android.accessibilityservice",
+            "android.accounts", "android.animation", "android.annotation", "android.app",
+            "android.appwidget", "android.bluetooth", "android.content", "android.database",
+            "android.databinding", "android.drm", "android.gesture", "android.graphics",
+            "android.hardware", "android.inputmethodservice", "android.location", "android.media",
+            "android.mtp", "android.net", "android.nfc", "android.opengl", "android.os",
+            "android.preference", "android.print", "android.printservice", "android.provider",
+            "android.renderscript", "android.sax", "android.security", "android.service",
+            "android.speech", "android.support", "android.system", "android.telecom",
+            "android.telephony", "android.test", "android.text", "android.transition",
+            "android.util", "android.view", "android.webkit", "android.widget", "com.android.",
+            "dalvik.", "java.", "javax.", "org.apache.", "org.json.", "org.w3c.dom.", "org.xml.",
+            "org.xmlpull."};
 
     /**
      * Elides any emails in the specified {@link String} with

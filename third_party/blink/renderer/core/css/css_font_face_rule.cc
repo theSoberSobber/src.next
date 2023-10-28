@@ -52,7 +52,7 @@ String CSSFontFaceRule::cssText() const {
   if (!descs.IsEmpty())
     result.Append(' ');
   result.Append('}');
-  return result.ReleaseString();
+  return result.ToString();
 }
 
 void CSSFontFaceRule::Reattach(StyleRuleBase* rule) {

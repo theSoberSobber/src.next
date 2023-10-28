@@ -26,11 +26,9 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_CORE_LOADER_DOCUMENT_LOAD_TIMING_H_
 #define THIRD_PARTY_BLINK_RENDERER_CORE_LOADER_DOCUMENT_LOAD_TIMING_H_
 
-#include "base/time/time.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
 #include "third_party/blink/renderer/core/core_export.h"
-#include "third_party/blink/renderer/platform/heap/garbage_collected.h"
-#include "third_party/blink/renderer/platform/heap/member.h"
+#include "third_party/blink/renderer/platform/heap/handle.h"
 #include "third_party/blink/renderer/platform/instrumentation/tracing/traced_value.h"
 #include "third_party/perfetto/include/perfetto/tracing/traced_value_forward.h"
 
@@ -57,7 +55,7 @@ class CORE_EXPORT DocumentLoadTiming final {
 
   void MarkNavigationStart();
   void SetNavigationStart(base::TimeTicks);
-  void SetBackForwardCacheRestoreNavigationStart(base::TimeTicks);
+  void MarkBackForwardCacheRestoreNavigationStart(base::TimeTicks);
   void MarkCommitNavigationEnd();
 
   void SetInputStart(base::TimeTicks);
@@ -74,8 +72,8 @@ class CORE_EXPORT DocumentLoadTiming final {
     has_cross_origin_redirect_ = value;
   }
 
-  void SetUnloadEventStart(base::TimeTicks);
-  void SetUnloadEventEnd(base::TimeTicks);
+  void MarkUnloadEventStart(base::TimeTicks);
+  void MarkUnloadEventEnd(base::TimeTicks);
 
   void MarkFetchStart();
   void SetFetchStart(base::TimeTicks);
@@ -85,7 +83,7 @@ class CORE_EXPORT DocumentLoadTiming final {
   void MarkLoadEventStart();
   void MarkLoadEventEnd();
 
-  void SetActivationStart(base::TimeTicks);
+  void MarkActivationStart(base::TimeTicks);
 
   void SetCanRequestFromPreviousDocument(bool value) {
     can_request_from_previous_document_ = value;

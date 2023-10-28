@@ -104,17 +104,17 @@ TEST_F(GridTest, OverlappingChildren) {
   auto* grid = layout_grid->InternalGrid();
   ASSERT_NE(grid, nullptr);
 
-  wtf_size_t num_rows = grid->NumTracks(kForRows);
-  wtf_size_t num_cols = grid->NumTracks(kForColumns);
+  size_t num_rows = grid->NumTracks(kForRows);
+  size_t num_cols = grid->NumTracks(kForColumns);
   EXPECT_EQ(3u, num_rows);
   EXPECT_EQ(3u, num_cols);
 
   EXPECT_TRUE(grid->HasGridItems());
 
-  wtf_size_t index = 0;
-  Vector<wtf_size_t> expected_items_per_cell = {1, 2, 1, 2, 4, 2, 1, 2, 1};
-  for (wtf_size_t row = 0; row < num_rows; ++row) {
-    for (wtf_size_t col = 0; col < num_cols; ++col)
+  size_t index = 0;
+  Vector<size_t> expected_items_per_cell = {1, 2, 1, 2, 4, 2, 1, 2, 1};
+  for (size_t row = 0; row < num_rows; ++row) {
+    for (size_t col = 0; col < num_cols; ++col)
       EXPECT_EQ(expected_items_per_cell[index++], grid->Cell(row, col).size());
   }
 }
@@ -140,16 +140,16 @@ TEST_F(GridTest, PartiallyOverlappingChildren) {
   auto* grid = layout_grid->InternalGrid();
   ASSERT_NE(grid, nullptr);
 
-  wtf_size_t num_rows = grid->NumTracks(kForRows);
-  wtf_size_t num_cols = grid->NumTracks(kForColumns);
+  size_t num_rows = grid->NumTracks(kForRows);
+  size_t num_cols = grid->NumTracks(kForColumns);
   EXPECT_EQ(1u, num_rows);
   EXPECT_EQ(3u, num_cols);
 
   EXPECT_TRUE(grid->HasGridItems());
 
-  wtf_size_t index = 0;
-  Vector<wtf_size_t> expected_items_per_cell = {2, 1, 1};
-  for (wtf_size_t col = 0; col < num_cols; ++col)
+  size_t index = 0;
+  Vector<size_t> expected_items_per_cell = {2, 1, 1};
+  for (size_t col = 0; col < num_cols; ++col)
     EXPECT_EQ(expected_items_per_cell[index++], grid->Cell(0, col).size());
 }
 
@@ -230,7 +230,7 @@ TEST_F(GridTest, AutoFit) {
   ASSERT_NE(empty_tracks, nullptr);
   ASSERT_EQ(empty_tracks->size(), 5u);
   Vector<size_t> expected_empty_tracks = {0, 5, 6, 7, 9};
-  wtf_size_t index = 0;
+  size_t index = 0;
   for (auto track : *empty_tracks) {
     EXPECT_EQ(expected_empty_tracks[index++], track);
     EXPECT_TRUE(grid->IsEmptyAutoRepeatTrack(kForColumns, track));
@@ -339,14 +339,14 @@ TEST_F(GridTest, CellInsert) {
   if (RuntimeEnabledFeatures::LayoutNGEnabled())
     return;
 
-  auto* track = MakeGarbageCollected<ListGrid::GridTrack>(0, kForColumns);
-  auto* cell = MakeGarbageCollected<ListGrid::GridCell>(0, 0);
+  auto track = base::WrapUnique(new ListGrid::GridTrack(0, kForColumns));
+  auto* cell = new ListGrid::GridCell(0, 0);
 
   auto result = track->Insert(cell);
   EXPECT_TRUE(result.is_new_entry);
   EXPECT_EQ(cell, result.node);
 
-  auto* cell2 = MakeGarbageCollected<ListGrid::GridCell>(1, 0);
+  auto* cell2 = new ListGrid::GridCell(1, 0);
   result = track->Insert(cell2);
   EXPECT_TRUE(result.is_new_entry);
   EXPECT_EQ(cell2, result.node);
@@ -355,7 +355,7 @@ TEST_F(GridTest, CellInsert) {
   EXPECT_FALSE(result.is_new_entry);
   EXPECT_EQ(cell2, result.node);
 
-  auto* cell3 = MakeGarbageCollected<ListGrid::GridCell>(2, 0);
+  auto* cell3 = new ListGrid::GridCell(2, 0);
   result = track->InsertAfter(cell3, cell2);
   EXPECT_TRUE(result.is_new_entry);
   EXPECT_EQ(cell3, result.node);

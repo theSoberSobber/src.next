@@ -84,8 +84,7 @@ class PLATFORM_EXPORT DecodingImageGenerator final
 
   bool GetYUVAPlanes(const SkYUVAPixmaps& pixmaps,
                      size_t frame_index,
-                     uint32_t lazy_pixel_ref,
-                     PaintImage::GeneratorClientId client_id) override;
+                     uint32_t lazy_pixel_ref) override;
 
   SkISize GetSupportedDecodeSize(const SkISize& requested_size) const override;
   PaintImage::ContentId GetContentIdForFrame(size_t frame_index) const override;

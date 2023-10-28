@@ -1,4 +1,4 @@
-// Copyright 2020 The Chromium Authors
+// Copyright 2020 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -13,7 +13,6 @@ import org.chromium.base.Callback;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsUtils;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.layouts.LayoutStateProvider;
 import org.chromium.chrome.browser.layouts.LayoutStateProvider.LayoutStateObserver;
 import org.chromium.chrome.browser.layouts.LayoutType;
@@ -140,6 +139,12 @@ public class TopToolbarOverlayMediator {
                 updateShadowState();
                 updateVisibility();
             }
+
+            @Override
+            public void onAndroidVisibilityChanged(int visibility) {
+                // TODO(crbug/1223069): Remove this workaround for default method desugaring in D8
+                // causing AbstractMethodErrors in some cases once fixed upstream.
+            }
         };
         mBrowserControlsStateProvider.addObserver(mBrowserControlsObserver);
     }
@@ -194,7 +199,8 @@ public class TopToolbarOverlayMediator {
     @ColorInt
     private int getUrlBarBackgroundColor(Tab tab, @ColorInt int backgroundColor) {
         if (sUrlBarColorForTesting != null) return sUrlBarColorForTesting;
-        return ThemeUtils.getTextBoxColorForToolbarBackground(mContext, tab, backgroundColor);
+        return ThemeUtils.getTextBoxColorForToolbarBackground(
+                mContext.getResources(), tab, backgroundColor);
     }
 
     /** Update the state of the composited progress bar. */
@@ -210,10 +216,8 @@ public class TopToolbarOverlayMediator {
         // Update and set the progress info to trigger an update; the PROGRESS_BAR_INFO
         // property skips the object equality check.
         mProgressInfoCallback.onResult(mModel.get(TopToolbarOverlayProperties.PROGRESS_BAR_INFO));
-        if (!ChromeFeatureList.isEnabled(ChromeFeatureList.DISABLE_COMPOSITED_PROGRESS_BAR)) {
-            mModel.set(TopToolbarOverlayProperties.PROGRESS_BAR_INFO,
-                    mModel.get(TopToolbarOverlayProperties.PROGRESS_BAR_INFO));
-        }
+        mModel.set(TopToolbarOverlayProperties.PROGRESS_BAR_INFO,
+                mModel.get(TopToolbarOverlayProperties.PROGRESS_BAR_INFO));
     }
 
     /** @return Whether this component is in tablet mode. */

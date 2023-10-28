@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium Authors
+// Copyright 2019 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -44,12 +44,6 @@ class ExtensionBrowserTestWithCustomTestResourcesLocation
     : public ExtensionBrowserTest {
  public:
   ExtensionBrowserTestWithCustomTestResourcesLocation() = default;
-
-  ExtensionBrowserTestWithCustomTestResourcesLocation(
-      const ExtensionBrowserTestWithCustomTestResourcesLocation&) = delete;
-  ExtensionBrowserTestWithCustomTestResourcesLocation& operator=(
-      const ExtensionBrowserTestWithCustomTestResourcesLocation&) = delete;
-
   ~ExtensionBrowserTestWithCustomTestResourcesLocation() override = default;
 
  private:
@@ -60,6 +54,8 @@ class ExtensionBrowserTestWithCustomTestResourcesLocation
     base::PathService::Get(chrome::DIR_TEST_DATA, &test_root_path);
     return test_root_path.AppendASCII("extensions/test_resources_test");
   }
+
+  DISALLOW_COPY_AND_ASSIGN(ExtensionBrowserTestWithCustomTestResourcesLocation);
 };
 
 }  // namespace
@@ -84,8 +80,8 @@ IN_PROC_BROWSER_TEST_F(ExtensionBrowserTest, TestResourcesLoad) {
   const Extension* extension = LoadExtension(test_dir.UnpackedPath());
   ASSERT_TRUE(extension);
 
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(
-      browser(), extension->GetResourceURL("page.html")));
+  ui_test_utils::NavigateToURL(browser(),
+                               extension->GetResourceURL("page.html"));
 
   absl::optional<int> sentinel = RetrieveSentinelValue(browser());
   ASSERT_TRUE(sentinel);
@@ -123,8 +119,8 @@ IN_PROC_BROWSER_TEST_F(ExtensionBrowserTest,
   ASSERT_TRUE(extension);
   EXPECT_EQ(mojom::ManifestLocation::kComponent, extension->location());
 
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(
-      browser(), extension->GetResourceURL("page.html")));
+  ui_test_utils::NavigateToURL(browser(),
+                               extension->GetResourceURL("page.html"));
 
   absl::optional<int> sentinel = RetrieveSentinelValue(browser());
   ASSERT_TRUE(sentinel);
@@ -155,8 +151,8 @@ IN_PROC_BROWSER_TEST_F(ExtensionBrowserTestWithCustomTestResourcesLocation,
   const Extension* extension = LoadExtension(test_dir.UnpackedPath());
   ASSERT_TRUE(extension);
 
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(
-      browser(), extension->GetResourceURL("page.html")));
+  ui_test_utils::NavigateToURL(browser(),
+                               extension->GetResourceURL("page.html"));
 
   absl::optional<int> sentinel = RetrieveSentinelValue(browser());
   ASSERT_TRUE(sentinel);

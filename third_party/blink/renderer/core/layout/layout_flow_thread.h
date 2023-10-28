@@ -39,26 +39,23 @@ namespace blink {
 
 class LayoutMultiColumnSet;
 
-typedef HeapLinkedHashSet<Member<LayoutMultiColumnSet>>
-    LayoutMultiColumnSetList;
+typedef LinkedHashSet<LayoutMultiColumnSet*> LayoutMultiColumnSetList;
 
 // Layout state for multicol. To be stored when laying out a block child, so
 // that we can roll back to the initial state if we need to re-lay out said
 // block child.
 class MultiColumnLayoutState {
-  DISALLOW_NEW();
   friend class LayoutMultiColumnFlowThread;
 
  public:
-  MultiColumnLayoutState() = default;
-  void Trace(Visitor*) const;
+  MultiColumnLayoutState() : column_set_(nullptr) {}
 
  private:
   explicit MultiColumnLayoutState(LayoutMultiColumnSet* column_set)
       : column_set_(column_set) {}
   LayoutMultiColumnSet* ColumnSet() const { return column_set_; }
 
-  Member<LayoutMultiColumnSet> column_set_;
+  LayoutMultiColumnSet* column_set_;
 };
 
 // LayoutFlowThread is used to collect all the layout objects that participate
@@ -70,7 +67,6 @@ class CORE_EXPORT LayoutFlowThread : public LayoutBlockFlow {
  public:
   explicit LayoutFlowThread(bool needs_paint_layer);
   ~LayoutFlowThread() override = default;
-  void Trace(Visitor*) const override;
 
   bool IsLayoutFlowThread() const final {
     NOT_DESTROYED();
@@ -139,18 +135,17 @@ class CORE_EXPORT LayoutFlowThread : public LayoutBlockFlow {
   }
 
   void AbsoluteQuadsForDescendant(const LayoutBox& descendant,
-                                  Vector<gfx::QuadF>&,
+                                  Vector<FloatQuad>&,
                                   MapCoordinatesFlags mode = 0);
 
   void AddOutlineRects(Vector<PhysicalRect>&,
-                       OutlineInfo*,
                        const PhysicalOffset& additional_offset,
                        NGOutlineType) const override;
 
   bool NodeAtPoint(HitTestResult&,
                    const HitTestLocation&,
                    const PhysicalOffset& accumulated_offset,
-                   HitTestPhase) final;
+                   HitTestAction) final;
 
   virtual void AddColumnSetToThread(LayoutMultiColumnSet*) = 0;
   virtual void RemoveColumnSetFromThread(LayoutMultiColumnSet*);

@@ -21,8 +21,7 @@ bool BoxDecorationData::BorderObscuresBackgroundEdge() const {
 }
 
 BackgroundBleedAvoidance BoxDecorationData::ComputeBleedAvoidance() const {
-  if (!should_paint_background_ ||
-      paint_info_.IsPaintingBackgroundInContentsSpace() ||
+  if (!should_paint_background_ || is_painting_scrolling_background_ ||
       layout_box_.IsDocumentElement())
     return kBackgroundBleedNone;
 

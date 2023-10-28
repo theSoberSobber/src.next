@@ -1,4 +1,4 @@
-// Copyright 2015 The Chromium Authors
+// Copyright 2015 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -52,7 +52,7 @@ public interface Toolbar {
     /**
      * @return Whether a dirty check for invalidation makes sense at this time.
      */
-    CaptureReadinessResult isReadyForTextureCapture();
+    boolean isReadyForTextureCapture();
 
     /**
      * Sets whether or not the toolbar should force itself to draw for a texture capture regardless
@@ -86,10 +86,4 @@ public interface Toolbar {
      * @return The primary color to use for the background drawable.
      */
     int getPrimaryColor();
-
-    /**
-     * Updates the visibility of the reload button.
-     * @param isReloading Whether or not the page is loading.
-     */
-    void updateReloadButtonVisibility(boolean isReloading);
 }

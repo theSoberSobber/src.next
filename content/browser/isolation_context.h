@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium Authors
+// Copyright 2019 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -8,9 +8,12 @@
 #include "base/types/id_type.h"
 #include "content/common/content_export.h"
 #include "content/public/browser/browser_or_resource_context.h"
-#include "content/public/browser/browsing_instance_id.h"
+#include "third_party/abseil-cpp/absl/types/optional.h"
 
 namespace content {
+
+class BrowsingInstance;
+using BrowsingInstanceId = base::IdType32<BrowsingInstance>;
 
 // This class is used to specify the context in which process model decisions
 // need to be made.  For example, dynamically added isolated origins only take
@@ -26,13 +29,9 @@ class CONTENT_EXPORT IsolationContext {
   // creating this object on the IO thread, the BrowserOrResourceContext
   // version should be used instead.
   IsolationContext(BrowsingInstanceId browsing_instance_id,
-                   BrowserContext* browser_context,
-                   bool is_guest,
-                   bool is_fenced);
+                   BrowserContext* browser_context);
   IsolationContext(BrowsingInstanceId browsing_instance_id,
-                   BrowserOrResourceContext browser_or_resource_context,
-                   bool is_guest,
-                   bool is_fenced);
+                   BrowserOrResourceContext browser_or_resource_context);
 
   // Also temporarily allow constructing an IsolationContext not associated
   // with a specific BrowsingInstance.  Callers can use this when they don't
@@ -66,25 +65,11 @@ class CONTENT_EXPORT IsolationContext {
     return browser_or_resource_context_;
   }
 
-  // True when the BrowsingInstance associated with this context is used in a
-  // <webview> guest.
-  bool is_guest() const { return is_guest_; }
-
-  bool is_fenced() const { return is_fenced_; }
-
  private:
   // When non-null, associates this context with a particular BrowsingInstance.
-  const BrowsingInstanceId browsing_instance_id_;
+  BrowsingInstanceId browsing_instance_id_;
 
-  const BrowserOrResourceContext browser_or_resource_context_;
-
-  // Specifies whether the BrowsingInstance associated with this context is for
-  // a <webview> guest.
-  const bool is_guest_;
-
-  // Specifies whether the BrowsingInstance associated with this context is for
-  // a <fencedframe>.
-  const bool is_fenced_;
+  BrowserOrResourceContext browser_or_resource_context_;
 };
 
 }  // namespace content

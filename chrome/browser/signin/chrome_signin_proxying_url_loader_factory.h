@@ -1,4 +1,4 @@
-// Copyright 2018 The Chromium Authors
+// Copyright 2018 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,6 +7,7 @@
 
 #include "base/callback.h"
 #include "base/containers/unique_ptr_adapters.h"
+#include "base/macros.h"
 #include "base/memory/ref_counted_delete_on_sequence.h"
 #include "content/public/browser/web_contents.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
@@ -43,10 +44,6 @@ class ProxyingURLLoaderFactory : public network::mojom::URLLoaderFactory {
       mojo::PendingReceiver<network::mojom::URLLoaderFactory> receiver,
       mojo::PendingRemote<network::mojom::URLLoaderFactory> target_factory,
       DisconnectCallback on_disconnect);
-
-  ProxyingURLLoaderFactory(const ProxyingURLLoaderFactory&) = delete;
-  ProxyingURLLoaderFactory& operator=(const ProxyingURLLoaderFactory&) = delete;
-
   ~ProxyingURLLoaderFactory() override;
 
   // Called when a renderer needs a URLLoaderFactory to give this module the
@@ -93,6 +90,8 @@ class ProxyingURLLoaderFactory : public network::mojom::URLLoaderFactory {
       requests_;
   mojo::Remote<network::mojom::URLLoaderFactory> target_factory_;
   DisconnectCallback on_disconnect_;
+
+  DISALLOW_COPY_AND_ASSIGN(ProxyingURLLoaderFactory);
 };
 
 }  // namespace signin

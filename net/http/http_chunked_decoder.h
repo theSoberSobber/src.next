@@ -1,4 +1,4 @@
-// Copyright 2011 The Chromium Authors
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -111,22 +111,22 @@ class NET_EXPORT_PRIVATE HttpChunkedDecoder {
   static bool ParseChunkSize(const char* start, int len, int64_t* out);
 
   // Indicates the number of bytes remaining for the current chunk.
-  int64_t chunk_remaining_ = 0;
+  int64_t chunk_remaining_;
 
   // A small buffer used to store a partial chunk marker.
   std::string line_buf_;
 
   // True if waiting for the terminal CRLF of a chunk's data.
-  bool chunk_terminator_remaining_ = false;
+  bool chunk_terminator_remaining_;
 
   // Set to true when FilterBuf encounters the last-chunk.
-  bool reached_last_chunk_ = false;
+  bool reached_last_chunk_;
 
   // Set to true when FilterBuf encounters the final CRLF.
-  bool reached_eof_ = false;
+  bool reached_eof_;
 
   // The number of extraneous unfiltered bytes after the final CRLF.
-  int bytes_after_eof_ = 0;
+  int bytes_after_eof_;
 };
 
 }  // namespace net

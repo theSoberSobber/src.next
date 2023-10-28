@@ -36,8 +36,7 @@
 #include "third_party/blink/renderer/core/dom/attribute.h"
 #include "third_party/blink/renderer/core/dom/attribute_collection.h"
 #include "third_party/blink/renderer/core/dom/space_split_string.h"
-#include "third_party/blink/renderer/platform/heap/garbage_collected.h"
-#include "third_party/blink/renderer/platform/heap/member.h"
+#include "third_party/blink/renderer/platform/heap/handle.h"
 #include "third_party/blink/renderer/platform/wtf/bit_field.h"
 #include "third_party/blink/renderer/platform/wtf/casting.h"
 #include "third_party/blink/renderer/platform/wtf/text/atomic_string.h"
@@ -58,10 +57,7 @@ class ElementData : public GarbageCollected<ElementData> {
 
   void ClearClass() const { class_names_.Clear(); }
   void SetClass(const AtomicString& class_name, bool should_fold_case) const {
-    AtomicString lower_class_name;
-    if (should_fold_case && !class_name.IsLowerASCII())
-      lower_class_name = class_name.LowerASCII();
-    class_names_.Set(lower_class_name ? lower_class_name : class_name);
+    class_names_.Set(should_fold_case ? class_name.LowerASCII() : class_name);
   }
   const SpaceSplitString& ClassNames() const { return class_names_; }
 
@@ -159,10 +155,9 @@ class ElementData : public GarbageCollected<ElementData> {
 // duplicate sets of attributes (ex. the same classes).
 class ShareableElementData final : public ElementData {
  public:
-  static ShareableElementData* CreateWithAttributes(
-      const Vector<Attribute, kAttributePrealloc>&);
+  static ShareableElementData* CreateWithAttributes(const Vector<Attribute>&);
 
-  explicit ShareableElementData(const Vector<Attribute, kAttributePrealloc>&);
+  explicit ShareableElementData(const Vector<Attribute>&);
   explicit ShareableElementData(const UniqueElementData&);
   ~ShareableElementData();
 

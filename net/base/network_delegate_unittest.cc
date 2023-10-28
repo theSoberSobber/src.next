@@ -1,4 +1,4 @@
-// Copyright 2021 The Chromium Authors
+// Copyright 2021 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -22,11 +22,10 @@ constexpr char kURL[] = "example.test";
 
 CanonicalCookie MakeCookie(const std::string& name) {
   return *CanonicalCookie::CreateUnsafeCookieForTesting(
-      name, "value", kURL, /*path=*/"/", /*creation=*/base::Time(),
-      /*expiration=*/base::Time(), /*last_access=*/base::Time(),
-      /*last_update=*/base::Time(),
-      /*secure=*/true, /*httponly=*/false, CookieSameSite::UNSPECIFIED,
-      CookiePriority::COOKIE_PRIORITY_DEFAULT, /*same_party=*/false);
+      name, "value", kURL, "/" /* path */, base::Time() /* creation */,
+      base::Time() /* expiration */, base::Time() /* last_access */,
+      true /* secure */, false /* httponly */, CookieSameSite::UNSPECIFIED,
+      CookiePriority::COOKIE_PRIORITY_DEFAULT, false /* same_party */);
 }
 
 CookieAccessResult Include() {
@@ -41,11 +40,16 @@ CookieAccessResult Exclude(CookieInclusionStatus::ExclusionReason reason) {
 
 TEST(NetworkDelegateTest, ExcludeAllCookies) {
   CookieAccessResultList maybe_included_cookies = {
-      {MakeCookie("1"), Include()}, {MakeCookie("2"), Include()}};
+      (CookieWithAccessResult){MakeCookie("1"), Include()},
+      (CookieWithAccessResult){MakeCookie("2"), Include()},
+  };
 
   CookieAccessResultList excluded_cookies = {
-      {MakeCookie("3"),
-       Exclude(CookieInclusionStatus::ExclusionReason::EXCLUDE_SECURE_ONLY)}};
+      (CookieWithAccessResult){
+          MakeCookie("3"),
+          Exclude(CookieInclusionStatus::ExclusionReason::EXCLUDE_SECURE_ONLY),
+      },
+  };
 
   NetworkDelegate::ExcludeAllCookies(
       CookieInclusionStatus::ExclusionReason::EXCLUDE_USER_PREFERENCES,
@@ -85,15 +89,20 @@ TEST(NetworkDelegateTest, ExcludeAllCookies) {
 
 TEST(NetworkDelegateTest, MoveExcludedCookies) {
   CookieAccessResultList maybe_included_cookies = {
-      {MakeCookie("1"), Include()},
-      {MakeCookie("2"),
-       Exclude(CookieInclusionStatus::ExclusionReason::EXCLUDE_SECURE_ONLY)},
-      {MakeCookie("3"), Include()}};
+      (CookieWithAccessResult){MakeCookie("1"), Include()},
+      (CookieWithAccessResult){
+          MakeCookie("2"),
+          Exclude(CookieInclusionStatus::ExclusionReason::EXCLUDE_SECURE_ONLY),
+      },
+      (CookieWithAccessResult){MakeCookie("3"), Include()},
+  };
 
-  CookieAccessResultList excluded_cookies = {{
-      MakeCookie("4"),
-      Exclude(CookieInclusionStatus::ExclusionReason::EXCLUDE_SECURE_ONLY),
-  }};
+  CookieAccessResultList excluded_cookies = {
+      (CookieWithAccessResult){
+          MakeCookie("4"),
+          Exclude(CookieInclusionStatus::ExclusionReason::EXCLUDE_SECURE_ONLY),
+      },
+  };
 
   NetworkDelegate::MoveExcludedCookies(maybe_included_cookies,
                                        excluded_cookies);

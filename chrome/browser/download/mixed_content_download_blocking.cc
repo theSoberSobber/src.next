@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium Authors
+// Copyright 2019 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -6,7 +6,6 @@
 
 #include "base/debug/crash_logging.h"
 #include "base/debug/dump_without_crashing.h"
-#include "base/memory/raw_ptr.h"
 #include "base/metrics/field_trial_params.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/strings/string_split.h"
@@ -196,7 +195,7 @@ struct MixedContentDownloadData {
     }
 
     // Extract extension.
-#if BUILDFLAG(IS_WIN)
+#if defined(OS_WIN)
     extension_ = base::WideToUTF8(path.FinalExtension());
 #else
     extension_ = path.FinalExtension();
@@ -281,23 +280,29 @@ struct MixedContentDownloadData {
 
   absl::optional<url::Origin> initiator_;
   std::string extension_;
-  raw_ptr<const download::DownloadItem> item_;
+  const download::DownloadItem* item_;
   bool is_redirect_chain_secure_;
   bool is_mixed_content_;
 };
 
-// Check if |extension| is contained in the comma separated |extension_list|.
-bool ContainsExtension(const std::string& extension_list,
-                       const std::string& extension) {
-  for (const auto& item :
-       base::SplitStringPiece(extension_list, ",", base::TRIM_WHITESPACE,
-                              base::SPLIT_WANT_NONEMPTY)) {
-    DCHECK_EQ(base::ToLowerASCII(item), item);
-    if (base::EqualsCaseInsensitiveASCII(extension, item))
-      return true;
+// Whether or not |extension| is contained in the comma-separated list in a
+// feature param specified by |override_param_name|. If |override_param_name| is
+// not set, defaults to |default_extensions|.
+bool ContainsExtension(const base::FeatureParam<std::string>& extensions,
+                       const base::FeatureParam<bool>& is_allowlist,
+                       const std::string& download_extension) {
+  auto extensions_str = extensions.Get();
+  std::vector<base::StringPiece> listed_extensions = base::SplitStringPiece(
+      extensions_str, ",", base::TRIM_WHITESPACE, base::SPLIT_WANT_NONEMPTY);
+
+  for (const auto& unsafe_extension : listed_extensions) {
+    DCHECK_EQ(base::ToLowerASCII(unsafe_extension), unsafe_extension);
+    if (base::LowerCaseEqualsASCII(download_extension, unsafe_extension)) {
+      return !is_allowlist.Get();  // aka true when it's a blocklist.
+    }
   }
 
-  return false;
+  return is_allowlist.Get();  // aka false when it's a blocklist.
 }
 
 // Just print a descriptive message to the console about the blocked download.
@@ -310,7 +315,7 @@ void PrintConsoleMessage(const MixedContentDownloadData& data,
     return;
   }
 
-  web_contents->GetPrimaryMainFrame()->AddMessageToConsole(
+  web_contents->GetMainFrame()->AddMessageToConsole(
       blink::mojom::ConsoleMessageLevel::kError,
       base::StringPrintf(
           "Mixed Content: The site at '%s' was loaded over a secure "
@@ -333,7 +338,7 @@ bool IsDownloadPermittedByContentSettings(
     const absl::optional<url::Origin>& initiator) {
   // TODO(crbug.com/1048957): Checking content settings crashes unit tests on
   // Android. It shouldn't.
-#if !BUILDFLAG(IS_ANDROID)
+#if !defined(OS_ANDROID)
   ContentSettingsForOneType settings;
   HostContentSettingsMap* host_content_settings_map =
       HostContentSettingsMapFactory::GetForProfile(profile);
@@ -381,8 +386,8 @@ MixedContentStatus GetMixedContentStatusForDownload(
     return MixedContentStatus::SAFE;
   }
 
-  if (ContainsExtension(kSilentBlockExtensionList.Get(), data.extension_) !=
-      kTreatSilentBlockListAsAllowlist.Get()) {
+  if (ContainsExtension(kSilentBlockExtensionList,
+                        kTreatSilentBlockListAsAllowlist, data.extension_)) {
     PrintConsoleMessage(data, true);
 
     // Only permit silent blocking when not initiated by an explicit user
@@ -396,14 +401,14 @@ MixedContentStatus GetMixedContentStatusForDownload(
     return MixedContentStatus::SILENT_BLOCK;
   }
 
-  if (ContainsExtension(kBlockExtensionList.Get(), data.extension_) !=
-      kTreatBlockListAsAllowlist.Get()) {
+  if (ContainsExtension(kBlockExtensionList, kTreatBlockListAsAllowlist,
+                        data.extension_)) {
     PrintConsoleMessage(data, true);
     return MixedContentStatus::BLOCK;
   }
 
-  if (ContainsExtension(kWarnExtensionList.Get(), data.extension_) !=
-      kTreatWarnListAsAllowlist.Get()) {
+  if (ContainsExtension(kWarnExtensionList, kTreatWarnListAsAllowlist,
+                        data.extension_)) {
     PrintConsoleMessage(data, true);
     return MixedContentStatus::WARN;
   }

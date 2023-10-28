@@ -54,10 +54,10 @@ void FrameResourceFetcherProperties::Trace(Visitor* visitor) const {
   ResourceFetcherProperties::Trace(visitor);
 }
 
-bool FrameResourceFetcherProperties::IsOutermostMainFrame() const {
+bool FrameResourceFetcherProperties::IsMainFrame() const {
   LocalFrame* frame = document_->GetFrame();
   DCHECK(frame);
-  return frame->IsOutermostMainFrame();
+  return frame->IsMainFrame();
 }
 
 mojom::ControllerServiceWorkerMode
@@ -145,7 +145,13 @@ int FrameResourceFetcherProperties::GetOutstandingThrottledLimit() const {
   static const int sub_frame_limit =
       kOutstandingLimitForBackgroundSubFrame.Get();
 
-  return IsOutermostMainFrame() ? main_frame_limit : sub_frame_limit;
+  return IsMainFrame() ? main_frame_limit : sub_frame_limit;
+}
+
+scoped_refptr<SecurityOrigin>
+FrameResourceFetcherProperties::GetLitePageSubresourceRedirectOrigin() const {
+  return SecurityOrigin::CreateFromString(
+      document_->GetSettings()->GetLitePageSubresourceRedirectOrigin());
 }
 
 }  // namespace blink

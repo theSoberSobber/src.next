@@ -10,13 +10,13 @@
 #include "third_party/blink/renderer/core/layout/geometry/physical_rect.h"
 #include "third_party/blink/renderer/core/style/border_edge.h"
 #include "third_party/blink/renderer/platform/geometry/float_rounded_rect.h"
-#include "third_party/blink/renderer/platform/geometry/layout_rect_outsets.h"
-#include "third_party/blink/renderer/platform/graphics/graphics_context.h"
 
 namespace blink {
 
 class ComputedStyle;
+class GraphicsContext;
 class Path;
+struct PhysicalRect;
 
 typedef unsigned BorderEdgeFlags;
 
@@ -36,21 +36,20 @@ class BoxBorderPainter {
 
   static void PaintSingleRectOutline(GraphicsContext& context,
                                      const ComputedStyle& style,
-                                     const PhysicalRect& border_rect,
-                                     int width,
-                                     const LayoutRectOutsets& inner_outsets) {
-    BoxBorderPainter(context, style, border_rect, width, inner_outsets).Paint();
+                                     const PhysicalRect& outer,
+                                     const PhysicalRect& inner,
+                                     const BorderEdge& edge) {
+    BoxBorderPainter(context, style, outer, inner, edge).Paint();
   }
 
   static void DrawBoxSide(GraphicsContext& context,
-                          const gfx::Rect& snapped_edge_rect,
+                          const IntRect& snapped_edge_rect,
                           BoxSide side,
                           Color color,
-                          EBorderStyle style,
-                          const AutoDarkMode& auto_dark_mode) {
-    DrawLineForBoxSide(context, snapped_edge_rect.x(), snapped_edge_rect.y(),
-                       snapped_edge_rect.right(), snapped_edge_rect.bottom(),
-                       side, color, style, 0, 0, true, auto_dark_mode);
+                          EBorderStyle style) {
+    DrawLineForBoxSide(context, snapped_edge_rect.X(), snapped_edge_rect.Y(),
+                       snapped_edge_rect.MaxX(), snapped_edge_rect.MaxY(), side,
+                       color, style, 0, 0, true);
   }
 
   // TODO(crbug.com/1201762): The float parameters are truncated to int in the
@@ -67,8 +66,7 @@ class BoxBorderPainter {
                                  EBorderStyle,
                                  int adjacent_edge_width1,
                                  int adjacent_edge_width2,
-                                 bool antialias,
-                                 const AutoDarkMode& auto_dark_mode);
+                                 bool antialias = false);
 
  private:
   // For PaintBorder().
@@ -80,9 +78,9 @@ class BoxBorderPainter {
   // For PaintSingleRectOutline().
   BoxBorderPainter(GraphicsContext&,
                    const ComputedStyle&,
-                   const PhysicalRect& border_rect,
-                   int width,
-                   const LayoutRectOutsets& inner_outsets);
+                   const PhysicalRect& outer,
+                   const PhysicalRect& inner,
+                   const BorderEdge&);
 
   void Paint() const;
 
@@ -102,11 +100,12 @@ class BoxBorderPainter {
                  BoxSide,
                  unsigned alpha,
                  BorderEdgeFlags) const;
-  void PaintOneBorderSide(const gfx::RectF& side_rect,
+  void PaintOneBorderSide(const FloatRect& side_rect,
                           BoxSide,
                           BoxSide adjacent_side1,
                           BoxSide adjacent_side2,
                           const Path*,
+                          bool antialias,
                           Color,
                           BorderEdgeFlags) const;
   bool PaintBorderFastPath() const;
@@ -135,17 +134,21 @@ class BoxBorderPainter {
                                       Color,
                                       EBorderStyle) const;
   void ClipBorderSidePolygon(BoxSide, MiterType miter1, MiterType miter2) const;
-  gfx::RectF CalculateSideRectIncludingInner(BoxSide) const;
+  FloatRect CalculateSideRectIncludingInner(BoxSide) const;
   void ClipBorderSideForComplexInnerPath(BoxSide) const;
 
-  MiterType ComputeMiter(BoxSide, BoxSide adjacent_side, BorderEdgeFlags) const;
+  MiterType ComputeMiter(BoxSide,
+                         BoxSide adjacent_side,
+                         BorderEdgeFlags,
+                         bool antialias) const;
   static bool MitersRequireClipping(MiterType miter1,
                                     MiterType miter2,
-                                    EBorderStyle);
+                                    EBorderStyle,
+                                    bool antialias);
 
-  LayoutRectOutsets DoubleStripeOutsets(
+  LayoutRectOutsets DoubleStripeInsets(
       BorderEdge::DoubleBorderStripe stripe) const;
-  LayoutRectOutsets CenterOutsets() const;
+  LayoutRectOutsets CenterInsets() const;
 
   bool ColorsMatchAtCorner(BoxSide side, BoxSide adjacent_side) const;
 
@@ -163,7 +166,6 @@ class BoxBorderPainter {
 
   // const inputs
   const PhysicalRect border_rect_;
-  const LayoutRectOutsets outer_outsets_;
   const ComputedStyle& style_;
   const BackgroundBleedAvoidance bleed_avoidance_;
   const PhysicalBoxSides sides_to_include_;
@@ -176,7 +178,6 @@ class BoxBorderPainter {
   unsigned visible_edge_count_;
   unsigned first_visible_edge_;
   BorderEdgeFlags visible_edge_set_;
-  DarkModeFilter::ElementRole element_role_;
 
   bool is_uniform_style_;
   bool is_uniform_width_;

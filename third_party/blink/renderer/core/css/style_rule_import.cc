@@ -24,10 +24,9 @@
 
 #include "third_party/blink/renderer/core/css/style_sheet_contents.h"
 #include "third_party/blink/renderer/core/dom/document.h"
-#include "third_party/blink/renderer/core/execution_context/security_context.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/loader/resource/css_style_sheet_resource.h"
-#include "third_party/blink/renderer/platform/heap/garbage_collected.h"
+#include "third_party/blink/renderer/platform/heap/heap.h"
 #include "third_party/blink/renderer/platform/loader/fetch/fetch_initiator_type_names.h"
 #include "third_party/blink/renderer/platform/loader/fetch/fetch_parameters.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_fetcher.h"
@@ -36,14 +35,12 @@
 namespace blink {
 
 StyleRuleImport::StyleRuleImport(const String& href,
-                                 LayerName&& layer,
-                                 const MediaQuerySet* media,
+                                 scoped_refptr<MediaQuerySet> media,
                                  OriginClean origin_clean)
     : StyleRuleBase(kImport),
       parent_style_sheet_(nullptr),
       style_sheet_client_(MakeGarbageCollected<ImportedStyleSheetClient>(this)),
       str_href_(href),
-      layer_(std::move(layer)),
       media_queries_(media),
       loading_(false),
       origin_clean_(origin_clean) {
@@ -60,7 +57,6 @@ void StyleRuleImport::Dispose() {
 void StyleRuleImport::TraceAfterDispatch(blink::Visitor* visitor) const {
   visitor->Trace(style_sheet_client_);
   visitor->Trace(parent_style_sheet_);
-  visitor->Trace(media_queries_);
   visitor->Trace(style_sheet_);
   StyleRuleBase::TraceAfterDispatch(visitor);
 }
@@ -166,13 +162,9 @@ void StyleRuleImport::RequestStyleSheet() {
     // the sheet being imported is pending.
     if (parent_style_sheet_ && parent_style_sheet_->LoadCompleted() &&
         root_sheet == parent_style_sheet_) {
-      parent_style_sheet_->SetToPendingState();
+      parent_style_sheet_->StartLoadingDynamicSheet();
     }
   }
-}
-
-String StyleRuleImport::GetLayerNameAsString() const {
-  return LayerNameAsString(layer_);
 }
 
 }  // namespace blink

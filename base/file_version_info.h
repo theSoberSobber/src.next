@@ -1,4 +1,4 @@
-// Copyright 2011 The Chromium Authors
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -11,7 +11,7 @@
 #include "build/build_config.h"
 #include "base/base_export.h"
 
-#if BUILDFLAG(IS_WIN)
+#if defined(OS_WIN)
 #include <windows.h>
 #endif
 
@@ -32,15 +32,15 @@ class FilePath;
 class BASE_EXPORT FileVersionInfo {
  public:
   virtual ~FileVersionInfo() {}
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE)
+#if defined(OS_WIN) || defined(OS_APPLE)
   // Creates a FileVersionInfo for the specified path. Returns nullptr if
   // something goes wrong (typically the file does not exit or cannot be
   // opened).
   static std::unique_ptr<FileVersionInfo> CreateFileVersionInfo(
       const base::FilePath& file_path);
-#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE)
+#endif  // OS_WIN || OS_APPLE
 
-#if BUILDFLAG(IS_WIN)
+#if defined(OS_WIN)
   // Creates a FileVersionInfo for the specified module. Returns nullptr in
   // case of error.
   static std::unique_ptr<FileVersionInfo> CreateFileVersionInfoForModule(
@@ -50,7 +50,7 @@ class BASE_EXPORT FileVersionInfo {
   // of error.
   static std::unique_ptr<FileVersionInfo>
   CreateFileVersionInfoForCurrentModule();
-#endif  // BUILDFLAG(IS_WIN)
+#endif  // OS_WIN
 
   // Accessors to the different version properties.
   // Returns an empty string if the property is not found.

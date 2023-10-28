@@ -1,4 +1,4 @@
-// Copyright 2013 The Chromium Authors
+// Copyright 2013 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -43,7 +43,7 @@ enum {
   kValidUserScriptSchemes = URLPattern::SCHEME_CHROMEUI |
                             URLPattern::SCHEME_HTTP | URLPattern::SCHEME_HTTPS |
                             URLPattern::SCHEME_FILE | URLPattern::SCHEME_FTP |
-                            URLPattern::SCHEME_UUID_IN_PACKAGE
+                            URLPattern::SCHEME_URN
 };
 
 // static
@@ -76,11 +76,6 @@ int UserScript::ValidUserScriptSchemes(bool can_execute_script_everywhere) {
     valid_schemes &= ~URLPattern::SCHEME_CHROMEUI;
   }
   return valid_schemes;
-}
-
-// static
-bool UserScript::IsIDGenerated(const std::string& id) {
-  return !id.empty() && id[0] == kGeneratedIDPrefix;
 }
 
 UserScript::File::File(const base::FilePath& extension_root,
@@ -134,7 +129,6 @@ std::unique_ptr<UserScript> UserScript::CopyMetadataFrom(
   script->match_all_frames_ = other.match_all_frames_;
   script->match_origin_as_fallback_ = other.match_origin_as_fallback_;
   script->incognito_enabled_ = other.incognito_enabled_;
-  script->execution_world_ = other.execution_world_;
 
   return script;
 }
@@ -201,7 +195,6 @@ void UserScript::Pickle(base::Pickle* pickle) const {
   pickle->WriteBool(match_all_frames());
   pickle->WriteInt(static_cast<int>(match_origin_as_fallback()));
   pickle->WriteBool(is_incognito_enabled());
-  pickle->WriteInt(static_cast<int>(execution_world()));
 
   PickleHostID(pickle, host_id_);
   pickle->WriteInt(consumer_instance_type());
@@ -262,13 +255,6 @@ void UserScript::Unpickle(const base::Pickle& pickle,
       static_cast<MatchOriginAsFallbackBehavior>(match_origin_as_fallback_int);
   CHECK(iter->ReadBool(&incognito_enabled_));
 
-  // Read the execution world.
-  int execution_world = 0;
-  CHECK(iter->ReadInt(&execution_world));
-  CHECK(execution_world >= static_cast<int>(mojom::ExecutionWorld::kIsolated) &&
-        execution_world <= static_cast<int>(mojom::ExecutionWorld::kMaxValue));
-  execution_world_ = static_cast<mojom::ExecutionWorld>(execution_world);
-
   UnpickleHostID(pickle, iter, &host_id_);
 
   int consumer_instance_type = 0;
@@ -286,7 +272,7 @@ void UserScript::Unpickle(const base::Pickle& pickle,
 
 bool UserScript::IsIDGenerated() const {
   CHECK(!user_script_id_.empty());
-  return IsIDGenerated(user_script_id_);
+  return user_script_id_[0] == kGeneratedIDPrefix;
 }
 
 void UserScript::UnpickleGlobs(const base::Pickle& pickle,

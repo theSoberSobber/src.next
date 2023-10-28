@@ -1,4 +1,4 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -9,7 +9,8 @@
 #include <string>
 
 #include "base/callback.h"
-#include "base/memory/raw_ptr.h"
+#include "base/compiler_specific.h"
+#include "base/macros.h"
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
 #include "chrome/browser/extensions/extension_install_prompt.h"
@@ -41,10 +42,6 @@ class ExtensionEnableFlow : public extensions::LoadErrorReporter::Observer,
   ExtensionEnableFlow(Profile* profile,
                       const std::string& extension_id,
                       ExtensionEnableFlowDelegate* delegate);
-
-  ExtensionEnableFlow(const ExtensionEnableFlow&) = delete;
-  ExtensionEnableFlow& operator=(const ExtensionEnableFlow&) = delete;
-
   ~ExtensionEnableFlow() override;
 
   // Starts the flow and the logic continues on |delegate_| after enabling is
@@ -107,13 +104,13 @@ class ExtensionEnableFlow : public extensions::LoadErrorReporter::Observer,
 
   void InstallPromptDone(ExtensionInstallPrompt::DoneCallbackPayload payload);
 
-  const raw_ptr<Profile> profile_;
+  Profile* const profile_;
   const std::string extension_id_;
-  const raw_ptr<ExtensionEnableFlowDelegate> delegate_;  // Not owned.
+  ExtensionEnableFlowDelegate* const delegate_;  // Not owned.
 
   // Parent web contents for ExtensionInstallPrompt that may be created during
   // the flow. Note this is mutually exclusive with |parent_window_| below.
-  raw_ptr<content::WebContents> parent_contents_ = nullptr;
+  content::WebContents* parent_contents_ = nullptr;
 
   // Parent native window for ExtensionInstallPrompt. Note this is mutually
   // exclusive with |parent_contents_| above.
@@ -131,6 +128,8 @@ class ExtensionEnableFlow : public extensions::LoadErrorReporter::Observer,
       load_error_observation_{this};
 
   base::WeakPtrFactory<ExtensionEnableFlow> weak_ptr_factory_{this};
+
+  DISALLOW_COPY_AND_ASSIGN(ExtensionEnableFlow);
 };
 
 #endif  // CHROME_BROWSER_UI_EXTENSIONS_EXTENSION_ENABLE_FLOW_H_

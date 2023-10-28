@@ -1,4 +1,4 @@
-// Copyright 2013 The Chromium Authors
+// Copyright 2013 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -8,6 +8,8 @@
 #include <stddef.h>
 
 #include <string>
+
+#include "base/macros.h"
 
 namespace base {
 class DictionaryValue;
@@ -23,9 +25,6 @@ namespace extensions {
 // object.
 class FileHighlighter {
  public:
-  FileHighlighter(const FileHighlighter&) = delete;
-  FileHighlighter& operator=(const FileHighlighter&) = delete;
-
   virtual ~FileHighlighter();
 
   // Get the portion of the manifest which should not be highlighted and is
@@ -54,6 +53,8 @@ class FileHighlighter {
 
   // The end of the feature.
   size_t end_;
+
+  DISALLOW_COPY_AND_ASSIGN(FileHighlighter);
 };
 
 // Use the ManifestHighlighter class to find the bounds of a feature in the
@@ -74,10 +75,6 @@ class ManifestHighlighter : public FileHighlighter {
   ManifestHighlighter(const std::string& manifest,
                       const std::string& key,
                       const std::string& specific /* optional */);
-
-  ManifestHighlighter(const ManifestHighlighter&) = delete;
-  ManifestHighlighter& operator=(const ManifestHighlighter&) = delete;
-
   ~ManifestHighlighter() override;
 
  private:
@@ -93,6 +90,8 @@ class ManifestHighlighter : public FileHighlighter {
 
   // Finds the end of the feature.
   void FindBoundsEnd(const std::string& feature, size_t local_start);
+
+  DISALLOW_COPY_AND_ASSIGN(ManifestHighlighter);
 };
 
 // Use the SourceHighlighter to highlight a particular line in a given source
@@ -100,16 +99,14 @@ class ManifestHighlighter : public FileHighlighter {
 class SourceHighlighter : public FileHighlighter {
  public:
   SourceHighlighter(const std::string& source, size_t line_number);
-
-  SourceHighlighter(const SourceHighlighter&) = delete;
-  SourceHighlighter& operator=(const SourceHighlighter&) = delete;
-
   ~SourceHighlighter() override;
 
  private:
   // Called from the constructor; determine the bounds of the line in the source
   // file.
   void Parse(size_t line_number);
+
+  DISALLOW_COPY_AND_ASSIGN(SourceHighlighter);
 };
 
 }  // namespace extensions

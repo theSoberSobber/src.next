@@ -1,10 +1,8 @@
-// Copyright 2012 The Chromium Authors
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include <stdint.h>
-
-#include <iterator>
 
 #include "base/base64.h"
 #include "base/stl_util.h"
@@ -23,7 +21,6 @@ namespace net {
 namespace {
 
 namespace test_default {
-#include "base/time/time.h"
 #include "net/http/transport_security_state_static_unittest_default.h"
 }
 
@@ -133,7 +130,7 @@ TEST_F(HttpSecurityHeadersTest, ValidSTSHeaders) {
 
   EXPECT_TRUE(ParseHSTSHeader("max-age=243", &max_age,
                               &include_subdomains));
-  expect_max_age = base::Seconds(243);
+  expect_max_age = base::TimeDelta::FromSeconds(243);
   EXPECT_EQ(expect_max_age, max_age);
   EXPECT_FALSE(include_subdomains);
 
@@ -142,135 +139,143 @@ TEST_F(HttpSecurityHeadersTest, ValidSTSHeaders) {
 
   EXPECT_TRUE(ParseHSTSHeader("  Max-agE    = 567", &max_age,
                               &include_subdomains));
-  expect_max_age = base::Seconds(567);
+  expect_max_age = base::TimeDelta::FromSeconds(567);
   EXPECT_EQ(expect_max_age, max_age);
   EXPECT_FALSE(include_subdomains);
 
   EXPECT_TRUE(ParseHSTSHeader("  mAx-aGe    = 890      ", &max_age,
                               &include_subdomains));
-  expect_max_age = base::Seconds(890);
+  expect_max_age = base::TimeDelta::FromSeconds(890);
   EXPECT_EQ(expect_max_age, max_age);
   EXPECT_FALSE(include_subdomains);
 
   EXPECT_TRUE(ParseHSTSHeader("max-age=123;incLudesUbdOmains", &max_age,
                               &include_subdomains));
-  expect_max_age = base::Seconds(123);
+  expect_max_age = base::TimeDelta::FromSeconds(123);
   EXPECT_EQ(expect_max_age, max_age);
   EXPECT_TRUE(include_subdomains);
 
   EXPECT_TRUE(ParseHSTSHeader("incLudesUbdOmains; max-age=123", &max_age,
                               &include_subdomains));
-  expect_max_age = base::Seconds(123);
+  expect_max_age = base::TimeDelta::FromSeconds(123);
   EXPECT_EQ(expect_max_age, max_age);
   EXPECT_TRUE(include_subdomains);
 
   EXPECT_TRUE(ParseHSTSHeader("   incLudesUbdOmains; max-age=123",
                               &max_age, &include_subdomains));
-  expect_max_age = base::Seconds(123);
+  expect_max_age = base::TimeDelta::FromSeconds(123);
   EXPECT_EQ(expect_max_age, max_age);
   EXPECT_TRUE(include_subdomains);
 
   EXPECT_TRUE(ParseHSTSHeader(
       "   incLudesUbdOmains; max-age=123; pumpkin=kitten", &max_age,
                                    &include_subdomains));
-  expect_max_age = base::Seconds(123);
+  expect_max_age = base::TimeDelta::FromSeconds(123);
   EXPECT_EQ(expect_max_age, max_age);
   EXPECT_TRUE(include_subdomains);
 
   EXPECT_TRUE(ParseHSTSHeader(
       "   pumpkin=894; incLudesUbdOmains; max-age=123  ", &max_age,
                                    &include_subdomains));
-  expect_max_age = base::Seconds(123);
+  expect_max_age = base::TimeDelta::FromSeconds(123);
   EXPECT_EQ(expect_max_age, max_age);
   EXPECT_TRUE(include_subdomains);
 
   EXPECT_TRUE(ParseHSTSHeader(
       "   pumpkin; incLudesUbdOmains; max-age=123  ", &max_age,
                                    &include_subdomains));
-  expect_max_age = base::Seconds(123);
+  expect_max_age = base::TimeDelta::FromSeconds(123);
   EXPECT_EQ(expect_max_age, max_age);
   EXPECT_TRUE(include_subdomains);
 
   EXPECT_TRUE(ParseHSTSHeader(
       "   pumpkin; incLudesUbdOmains; max-age=\"123\"  ", &max_age,
                                    &include_subdomains));
-  expect_max_age = base::Seconds(123);
+  expect_max_age = base::TimeDelta::FromSeconds(123);
   EXPECT_EQ(expect_max_age, max_age);
   EXPECT_TRUE(include_subdomains);
 
   EXPECT_TRUE(ParseHSTSHeader(
       "animal=\"squirrel; distinguished\"; incLudesUbdOmains; max-age=123",
                                    &max_age, &include_subdomains));
-  expect_max_age = base::Seconds(123);
+  expect_max_age = base::TimeDelta::FromSeconds(123);
   EXPECT_EQ(expect_max_age, max_age);
   EXPECT_TRUE(include_subdomains);
 
   EXPECT_TRUE(ParseHSTSHeader("max-age=394082;  incLudesUbdOmains",
                               &max_age, &include_subdomains));
-  expect_max_age = base::Seconds(394082);
+  expect_max_age = base::TimeDelta::FromSeconds(394082);
   EXPECT_EQ(expect_max_age, max_age);
   EXPECT_TRUE(include_subdomains);
 
   EXPECT_TRUE(ParseHSTSHeader(
       "max-age=39408299  ;incLudesUbdOmains", &max_age,
       &include_subdomains));
-  expect_max_age = base::Seconds(std::min(kMaxHSTSAgeSecs, 39408299u));
+  expect_max_age =
+      base::TimeDelta::FromSeconds(std::min(kMaxHSTSAgeSecs, 39408299u));
   EXPECT_EQ(expect_max_age, max_age);
   EXPECT_TRUE(include_subdomains);
 
   EXPECT_TRUE(ParseHSTSHeader(
       "max-age=394082038  ; incLudesUbdOmains", &max_age,
       &include_subdomains));
-  expect_max_age = base::Seconds(std::min(kMaxHSTSAgeSecs, 394082038u));
+  expect_max_age =
+      base::TimeDelta::FromSeconds(std::min(kMaxHSTSAgeSecs, 394082038u));
   EXPECT_EQ(expect_max_age, max_age);
   EXPECT_TRUE(include_subdomains);
 
   EXPECT_TRUE(ParseHSTSHeader(
       "max-age=394082038  ; incLudesUbdOmains;", &max_age,
       &include_subdomains));
-  expect_max_age = base::Seconds(std::min(kMaxHSTSAgeSecs, 394082038u));
+  expect_max_age =
+      base::TimeDelta::FromSeconds(std::min(kMaxHSTSAgeSecs, 394082038u));
   EXPECT_EQ(expect_max_age, max_age);
   EXPECT_TRUE(include_subdomains);
 
   EXPECT_TRUE(ParseHSTSHeader(
       ";; max-age=394082038  ; incLudesUbdOmains; ;", &max_age,
       &include_subdomains));
-  expect_max_age = base::Seconds(std::min(kMaxHSTSAgeSecs, 394082038u));
+  expect_max_age =
+      base::TimeDelta::FromSeconds(std::min(kMaxHSTSAgeSecs, 394082038u));
   EXPECT_EQ(expect_max_age, max_age);
   EXPECT_TRUE(include_subdomains);
 
   EXPECT_TRUE(ParseHSTSHeader(
       ";; max-age=394082038  ;", &max_age,
       &include_subdomains));
-  expect_max_age = base::Seconds(std::min(kMaxHSTSAgeSecs, 394082038u));
+  expect_max_age =
+      base::TimeDelta::FromSeconds(std::min(kMaxHSTSAgeSecs, 394082038u));
   EXPECT_EQ(expect_max_age, max_age);
   EXPECT_FALSE(include_subdomains);
 
   EXPECT_TRUE(ParseHSTSHeader(
       ";;    ; ; max-age=394082038;;; includeSubdomains     ;;  ;", &max_age,
       &include_subdomains));
-  expect_max_age = base::Seconds(std::min(kMaxHSTSAgeSecs, 394082038u));
+  expect_max_age =
+      base::TimeDelta::FromSeconds(std::min(kMaxHSTSAgeSecs, 394082038u));
   EXPECT_EQ(expect_max_age, max_age);
   EXPECT_TRUE(include_subdomains);
 
   EXPECT_TRUE(ParseHSTSHeader(
       "incLudesUbdOmains   ; max-age=394082038 ;;", &max_age,
       &include_subdomains));
-  expect_max_age = base::Seconds(std::min(kMaxHSTSAgeSecs, 394082038u));
+  expect_max_age =
+      base::TimeDelta::FromSeconds(std::min(kMaxHSTSAgeSecs, 394082038u));
   EXPECT_EQ(expect_max_age, max_age);
   EXPECT_TRUE(include_subdomains);
 
   EXPECT_TRUE(ParseHSTSHeader(
       "  max-age=0  ;  incLudesUbdOmains   ", &max_age,
       &include_subdomains));
-  expect_max_age = base::Seconds(0);
+  expect_max_age = base::TimeDelta::FromSeconds(0);
   EXPECT_EQ(expect_max_age, max_age);
   EXPECT_TRUE(include_subdomains);
 
   EXPECT_TRUE(ParseHSTSHeader(
       "  max-age=999999999999999999999999999999999999999999999  ;"
       "  incLudesUbdOmains   ", &max_age, &include_subdomains));
-  expect_max_age = base::Seconds(kMaxHSTSAgeSecs);
+  expect_max_age = base::TimeDelta::FromSeconds(
+      kMaxHSTSAgeSecs);
   EXPECT_EQ(expect_max_age, max_age);
   EXPECT_TRUE(include_subdomains);
 }
@@ -400,39 +405,39 @@ TEST_F(HttpSecurityHeadersTest, ValidExpectCTHeaders) {
 
   EXPECT_TRUE(
       ParseExpectCTHeader("max-age=243", &max_age, &enforce, &report_uri));
-  EXPECT_EQ(base::Seconds(243), max_age);
+  EXPECT_EQ(base::TimeDelta::FromSeconds(243), max_age);
   EXPECT_FALSE(enforce);
   EXPECT_TRUE(report_uri.is_empty());
 
   EXPECT_TRUE(ParseExpectCTHeader("  Max-agE    = 567", &max_age, &enforce,
                                   &report_uri));
-  EXPECT_EQ(base::Seconds(567), max_age);
+  EXPECT_EQ(base::TimeDelta::FromSeconds(567), max_age);
   EXPECT_FALSE(enforce);
   EXPECT_TRUE(report_uri.is_empty());
 
   EXPECT_TRUE(ParseExpectCTHeader("  mAx-aGe    = 890      ", &max_age,
                                   &enforce, &report_uri));
-  EXPECT_EQ(base::Seconds(890), max_age);
+  EXPECT_EQ(base::TimeDelta::FromSeconds(890), max_age);
   EXPECT_FALSE(enforce);
   EXPECT_TRUE(report_uri.is_empty());
 
   EXPECT_TRUE(ParseExpectCTHeader("max-age=123,enFoRce", &max_age, &enforce,
                                   &report_uri));
-  EXPECT_EQ(base::Seconds(123), max_age);
+  EXPECT_EQ(base::TimeDelta::FromSeconds(123), max_age);
   EXPECT_TRUE(enforce);
   EXPECT_TRUE(report_uri.is_empty());
 
   enforce = false;
   EXPECT_TRUE(ParseExpectCTHeader("enFoRCE, max-age=123", &max_age, &enforce,
                                   &report_uri));
-  EXPECT_EQ(base::Seconds(123), max_age);
+  EXPECT_EQ(base::TimeDelta::FromSeconds(123), max_age);
   EXPECT_TRUE(enforce);
   EXPECT_TRUE(report_uri.is_empty());
 
   enforce = false;
   EXPECT_TRUE(ParseExpectCTHeader("   enFORce, max-age=123", &max_age, &enforce,
                                   &report_uri));
-  EXPECT_EQ(base::Seconds(123), max_age);
+  EXPECT_EQ(base::TimeDelta::FromSeconds(123), max_age);
   EXPECT_TRUE(enforce);
   EXPECT_TRUE(report_uri.is_empty());
 
@@ -440,7 +445,7 @@ TEST_F(HttpSecurityHeadersTest, ValidExpectCTHeaders) {
   EXPECT_TRUE(ParseExpectCTHeader(
       "report-uri=\"https://foo.test\",   enFORce, max-age=123", &max_age,
       &enforce, &report_uri));
-  EXPECT_EQ(base::Seconds(123), max_age);
+  EXPECT_EQ(base::TimeDelta::FromSeconds(123), max_age);
   EXPECT_TRUE(enforce);
   EXPECT_EQ(GURL("https://foo.test"), report_uri);
 
@@ -449,7 +454,7 @@ TEST_F(HttpSecurityHeadersTest, ValidExpectCTHeaders) {
   EXPECT_TRUE(
       ParseExpectCTHeader("enforce,report-uri=\"https://foo.test\",max-age=123",
                           &max_age, &enforce, &report_uri));
-  EXPECT_EQ(base::Seconds(123), max_age);
+  EXPECT_EQ(base::TimeDelta::FromSeconds(123), max_age);
   EXPECT_TRUE(enforce);
   EXPECT_EQ(GURL("https://foo.test"), report_uri);
 
@@ -458,7 +463,7 @@ TEST_F(HttpSecurityHeadersTest, ValidExpectCTHeaders) {
   EXPECT_TRUE(
       ParseExpectCTHeader("enforce,report-uri=https://foo.test,max-age=123",
                           &max_age, &enforce, &report_uri));
-  EXPECT_EQ(base::Seconds(123), max_age);
+  EXPECT_EQ(base::TimeDelta::FromSeconds(123), max_age);
   EXPECT_TRUE(enforce);
   EXPECT_EQ(GURL("https://foo.test"), report_uri);
 
@@ -466,14 +471,14 @@ TEST_F(HttpSecurityHeadersTest, ValidExpectCTHeaders) {
   enforce = false;
   EXPECT_TRUE(ParseExpectCTHeader("report-uri=\"https://foo.test\",max-age=123",
                                   &max_age, &enforce, &report_uri));
-  EXPECT_EQ(base::Seconds(123), max_age);
+  EXPECT_EQ(base::TimeDelta::FromSeconds(123), max_age);
   EXPECT_FALSE(enforce);
   EXPECT_EQ(GURL("https://foo.test"), report_uri);
 
   report_uri = GURL();
   EXPECT_TRUE(ParseExpectCTHeader("   enFORcE, max-age=123, pumpkin=kitten",
                                   &max_age, &enforce, &report_uri));
-  EXPECT_EQ(base::Seconds(123), max_age);
+  EXPECT_EQ(base::TimeDelta::FromSeconds(123), max_age);
   EXPECT_TRUE(enforce);
   EXPECT_TRUE(report_uri.is_empty());
 
@@ -481,7 +486,7 @@ TEST_F(HttpSecurityHeadersTest, ValidExpectCTHeaders) {
   EXPECT_TRUE(ParseExpectCTHeader(
       "   pumpkin=894, report-uri=     \"https://bar\", enFORce, max-age=123  ",
       &max_age, &enforce, &report_uri));
-  EXPECT_EQ(base::Seconds(123), max_age);
+  EXPECT_EQ(base::TimeDelta::FromSeconds(123), max_age);
   EXPECT_TRUE(enforce);
   EXPECT_EQ(GURL("https://bar"), report_uri);
 
@@ -489,14 +494,14 @@ TEST_F(HttpSecurityHeadersTest, ValidExpectCTHeaders) {
   report_uri = GURL();
   EXPECT_TRUE(ParseExpectCTHeader("   pumpkin, enFoRcE, max-age=123  ",
                                   &max_age, &enforce, &report_uri));
-  EXPECT_EQ(base::Seconds(123), max_age);
+  EXPECT_EQ(base::TimeDelta::FromSeconds(123), max_age);
   EXPECT_TRUE(enforce);
   EXPECT_TRUE(report_uri.is_empty());
 
   enforce = false;
   EXPECT_TRUE(ParseExpectCTHeader("   pumpkin, enforce, max-age=\"123\"  ",
                                   &max_age, &enforce, &report_uri));
-  EXPECT_EQ(base::Seconds(123), max_age);
+  EXPECT_EQ(base::TimeDelta::FromSeconds(123), max_age);
   EXPECT_TRUE(enforce);
   EXPECT_TRUE(report_uri.is_empty());
 
@@ -504,21 +509,21 @@ TEST_F(HttpSecurityHeadersTest, ValidExpectCTHeaders) {
   EXPECT_TRUE(ParseExpectCTHeader(
       "animal=\"squirrel, distinguished\", enFoRce, max-age=123", &max_age,
       &enforce, &report_uri));
-  EXPECT_EQ(base::Seconds(123), max_age);
+  EXPECT_EQ(base::TimeDelta::FromSeconds(123), max_age);
   EXPECT_TRUE(enforce);
   EXPECT_TRUE(report_uri.is_empty());
 
   enforce = false;
   EXPECT_TRUE(ParseExpectCTHeader("max-age=394082,  enforce", &max_age,
                                   &enforce, &report_uri));
-  EXPECT_EQ(base::Seconds(394082), max_age);
+  EXPECT_EQ(base::TimeDelta::FromSeconds(394082), max_age);
   EXPECT_TRUE(enforce);
   EXPECT_TRUE(report_uri.is_empty());
 
   enforce = false;
   EXPECT_TRUE(ParseExpectCTHeader("max-age=39408299  ,enforce", &max_age,
                                   &enforce, &report_uri));
-  EXPECT_EQ(base::Seconds(kMaxExpectCTAgeSecs), max_age);
+  EXPECT_EQ(base::TimeDelta::FromSeconds(kMaxExpectCTAgeSecs), max_age);
   EXPECT_TRUE(enforce);
   EXPECT_TRUE(report_uri.is_empty());
 
@@ -527,35 +532,35 @@ TEST_F(HttpSecurityHeadersTest, ValidExpectCTHeaders) {
   enforce = false;
   EXPECT_TRUE(ParseExpectCTHeader(",, max-age=394082038  , enfoRce, ,",
                                   &max_age, &enforce, &report_uri));
-  EXPECT_EQ(base::Seconds(kMaxExpectCTAgeSecs), max_age);
+  EXPECT_EQ(base::TimeDelta::FromSeconds(kMaxExpectCTAgeSecs), max_age);
   EXPECT_TRUE(enforce);
   EXPECT_TRUE(report_uri.is_empty());
 
   enforce = false;
   EXPECT_TRUE(ParseExpectCTHeader(",, max-age=394082038  ,", &max_age, &enforce,
                                   &report_uri));
-  EXPECT_EQ(base::Seconds(kMaxExpectCTAgeSecs), max_age);
+  EXPECT_EQ(base::TimeDelta::FromSeconds(kMaxExpectCTAgeSecs), max_age);
   EXPECT_FALSE(enforce);
   EXPECT_TRUE(report_uri.is_empty());
 
   EXPECT_TRUE(
       ParseExpectCTHeader(",,    , , max-age=394082038,,, enforce     ,,  ,",
                           &max_age, &enforce, &report_uri));
-  EXPECT_EQ(base::Seconds(kMaxExpectCTAgeSecs), max_age);
+  EXPECT_EQ(base::TimeDelta::FromSeconds(kMaxExpectCTAgeSecs), max_age);
   EXPECT_TRUE(enforce);
   EXPECT_TRUE(report_uri.is_empty());
 
   enforce = false;
   EXPECT_TRUE(ParseExpectCTHeader("enfORce   , max-age=394082038 ,,", &max_age,
                                   &enforce, &report_uri));
-  EXPECT_EQ(base::Seconds(kMaxExpectCTAgeSecs), max_age);
+  EXPECT_EQ(base::TimeDelta::FromSeconds(kMaxExpectCTAgeSecs), max_age);
   EXPECT_TRUE(enforce);
   EXPECT_TRUE(report_uri.is_empty());
 
   enforce = false;
   EXPECT_TRUE(ParseExpectCTHeader("  max-age=0  ,  enforce   ", &max_age,
                                   &enforce, &report_uri));
-  EXPECT_EQ(base::Seconds(0), max_age);
+  EXPECT_EQ(base::TimeDelta::FromSeconds(0), max_age);
   EXPECT_TRUE(enforce);
   EXPECT_TRUE(report_uri.is_empty());
 
@@ -564,7 +569,7 @@ TEST_F(HttpSecurityHeadersTest, ValidExpectCTHeaders) {
       "  max-age=999999999999999999999999999999999999999999999  ,"
       "  enforce   ",
       &max_age, &enforce, &report_uri));
-  EXPECT_EQ(base::Seconds(kMaxExpectCTAgeSecs), max_age);
+  EXPECT_EQ(base::TimeDelta::FromSeconds(kMaxExpectCTAgeSecs), max_age);
   EXPECT_TRUE(enforce);
   EXPECT_TRUE(report_uri.is_empty());
 }

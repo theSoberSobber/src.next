@@ -1,4 +1,4 @@
-// Copyright 2014 The Chromium Authors
+// Copyright 2014 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -12,7 +12,6 @@
 
 #include "base/time/time.h"
 #include "components/query_parser/snippet.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 #include "url/gurl.h"
 
 namespace history {
@@ -153,123 +152,61 @@ typedef std::vector<URLRow> URLRows;
 
 // A set of binary state related to a page visit. To be used for bit masking
 // operations.
-//
-// These values are persisted in database. Entries should not be renumbered and
-// numeric values should never be reused.
 enum VisitContentAnnotationFlag : uint64_t {
   kNone = 0,
 
-  // No longer used in production code. Only referenced in a database migration
-  // test.
-  kDeprecatedFlocEligibleRelaxed = 1ULL << 0,
-
-  // Indicates that the annotated page can be included in browsing topics
-  // calculation (https://github.com/jkarlin/topics). A page visit is eligible
-  // for browsing topics calculation if all of the conditions hold:
+  // Indicates that the annotated page can be included in FLoC clustering
+  // (https://github.com/WICG/floc) based on a relaxed opt-in condition. A page
+  // visit is eligible for FLoC clustering if all of the conditions hold:
   // 1. The IP of this visit is publicly routable, i.e. the IP is NOT within
   // the ranges reserved for "private" internet
   // (https://tools.ietf.org/html/rfc1918).
-  // 2. The browsing-topics Permissions Policy feature is allowed in the page.
-  // 3. Page opted in: document.browsingTopics() API is used in the page.
-  kBrowsingTopicsEligible = 1ULL << 1,
+  // 2. The interest-cohort Permissions Policy feature is allowed in the page.
+  // 3. Page opted in / Either one of the following holds:
+  //      - document.interestCohort API is used in the page
+  //      - the page has heuristically detected ad resources
+  kFlocEligibleRelaxed = 1 << 0,
 };
 
 using VisitContentAnnotationFlags = uint64_t;
 
-// A structure containing annotations computed by ML models to page content
+// A structure containing the annotations made by the ML model to page content
 // for a visit. Be cautious when changing the default values as they may already
 // have been written to the storage.
 struct VisitContentModelAnnotations {
-  static constexpr float kDefaultVisibilityScore = -1;
-  static constexpr int kDefaultPageTopicsModelVersion = -1;
-
   struct Category {
     Category();
-    Category(const std::string& id, int weight);
-    // |vector| is expected to be of size 2 with the first entry being an ID of
-    // string or int type and the second entry indicating an integer weight.
-    static absl::optional<Category> FromStringVector(
-        const std::vector<std::string>& vector);
-    std::string ToString() const;
+    Category(int id, int weight);
     bool operator==(const Category& other) const;
     bool operator!=(const Category& other) const;
 
-    std::string id;
+    int id = 0;
     int weight = 0;
   };
 
   VisitContentModelAnnotations();
-  VisitContentModelAnnotations(float visibility_score,
+  VisitContentModelAnnotations(float floc_protected_score,
                                const std::vector<Category>& categories,
-                               int64_t page_topics_model_version,
-                               const std::vector<Category>& entities);
+                               int64_t page_topics_model_version);
   VisitContentModelAnnotations(const VisitContentModelAnnotations& other);
   ~VisitContentModelAnnotations();
 
-  // Merges `category` into `categories`. It upgrades the weight if it already
-  // exists, and appends it if it doesn't.
-  static void MergeCategoryIntoVector(const Category& category,
-                                      std::vector<Category>* categories);
-
-  // Merges the max-score, categories, and entities from `other`, which is the
-  // content model annotations of a duplicate visit.
-  void MergeFrom(const VisitContentModelAnnotations& other);
-
-  // A value from 0 to 1 that represents how prominent, or visible, the page
-  // might be considered on UI surfaces.
-  float visibility_score = kDefaultVisibilityScore;
+  // A value from 0 to 1 that represents whether the page content is
+  // FLoC-protected.
+  float floc_protected_score = -1.0;
   // A vector that contains category IDs and their weights. It is guaranteed
   // that there will not be duplicates in the category IDs contained in this
   // field.
   std::vector<Category> categories;
   // The version of the page topics model that was used to annotate content.
-  int64_t page_topics_model_version = kDefaultPageTopicsModelVersion;
-  // A vector that contains entity IDs and their weights. It is guaranteed
-  // that there will not be duplicates in the category IDs contained in this
-  // field.
-  std::vector<Category> entities;
-
-  // Any field added here must also update the
-  // `MergeUpdateIntoExistingModelAnnotations` function in history_backend.cc.
+  int64_t page_topics_model_version = -1;
 };
 
 // A structure containing the annotations made to page content for a visit.
 struct VisitContentAnnotations {
-  // Values are persisted; do not reorder or reuse, and only add new values at
-  // the end.
-  enum class PasswordState {
-    kUnknown = 0,
-    kNoPasswordField = 1,
-    kHasPasswordField = 2,
-  };
-
-  VisitContentAnnotations();
-  VisitContentAnnotations(VisitContentAnnotationFlags annotation_flags,
-                          VisitContentModelAnnotations model_annotations,
-                          const std::vector<std::string>& related_searches,
-                          const GURL& search_normalized_url,
-                          const std::u16string& search_terms,
-                          const std::string& alternative_title,
-                          const std::string& page_language,
-                          PasswordState password_state);
-  VisitContentAnnotations(const VisitContentAnnotations& other);
-  ~VisitContentAnnotations();
-
   VisitContentAnnotationFlags annotation_flags =
       VisitContentAnnotationFlag::kNone;
   VisitContentModelAnnotations model_annotations;
-  // A vector that contains related searches for a Google SRP visit.
-  std::vector<std::string> related_searches;
-  GURL search_normalized_url;
-  std::u16string search_terms;
-  // Alternative page title for the visit.
-  std::string alternative_title;
-  // Language of the content on the page, as an ISO 639 language code (usually
-  // two letters). May be "und" if the language couldn't be determined.
-  std::string page_language;
-  // Whether a password form was found on the page - see also
-  // sessions::SerializedNavigationEntry::PasswordState.
-  PasswordState password_state = PasswordState::kUnknown;
 };
 
 class URLResult : public URLRow {

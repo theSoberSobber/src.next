@@ -1,10 +1,11 @@
-// Copyright 2014 The Chromium Authors
+// Copyright 2014 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_EXTENSIONS_EXTENSION_GARBAGE_COLLECTOR_CHROMEOS_H_
 #define CHROME_BROWSER_EXTENSIONS_EXTENSION_GARBAGE_COLLECTOR_CHROMEOS_H_
 
+#include "base/macros.h"
 #include "chrome/browser/extensions/extension_garbage_collector.h"
 
 namespace extensions {
@@ -15,12 +16,6 @@ namespace extensions {
 class ExtensionGarbageCollectorChromeOS : public ExtensionGarbageCollector {
  public:
   explicit ExtensionGarbageCollectorChromeOS(content::BrowserContext* context);
-
-  ExtensionGarbageCollectorChromeOS(const ExtensionGarbageCollectorChromeOS&) =
-      delete;
-  ExtensionGarbageCollectorChromeOS& operator=(
-      const ExtensionGarbageCollectorChromeOS&) = delete;
-
   ~ExtensionGarbageCollectorChromeOS() override;
 
   static ExtensionGarbageCollectorChromeOS* Get(
@@ -54,6 +49,8 @@ class ExtensionGarbageCollectorChromeOS : public ExtensionGarbageCollector {
   // class are created per-profile so this static variable prevents multiple
   // processing.
   static bool shared_extensions_garbage_collected_;
+
+  DISALLOW_COPY_AND_ASSIGN(ExtensionGarbageCollectorChromeOS);
 };
 
 }  // namespace extensions

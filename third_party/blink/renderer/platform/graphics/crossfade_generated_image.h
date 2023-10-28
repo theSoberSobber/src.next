@@ -27,10 +27,9 @@
 #define THIRD_PARTY_BLINK_RENDERER_PLATFORM_GRAPHICS_CROSSFADE_GENERATED_IMAGE_H_
 
 #include "base/memory/scoped_refptr.h"
+#include "third_party/blink/renderer/platform/geometry/int_size.h"
 #include "third_party/blink/renderer/platform/graphics/generated_image.h"
 #include "third_party/blink/renderer/platform/graphics/image.h"
-#include "ui/gfx/geometry/size_conversions.h"
-#include "ui/gfx/geometry/size_f.h"
 
 namespace blink {
 
@@ -40,36 +39,42 @@ class PLATFORM_EXPORT CrossfadeGeneratedImage final : public GeneratedImage {
       scoped_refptr<Image> from_image,
       scoped_refptr<Image> to_image,
       float percentage,
-      const gfx::SizeF& size) {
+      const FloatSize& size) {
     return base::AdoptRef(new CrossfadeGeneratedImage(
         std::move(from_image), std::move(to_image), percentage, size));
   }
 
   bool HasIntrinsicSize() const override { return true; }
 
-  gfx::Size SizeWithConfig(SizeConfig) const override {
-    return gfx::ToFlooredSize(size_);
+  IntSize SizeWithConfig(SizeConfig) const override {
+    return FlooredIntSize(size_);
   }
 
  protected:
   void Draw(cc::PaintCanvas*,
             const cc::PaintFlags&,
-            const gfx::RectF&,
-            const gfx::RectF&,
-            const ImageDrawOptions& draw_options) override;
+            const FloatRect&,
+            const FloatRect&,
+            const SkSamplingOptions&,
+            RespectImageOrientationEnum,
+            ImageClampingMode,
+            ImageDecodingMode) override;
   void DrawTile(GraphicsContext&,
-                const gfx::RectF&,
-                const ImageDrawOptions&) final;
+                const FloatRect&,
+                RespectImageOrientationEnum) final;
 
   CrossfadeGeneratedImage(scoped_refptr<Image> from_image,
                           scoped_refptr<Image> to_image,
                           float percentage,
-                          const gfx::SizeF&);
+                          const FloatSize&);
 
  private:
   void DrawCrossfade(cc::PaintCanvas*,
+                     const SkSamplingOptions&,
                      const cc::PaintFlags&,
-                     const ImageDrawOptions&);
+                     RespectImageOrientationEnum,
+                     ImageClampingMode,
+                     ImageDecodingMode);
 
   scoped_refptr<Image> from_image_;
   scoped_refptr<Image> to_image_;

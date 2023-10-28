@@ -1,4 +1,4 @@
-// Copyright 2011 The Chromium Authors
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -9,7 +9,7 @@
 #include <set>
 #include <string>
 
-#include "base/memory/raw_ptr.h"
+#include "base/macros.h"
 #include "base/memory/weak_ptr.h"
 #include "ui/gfx/image/image.h"
 
@@ -29,10 +29,6 @@ class ExtensionIconManager {
   };
 
   ExtensionIconManager();
-
-  ExtensionIconManager(const ExtensionIconManager&) = delete;
-  ExtensionIconManager& operator=(const ExtensionIconManager&) = delete;
-
   virtual ~ExtensionIconManager();
 
   // Start loading the icon for the given extension.
@@ -69,9 +65,11 @@ class ExtensionIconManager {
   // If true, we will desaturate the icons to make them monochromatic.
   bool monochrome_ = false;
 
-  raw_ptr<Observer> observer_ = nullptr;
+  Observer* observer_ = nullptr;
 
   base::WeakPtrFactory<ExtensionIconManager> weak_ptr_factory_{this};
+
+  DISALLOW_COPY_AND_ASSIGN(ExtensionIconManager);
 };
 
 #endif  // CHROME_BROWSER_EXTENSIONS_EXTENSION_ICON_MANAGER_H_
